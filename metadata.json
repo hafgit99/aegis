@@ -1,0 +1,6 @@
+{
+  "name": "Aegis Vault",
+  "description": "A premium, offline-first, zero-knowledge password manager featuring AES-256-GCM encryption and a professional dark UI.",
+  "requestFramePermissions": [],
+  "icon": "build/icon.ico"
+}

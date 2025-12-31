@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' 'unsafe-inline' data: blob: file:; script-src 'self' 'unsafe-inline' 'unsafe-eval' file:; style-src 'self' 'unsafe-inline' file:; img-src 'self' data: blob: file:; connect-src 'self' ws: file:;">
+    <title>Aegis Vault</title>
+
+    <style>
+        :root {
+            --bg: #050505;
+            --sidebar-bg: #0c0c0e;
+            --text: #fafafa;
+            --text-muted: #71717a;
+            --glass-bg: rgba(24, 24, 27, 0.7);
+            --border: rgba(255, 255, 255, 0.05);
+            --card-bg: rgba(24, 24, 27, 0.4);
+            --input-bg: rgba(0, 0, 0, 0.4);
+            --scrollbar-thumb: #222;
+        }
+
+        .light-mode {
+            --bg: #f4f4f5;
+            --sidebar-bg: #ffffff;
+            --text: #09090b;
+            --text-muted: #71717a;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --border: rgba(0, 0, 0, 0.05);
+            --card-bg: rgba(255, 255, 255, 0.8);
+            --input-bg: rgba(255, 255, 255, 0.6);
+            --scrollbar-thumb: #d4d4d8;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        #root {
+            height: 100vh;
+        }
+
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 10px;
+        }
+
+        .perspective-1000 {
+            perspective: 1000px;
+        }
+
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+
+        .backface-hidden {
+            backface-visibility: hidden;
+        }
+
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .text-main {
+            color: var(--text);
+        }
+
+        .text-dim {
+            color: var(--text-muted);
+        }
+
+        .bg-main {
+            background-color: var(--bg);
+        }
+
+        .bg-sidebar {
+            background-color: var(--sidebar-bg);
+        }
+
+        .border-main {
+            border-color: var(--border);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root">
+        <div
+            style="height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #050505;">
+            <div
+                style="width: 40px; height: 40px; border: 3px solid #111; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;">
+            </div>
+            <span
+                style="font-size: 10px; font-weight: 900; color: #444; letter-spacing: 0.4em; text-transform: uppercase;">Aegis
+                Security Engine Initializing</span>
+        </div>
+    </div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>

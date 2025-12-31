@@ -1,0 +1,101 @@
+{
+  "name": "aegis-vault",
+  "version": "1.0.0",  "type": "module",  "description": "Premium, Offline-First, Zero-Knowledge Password Manager",
+  "main": "main.js",
+  "author": "Aegis Security",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "start": "npx electron .",
+    "build": "npx vite build && npx electron-builder build --win"
+  },
+  "dependencies": {
+    "dexie": "^4.0.0",
+    "framer-motion": "^11.0.0",
+    "hash-wasm": "^4.11.0",
+    "lucide-react": "^0.400.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "zxcvbn": "^4.4.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "@vitejs/plugin-react": "^5.1.2",
+    "autoprefixer": "^10.4.23",
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "keytar": "^7.9.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
+    "vite": "^7.3.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "build": {
+    "appId": "com.aegis.vault",
+    "productName": "Aegis Vault",
+    "copyright": "Copyright © 2024 Aegis Security",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "C:\\Users\\hrn21\\aegis-build",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "main.js",
+      "preload.js",
+      "package.json",
+      "node_modules/**/*",
+      "!dist_electron/**/*",
+      "!node_modules/.cache",
+      "!node_modules/electron/dist/locales/*",
+      "!node_modules/**/test",
+      "!node_modules/**/tests",
+      "!node_modules/**/*.map",
+      "!node_modules/**/*.ts",
+      "!node_modules/**/*.md",
+      "!node_modules/**/.github",
+      "!node_modules/**/.eslintrc*",
+      "!node_modules/**/.prettierrc*",
+      "!*.log",
+      "!.git"
+    ],
+    "asarUnpack": [
+      "resources/locales/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "publisherName": "Aegis Security"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": true,
+      "shortcutName": "Aegis Vault",
+      "license": "license.txt",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "uninstallDisplayName": "Aegis Vault - Uninstall",
+      "deleteAppDataOnUninstall": false
+    },
+    "afterPack": "./build/afterPack.cjs",
+    "extraMetadata": {
+      "main": "main.js"
+    }
+  }
+}

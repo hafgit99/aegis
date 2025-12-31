@@ -1,0 +1,35 @@
+AEGIS VAULT - END USER LICENSE AGREEMENT (EULA)
+
+1. GRANT OF LICENSE
+Aegis Vault grants you a personal, worldwide, royalty-free, non-assignable and non-exclusive license to use the software. This license is for the sole purpose of enabling you to use and enjoy the benefit of the services provided by Aegis Vault.
+
+2. ZERO-KNOWLEDGE & PRIVACY
+Aegis Vault operates under a strict 'Zero-Knowledge' protocol. Your Master Password and vault data are never transmitted to any server or accessible by any third party. Encryption occurs locally using AES-256-GCM, ensuring only you hold the keys.
+
+3. LOCAL STORAGE & SECURITY
+All data assets are stored within a secure local database on your machine. We do not collect telemetry or user behavior data. The security of your data depends on the physical security of your device and the strength of your master password.
+
+4. USER RESPONSIBILITY (CRITICAL!)
+If you lose your Master Password or Recovery Words, access to your data cannot be recovered. The developer cannot provide reset services. Secure backup of your credentials is the sole responsibility of the user.
+
+5. DISCLAIMER & LIMITATION OF LIABILITY
+The software is provided 'as is'. The developer shall not be liable for any loss of data, loss of profits, or any indirect damages resulting from the use of the software. By using this software, you agree to these terms.
+
+------------------------------------------------------------------
+
+AEGIS VAULT - SON KULLANICI LİSANS SÖZLEŞMESİ (EULA)
+
+1. LİSANS VERİLMESİ
+Aegis Vault, bu yazılımı kullanmanız için size kişisel, dünya çapında, telifsiz, devredilemez ve münhasır olmayan bir lisans verir. Bu lisansın tek amacı, Aegis Vault tarafından sunulan hizmetlerden yararlanmanızı sağlamaktır.
+
+2. SIFIR-BİLGİ (ZERO-KNOWLEDGE) VE GİZLİLİK
+Aegis Vault, tam gizlilik esasına dayalı 'Zero-Knowledge' prensibiyle çalışır. Ana şifreniz (Master Password) veya kasanızdaki veriler asla bir sunucuya iletilmez, depolanmaz veya geliştirici dahil üçüncü şahıslar tarafından erişilemez. Tüm şifreleme işlemleri AES-256-GCM kullanılarak sadece sizin cihazınızda gerçekleşir.
+
+3. YEREL DEPOLAMA VE GÜVENLİK
+Tüm verileriniz cihazınızdaki güvenli bir veritabanında saklanır. Uygulama hiçbir analitik veri veya kullanıcı alışkanlığı takibi yapmaz. Verilerinizin güvenliği, cihazınızın fiziksel güvenliği ve ana şifrenizin karmaşıklığı ile doğrudan ilişkilidir.
+
+4. KULLANICI SORUMLULUĞU (KRİTİK!)
+Ana şifrenizi veya kurtarma kelimelerinizi kaybetmeniz durumunda, verilere erişimi kurtarmanın bir yolu yoktur. Geliştirici şifre sıfırlama hizmeti sunamaz. Yedekleme ve şifre yönetimi tamamen kullanıcının sorumluluğundadır.
+
+5. GARANTİ REDDİ VE SORUMLULUK SINIRI
+Yazılım 'olduğu gibi' sunulmaktadır. Geliştirici, yazılımın kullanımından doğabilecek veri kaybı, kâr kaybı veya herhangi bir dolaylı zarardan sorumlu tutulamaz. Yazılımı kullanarak bu şartları kabul etmiş sayılırsınız.
