@@ -39,7 +39,7 @@ This software is **Commercial Software**.
 - Redistribution of the source code or binary is strictly prohibited without a license.
 - Reverse engineering or bypassing the licensing mechanism is a violation of the terms of service.
 
-For licensing inquiries, please contact: licensing@aegisvault.com
+For licensing inquiries, please contact: sales@hetech-me.space
 
 ---
 *Aegis Vault - Your Secrets, Your Control.*
