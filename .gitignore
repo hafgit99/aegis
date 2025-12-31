@@ -18,6 +18,11 @@ build-output.txt
 *.pem
 .env
 
+# Documentation & Text
+*.md
+!README.md
+license.txt
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
