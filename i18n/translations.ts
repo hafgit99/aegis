@@ -586,6 +586,38 @@ export const translations = {
     recovery_words_invalid: "Geçersiz kelimeler. Tüm 16 kelimen listeden olduğunu kontrol edin.",
     recovery_words_empty: "Lütfen tüm 16 kurtarma kelimesini girin.",
     recovery_checksum_mismatch: "Sağlama toplamı doğrulaması başarısız. Kelimeler hatalı olabilir.",
+
+    // User Guide
+    user_guide: "User Guide",
+    guide_intro_title: "Welcome to Aegis Vault",
+    guide_intro_desc: "Your comprehensive guide to offline security.",
+    guide_getting_started: "Getting Started",
+    guide_create_vault: "Creating Your Vault",
+    guide_create_vault_desc: "When you first launch Aegis, you'll be asked to create a Master Password. This is the ONLY key to your data. Make it strong and memorable.",
+    guide_recovery_setup: "Recovery Setup",
+    guide_recovery_setup_desc: "Immediately after creating your vault, generate your Recovery Words. These 16 words are your lifeline if you forget your password.",
+    guide_adding_data: "Adding Data",
+    guide_adding_data_desc: "Click 'New Secret' to add Logins, Cards, or Notes. Use the generator for strong passwords.",
+    guide_organization: "Organization",
+    guide_folders: "Folders",
+    guide_folders_desc: "Group your items into folders for better organization.",
+    guide_tags: "Tags",
+    guide_tags_desc: "Add custom tags to items for quick filtering.",
+    guide_security_features: "Security Features",
+    guide_audit: "Security Audit",
+    guide_audit_desc: "Check the 'Audit' tab to find weak or reused passwords.",
+    guide_2fa: "Two-Factor Auth",
+    guide_2fa_desc: "Enable 2FA in settings for an extra layer of protection.",
+    guide_biometric: "Biometric Lock",
+    guide_biometric_desc: "Use your fingerprint or face ID for quick access.",
+    guide_panic_mode: "Panic Mode",
+    guide_panic_mode_desc: "Press F12 or Ctrl+Shift+X to instantly lock the vault and hide the window.",
+    guide_data_management: "Data Management",
+    guide_backup: "Backup & Export",
+    guide_backup_desc: "Regularly export your vault. 'Encrypted' export is safe for backup; 'Plain Text' is for moving data elsewhere.",
+    guide_import: "Import",
+    guide_import_desc: "Bring your data from other managers using CSV import.",
+
     // Legal Documents
     terms_of_use: "Terms of Use",
     privacy_policy: "Privacy Policy",
@@ -678,6 +710,14 @@ export const translations = {
     privacy_section_10: "10. Politika Güncellemeleri",
     privacy_section_10_tr: "Hizmetlerimizde veya geçerli düzenlemelerde yapılan değişiklikleri yansıtması için bu gizlilik politikasını güncelleyebiliriz. Güncellemeler uygulama içinde duyurulur.",
     legal_agree_checkbox_tr: "Kullanım Koşulları ve Gizlilik Politikasını okudum ve kabul ediyorum",
-    legal_close_button_tr: "Kapat"
+    legal_close_button_tr: "Kapat",
+
+    // User Guide
+    user_guide_title: "User Guide",
+    user_guide_title_tr: "Kullanıcı Kılavuzu",
+    user_guide_description: "Complete documentation and help",
+    user_guide_description_tr: "Tam belgelendirme ve yardım",
+    open_guide: "Open Guide",
+    open_guide_tr: "Kılavuzu Aç"
   }
 };

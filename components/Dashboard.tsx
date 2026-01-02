@@ -7,9 +7,11 @@ import {
   Trash2, Globe, CheckCircle2,
   Smartphone, Key, Zap, Languages, Database, CreditCard, FileText, Download, Fingerprint, Moon, Sun,
   ChevronUp, SortAsc, SortDesc, Filter, CheckSquare, Square, Check, Copy, Loader2, ShieldCheck,
-  RotateCcw, Flame, Clock, Calendar, ShieldX, Crown, Gem, Award, ChevronRight, Eye, MoreVertical, SlidersHorizontal, RefreshCw, Folder
+  RotateCcw, Flame, Clock, Calendar, ShieldX, Crown, Gem, Award, ChevronRight, Eye, MoreVertical, SlidersHorizontal, RefreshCw, Folder, BookOpen, Hourglass
 } from 'lucide-react';
 import { VaultEntry, SensitiveData, Category } from '../types.ts';
+import { AutoLockStatus } from '../hooks/useAutoLock.ts';
+import ImageBrandIcon from './ImageBrandIcon.tsx';
 import EntryForm from './EntryForm.tsx';
 import SecurityAudit from './SecurityAudit.tsx';
 import TwoFactorSetup from './TwoFactorSetup.tsx';
@@ -20,6 +22,7 @@ import SkeletonCard from './SkeletonCard.tsx';
 import LicensingView from './LicensingView.tsx';
 import ChangeMasterKeyModal from './ChangeMasterKeyModal.tsx';
 import LegalModal from './LegalModal.tsx';
+import UserGuideModal from './UserGuideModal.tsx';
 import { useLanguage } from '../contexts/LanguageContext.tsx';
 import { useVault } from '../hooks/useVault.ts';
 import { useAuth } from '../contexts/AuthContext.tsx';
@@ -27,13 +30,12 @@ import { LicensingService } from '../services/licensingService.ts';
 import { BiometricService } from '../services/biometricService.ts';
 import { RecoveryService } from '../services/recoveryService.ts';
 import { useTheme } from '../contexts/ThemeContext.tsx';
-import BrandIcon from './BrandIcon.tsx';
 
 type SortOrder = 'title_asc' | 'title_desc' | 'recent';
 
 const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { t, lang } = useLanguage();
-  const { masterKey } = useAuth();
+  const { masterKey, withMasterKeyRaw } = useAuth();
   const [words, setWords] = useState<string[]>([]);
   const [pin, setPin] = useState<string>('');
   const [checksum, setChecksum] = useState<string>('');
@@ -49,11 +51,14 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     setIsGenerating(true);
     setError('');
     try {
-      const result = await RecoveryService.setupRecovery(masterKey, pinProtection);
-      setWords(result.words);
-      setPin(result.pin || '');
-      setChecksum(result.checksum);
-      setStage('verify');
+      // SECURITY: Access raw key safely for temporary extraction during setup
+      await withMasterKeyRaw(async (rawKey) => {
+        const result = await RecoveryService.setupRecovery(rawKey, pinProtection);
+        setWords(result.words);
+        setPin(result.pin || '');
+        setChecksum(result.checksum);
+        setStage('verify');
+      });
     } catch (err: any) {
       setError(err.message || (lang === 'tr' ? "Anahtar oluşturma başarısız." : "Failed to generate key."));
     } finally {
@@ -109,7 +114,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     try {
       const date = new Date().toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'en-US');
       const time = new Date().toLocaleTimeString(lang === 'tr' ? 'tr-TR' : 'en-US');
-      
+
       // Create HTML content for PDF
       const htmlContent = `
 <!DOCTYPE html>
@@ -145,9 +150,9 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     <div class="date-time">${lang === 'tr' ? 'Oluşturulma Tarihi' : 'Created'}: ${date} ${time}</div>
     
     <div class="warning">
-      <strong>⚠️ ${lang === 'tr' ? 'ÖNEMLİ' : 'IMPORTANT'}:</strong> ${lang === 'tr' 
-        ? 'Bu sayfayı GÜVENLİ BİR YERDE SAKLAYIN. Bu 16 kelime, master şifrenizi unuttuğunuzda kasanızı kurtarmanın TEK yoludur.'
-        : 'KEEP THIS DOCUMENT IN A SAFE PLACE. These 16 words are the ONLY way to recover your vault if you forget your master password.'}
+      <strong>⚠️ ${lang === 'tr' ? 'ÖNEMLİ' : 'IMPORTANT'}:</strong> ${lang === 'tr'
+          ? 'Bu sayfayı GÜVENLİ BİR YERDE SAKLAYIN. Bu 16 kelime, master şifrenizi unuttuğunuzda kasanızı kurtarmanın TEK yoludur.'
+          : 'KEEP THIS DOCUMENT IN A SAFE PLACE. These 16 words are the ONLY way to recover your vault if you forget your master password.'}
     </div>
 
     <h2 style="color: #333; text-align: center;">${lang === 'tr' ? 'Kurtarma Kelimeleri (16 Sözcük)' : 'Recovery Words (16 Words)'}</h2>
@@ -163,27 +168,27 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     <div class="checksum-box">
       <div class="checksum-label">${lang === 'tr' ? 'Doğrulama Sağlama Toplamı (Verification Checksum)' : 'Verification Checksum'}:</div>
       <div class="checksum-value">${checksum}</div>
-      <div style="font-size: 12px; color: #666; margin-top: 10px;">${lang === 'tr' 
-        ? 'Kelimelerinizi doğrulamak için bu sağlama toplamını kullanın.'
-        : 'Use this checksum to verify your words.'}</div>
+      <div style="font-size: 12px; color: #666; margin-top: 10px;">${lang === 'tr'
+          ? 'Kelimelerinizi doğrulamak için bu sağlama toplamını kullanın.'
+          : 'Use this checksum to verify your words.'}</div>
     </div>
 
     <div class="instructions">
       <h3>${lang === 'tr' ? '📝 Talimatlar' : '📝 Instructions'}</h3>
       <ol>
-        <li>${lang === 'tr' 
+        <li>${lang === 'tr'
           ? 'Bu sayfayı YAZDIRIN ve güvenli bir yerde saklayın (kasa, safe vb.)'
           : 'PRINT this document and keep it in a safe place (safe, safety deposit box, etc.)'}</li>
-        <li>${lang === 'tr' 
+        <li>${lang === 'tr'
           ? 'Veya: Bu belgeyi şifrelenmiş bir dosya olarak kaydedin ve offline yedekleyin'
           : 'Or: Save this document as an encrypted file and back up offline'}</li>
-        <li>${lang === 'tr' 
+        <li>${lang === 'tr'
           ? 'Kelimelerin sırasını KESINLIKLE değiştirmeyin'
           : 'DO NOT change the order of the words'}</li>
-        <li>${lang === 'tr' 
+        <li>${lang === 'tr'
           ? 'Master şifrenizi unuttuğunuzda, bu kelimeleri kullanarak kasanızı kurtarabilirsiniz'
           : 'If you forget your master password, use these words to recover your vault'}</li>
-        <li>${lang === 'tr' 
+        <li>${lang === 'tr'
           ? 'Bu belgeyi ASLA e-mail veya bulut depolamada saklamayın'
           : 'NEVER store this document in email or cloud storage'}</li>
       </ol>
@@ -191,9 +196,9 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
     <div class="footer">
       <p>Aegis Vault ${lang === 'tr' ? 'Kurtarma Kelimesi Yedeklemesi' : 'Recovery Words Backup'}</p>
-      <p>${lang === 'tr' 
-        ? 'Bu belge önemli bilgiler içermektedir. Lütfen güvenli bir yerde saklayınız.'
-        : 'This document contains important information. Please keep it in a safe place.'}</p>
+      <p>${lang === 'tr'
+          ? 'Bu belge önemli bilgiler içermektedir. Lütfen güvenli bir yerde saklayınız.'
+          : 'This document contains important information. Please keep it in a safe place.'}</p>
     </div>
   </div>
 
@@ -252,7 +257,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       {stage === 'setup' && (
         <div className="space-y-6">
           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest leading-relaxed">
-            {lang === 'tr' 
+            {lang === 'tr'
               ? "Kurtarma kelimeleri, master şifrenizi unuttuğunuz durumda kasanızı geri yüklemek için kullanılır. Lütfen bu kelimeleri güvenli bir yerde saklayın."
               : "Recovery words are used to restore your vault if you forget your master password. Please store them in a safe place."}
           </p>
@@ -307,9 +312,8 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <div className="flex gap-2 mb-4">
               <button
                 onClick={handleCopyAll}
-                className={`flex-1 py-3 flex items-center justify-center gap-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                  copied ? 'bg-emerald-600 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10'
-                }`}
+                className={`flex-1 py-3 flex items-center justify-center gap-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${copied ? 'bg-emerald-600 text-white' : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                  }`}
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
                 {lang === 'tr' ? 'Tümünü Kopyala' : 'Copy All'}
@@ -392,7 +396,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
-const Dashboard: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
+const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }> = ({ onLogout, lockStatus }) => {
   const { t, lang, setLang } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { entries, folders, saveEntry, deleteEntry, restoreEntry, permanentDelete, decryptData, loadEntries, toggleFavorite } = useVault();
@@ -413,6 +417,7 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
   const [showRecovery, setShowRecovery] = useState(false);
   const [showChangeMasterKey, setShowChangeMasterKey] = useState(false);
   const [showLegalModal, setShowLegalModal] = useState(false);
+  const [showUserGuide, setShowUserGuide] = useState(false);
   const [legalDocType, setLegalDocType] = useState<'terms' | 'privacy'>('terms');
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -637,7 +642,7 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
           <div className="flex items-center justify-between mb-4">
             {!isSidebarCollapsed && (
               <div className="flex items-center gap-2">
-                <BrandIcon size={32} />
+                <ImageBrandIcon size={32} />
                 <div className="flex flex-col">
                   <span className="font-black text-lg text-main tracking-tighter leading-none">AEGIS</span>
                   {isPro && <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">PRO EDITION</span>}
@@ -808,6 +813,53 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
         </header>
 
         <section ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar relative">
+          {/* Session timeout warning - shown when < 1 minute remaining */}
+          <AnimatePresence>
+            {lockStatus?.isWarning && !lockStatus.isLocked && lockStatus.remainingSeconds > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="sticky top-0 z-50 mx-4 mt-4 mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-4 backdrop-blur-sm"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <Hourglass size={18} className="text-red-500 animate-spin" />
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs font-bold text-red-500 uppercase tracking-wider">
+                        {lang === 'tr' ? 'OTURUM SONA ERMEK ÜZERE' : 'SESSION EXPIRING SOON'}
+                      </p>
+                      <p className="text-[11px] text-red-400 font-semibold">
+                        {lang === 'tr'
+                          ? `Kalan zaman: ${lockStatus.remainingSeconds} saniye`
+                          : `Time remaining: ${lockStatus.remainingSeconds} seconds`
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-black text-red-500 tabular-nums">
+                      {lockStatus.remainingSeconds}
+                    </div>
+                    <div className="text-[9px] text-red-400 font-bold uppercase tracking-widest">
+                      {lang === 'tr' ? 'Saniye' : 'SEC'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="mt-3 h-1 bg-red-500/20 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-red-500 to-orange-500"
+                    initial={{ width: '100%' }}
+                    animate={{ width: `${lockStatus.percentRemaining}%` }}
+                    transition={{ duration: 0.5 }}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <AnimatePresence mode="popLayout">
             <motion.div
               key={activeTab}
@@ -918,6 +970,27 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
                             <h5 className="text-[11px] font-black uppercase tracking-widest text-white group-hover:text-green-300">{lang === 'en' ? t('legal_privacy_title') : t('legal_privacy_title_tr')}</h5>
                           </div>
                           <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed">Veri gizliliği ve koruma</p>
+                        </button>
+                      </div>
+
+                      {/* User Guide Section */}
+                      <div className="mt-6">
+                        <button
+                          onClick={() => setShowUserGuide(true)}
+                          className="w-full glass p-10 rounded-[2rem] border border-blue-500/30 hover:border-blue-500/60 bg-blue-500/[0.03] transition-all group shadow-lg"
+                        >
+                          <div className="flex items-center gap-6">
+                            <div className="p-4 bg-blue-600/20 rounded-xl group-hover:scale-110 transition-transform">
+                              <BookOpen size={28} className="text-blue-400" />
+                            </div>
+                            <div className="text-left flex-1">
+                              <h4 className="text-lg font-black text-white uppercase tracking-tight">{lang === 'en' ? 'Complete User Guide' : 'Tam Kullanıcı Kılavuzu'}</h4>
+                              <p className="text-xs text-zinc-400 mt-2 uppercase tracking-widest">{lang === 'en' ? 'Learn how to use all features • Getting started • Troubleshooting' : 'Tüm özellikleri nasıl kullanacağınızı öğrenin • Başlarken • Sorun Giderme'}</p>
+                            </div>
+                            <div className="text-blue-500 group-hover:translate-x-1 transition-transform">
+                              <ChevronRight size={24} />
+                            </div>
+                          </div>
                         </button>
                       </div>
                     </div>
@@ -1163,6 +1236,7 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
             </div>
           )}
           <LegalModal isOpen={showLegalModal} onClose={() => setShowLegalModal(false)} docType={legalDocType} />
+          <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} />
         </AnimatePresence>
       </main>
     </div>

@@ -201,12 +201,35 @@ function createWindow() {
     center: true,
     backgroundColor: '#050505',
     titleBarStyle: 'hidden',
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
-      webSecurity: true
+      webSecurity: true,
+      // SECURITY: CSP Policy for Electron
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "blob:"],
+          fontSrc: ["'self'"],
+          connectSrc: ["'self'"],
+          mediaSrc: ["'self'", "blob:"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          upgradeInsecureRequests: []
+        }
+      },
+      // Disable dangerous features
+      enableRemoteModule: false,
+      nativeWindowOpen: false,
+      // Allow modern features
+      v8CacheOptions: 'none'
     }
   });
 
@@ -217,6 +240,34 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
   }
+
+  // SECURITY: Setup response headers
+  mainWindow.webContents.session.webRequest.onHeadersReceived(
+    (details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Strict-Transport-Security': ['max-age=31536000; includeSubDomains; preload'],
+          'X-Content-Type-Options': ['nosniff'],
+          'X-Frame-Options': ['DENY'],
+          'X-XSS-Protection': ['1; mode=block'],
+          'Referrer-Policy': ['no-referrer'],
+          'Permissions-Policy': [
+            'geolocation=()',
+            'microphone=()',
+            'camera=()',
+            'payment=()',
+            'usb=()',
+            'magnetometer=()',
+            'gyroscope=()',
+            'accelerometer=()'
+          ].join(', '),
+          'Cross-Origin-Embedder-Policy': ['require-corp'],
+          'Cross-Origin-Opener-Policy': ['same-origin']
+        }
+      });
+    }
+  );
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();

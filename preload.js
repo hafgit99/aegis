@@ -14,6 +14,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Olay Dinleyicileri
   onClipboardCleared: (callback) => ipcRenderer.on('clipboard:cleared', (_event, value) => callback(value)),
+  onLockTrigger: (callback) => {
+    const subscription = (_event) => callback();
+    ipcRenderer.on('vault:lock-trigger', subscription);
+    return () => ipcRenderer.removeListener('vault:lock-trigger', subscription);
+  },
 
   // Uygulama Bilgileri
   getAppVersion: () => process.env.npm_package_version,

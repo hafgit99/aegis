@@ -7,7 +7,7 @@ import { RecoveryService } from '../services/recoveryService.ts';
 import { BiometricService } from '../services/biometricService.ts';
 import { BruteForceService } from '../services/bruteForceService.ts';
 import { useTheme } from '../contexts/ThemeContext.tsx';
-import BrandIcon from './BrandIcon.tsx';
+import ImageBrandIcon from './ImageBrandIcon.tsx';
 import EULAView from './EULAView.tsx';
 import { CryptoService } from '../services/cryptoService.ts';
 import { TwoFactorService } from '../services/twoFactorService.ts';
@@ -372,7 +372,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
           ) : (
             <motion.div key="idle" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass p-12 rounded-[3.5rem] border border-main shadow-2xl relative">
               <div className="absolute -top-14 left-1/2 -translate-x-1/2 drop-shadow-[0_0_30px_rgba(59,130,246,0.3)]">
-                <BrandIcon size={140} />
+                <ImageBrandIcon size={140} />
               </div>
 
               <div className="mt-16 text-center mb-10">

@@ -1,6 +1,8 @@
 {
   "name": "aegis-vault",
-  "version": "1.0.0",  "type": "module",  "description": "Premium, Offline-First, Zero-Knowledge Password Manager",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Premium, Offline-First, Zero-Knowledge Password Manager",
   "main": "main.js",
   "author": "Aegis Security",
   "license": "MIT",
@@ -10,10 +12,12 @@
     "build": "npx vite build && npx electron-builder build --win"
   },
   "dependencies": {
+    "@types/qrcode": "^1.5.6",
     "dexie": "^4.0.0",
     "framer-motion": "^11.0.0",
     "hash-wasm": "^4.11.0",
     "lucide-react": "^0.400.0",
+    "qrcode": "^1.5.4",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "zxcvbn": "^4.4.2"
@@ -26,6 +30,7 @@
     "electron-builder": "^24.13.3",
     "keytar": "^7.9.0",
     "postcss": "^8.5.6",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4.1.18",
     "vite": "^7.3.0",
     "webpack-cli": "^6.0.1"
@@ -65,20 +70,21 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
           "target": "portable",
           "arch": [
             "x64"
           ]
         }
       ],
-      "icon": "build/icon.ico",
-      "publisherName": "Aegis Security"
+      "icon": "build/icon1.png",
+      "publisherName": "Aegis Security",
+      "verifyUpdateCodeSignature": true,
+      "forceCodeSigning": false
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "hafgit99",
+      "repo": "aegis"
     },
     "nsis": {
       "oneClick": false,
@@ -88,8 +94,8 @@
       "runAfterFinish": true,
       "shortcutName": "Aegis Vault",
       "license": "license.txt",
-      "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico",
+      "installerIcon": "build/icon1.png",
+      "uninstallerIcon": "build/icon1.png",
       "uninstallDisplayName": "Aegis Vault - Uninstall",
       "deleteAppDataOnUninstall": false
     },

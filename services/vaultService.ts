@@ -21,9 +21,24 @@ export class VaultService {
     }
   }
 
-  static async deriveMasterKey(password: string): Promise<CryptoKey> {
-    const salt = this.getSalt();
-    const key = await CryptoService.deriveKeyFromPassword(password, salt);
+  static async deriveMasterKey(password: string): Promise<{ key: CryptoKey; raw: Uint8Array }> {
+    const metadataStr = localStorage.getItem(MASTER_METADATA_KEY);
+    if (!metadataStr) throw new Error("Vault not setup");
+
+    let salt: Uint8Array;
+    let iterations = CryptoService.DEFAULT_ITERATIONS;
+
+    try {
+      const metadata = JSON.parse(metadataStr);
+      salt = new Uint8Array(CryptoService.base64ToArrayBuffer(metadata.salt));
+      if (metadata.iterations) {
+        iterations = metadata.iterations;
+      }
+    } catch (e) {
+      throw new Error("Vault metadata corrupted");
+    }
+
+    const { key, raw } = await CryptoService.deriveKeyWithRaw(password, salt, iterations);
 
     // Verifier'ı localStorage'dan al (kalıcı depolama)
     const verifierStr = localStorage.getItem(MASTER_VERIFIER_KEY);
@@ -64,15 +79,17 @@ export class VaultService {
       throw new Error("WRONG_PASSWORD");
     }
 
-    return key;
+    return { key, raw };
   }
 
-  static async setup(password: string): Promise<CryptoKey> {
+  static async setup(password: string): Promise<{ key: CryptoKey; raw: Uint8Array }> {
     const salt = window.crypto.getRandomValues(new Uint8Array(16));
     const saltB64 = CryptoService.arrayBufferToBase64(salt.buffer);
 
     try {
-      const key = await CryptoService.deriveKeyFromPassword(password, salt);
+      // Benchmark hardware for optimal security (takes ~600ms)
+      const iterations = await CryptoService.benchmarkIterations();
+      const { key, raw } = await CryptoService.deriveKeyWithRaw(password, salt, iterations);
 
       // IMPORTANT: Verifier şifrelemesini doğrudan Web Crypto API ile yap
       // Electron IPC'ye bağımlı olmamak için
@@ -98,7 +115,8 @@ export class VaultService {
 
       localStorage.setItem(MASTER_METADATA_KEY, JSON.stringify({
         salt: saltB64,
-        version: 4,
+        iterations: iterations,
+        version: 5,
         createdAt: Date.now()
       }));
 
@@ -118,9 +136,10 @@ export class VaultService {
       }
 
       // Kurulum sırasında kurtarma kelimelerini oluştur ve kaydet
-      await RecoveryService.setupRecovery(key);
+      // Pass RAW key for encryption
+      await RecoveryService.setupRecovery(raw);
 
-      return key;
+      return { key, raw };
     } catch (error) {
       console.error("Setup error:", error);
       throw error;
@@ -153,27 +172,90 @@ export class VaultService {
     let fileIv: Uint8Array | undefined;
     let fileTag: Uint8Array | undefined;
 
+    const electronVault = (window as any).electronAPI?.vault;
+
     // Optimization: Store files as binary to avoid Base64 inflation
     if (sensitiveCopy.fileBlob instanceof Uint8Array) {
-      const fileResult = await CryptoService.encryptBinary(sensitiveCopy.fileBlob, masterKey);
-
-      encryptedFile = fileResult.ciphertext;
-      fileIv = fileResult.iv;
-      fileTag = fileResult.tag;
-
+      if (electronVault) {
+        const fileResult = await electronVault.encryptBinary(sensitiveCopy.fileBlob);
+        encryptedFile = new Uint8Array(fileResult.ciphertext);
+        fileIv = new Uint8Array(fileResult.iv);
+        fileTag = new Uint8Array(fileResult.tag);
+      } else {
+        const fileResult = await CryptoService.encryptBinary(sensitiveCopy.fileBlob, masterKey);
+        encryptedFile = fileResult.ciphertext;
+        fileIv = fileResult.iv;
+        fileTag = fileResult.tag;
+      }
       delete sensitiveCopy.fileBlob; // Remove from JSON payload
     }
 
     // SECURITY: Encrypt sensitive data (password, notes, etc.)
     const sensitiveJson = JSON.stringify(sensitiveCopy);
-    const { ciphertext, iv, tag } = await CryptoService.encrypt(sensitiveJson, masterKey);
+    let ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array;
+    let titleCiphertext: Uint8Array, titleIv: Uint8Array, titleTag: Uint8Array;
+    let usernameCiphertext: Uint8Array, usernameIv: Uint8Array, usernameTag: Uint8Array;
 
-    // SECURITY: Also encrypt metadata (title, username) for defense-in-depth
     const displayTitle = plainEntry.title || (plainEntry.category === Category.FILE ? `Secure-Asset-${crypto.randomUUID().slice(0, 8)}` : 'Unnamed Entry');
     const displayUsername = plainEntry.username || '';
 
-    const { ciphertext: titleCiphertext, iv: titleIv, tag: titleTag } = await CryptoService.encrypt(displayTitle, masterKey);
-    const { ciphertext: usernameCiphertext, iv: usernameIv, tag: usernameTag } = await CryptoService.encrypt(displayUsername, masterKey);
+    if (electronVault) {
+      // IPC Encryption (Main Process)
+      const sensitiveResult = await electronVault.encrypt(sensitiveJson);
+      ciphertext = new Uint8Array(sensitiveResult.ciphertext);
+      iv = new Uint8Array(sensitiveResult.iv);
+      tag = new Uint8Array(sensitiveResult.tag);
+
+      const titleResult = await electronVault.encrypt(displayTitle);
+      titleCiphertext = new Uint8Array(titleResult.ciphertext);
+      titleIv = new Uint8Array(titleResult.iv);
+      titleTag = new Uint8Array(titleResult.tag);
+
+      const usernameResult = await electronVault.encrypt(displayUsername);
+      usernameCiphertext = new Uint8Array(usernameResult.ciphertext);
+      usernameIv = new Uint8Array(usernameResult.iv);
+      usernameTag = new Uint8Array(usernameResult.tag);
+    } else {
+      // Web Crypto Fallback
+      const sensitiveResult = await CryptoService.encrypt(sensitiveJson, masterKey);
+      ciphertext = sensitiveResult.ciphertext;
+      iv = sensitiveResult.iv;
+      tag = sensitiveResult.tag;
+
+      const titleResult = await CryptoService.encrypt(displayTitle, masterKey);
+      titleCiphertext = titleResult.ciphertext;
+      titleIv = titleResult.iv;
+      titleTag = titleResult.tag;
+
+      const usernameResult = await CryptoService.encrypt(displayUsername, masterKey);
+      usernameCiphertext = usernameResult.ciphertext;
+      usernameIv = usernameResult.iv;
+      usernameTag = usernameResult.tag;
+    }
+
+    // Encrypt System Metadata
+    const metadataPayload = JSON.stringify({
+      category: plainEntry.category || Category.LOGIN,
+      folderId: plainEntry.folderId,
+      updatedAt: Date.now(),
+      isFavorite: plainEntry.isFavorite,
+      fileSize: plainEntry.fileSize,
+      deletedAt: plainEntry['deletedAt']
+    });
+
+    let encryptedMetadata: Uint8Array, metadataIv: Uint8Array, metadataTag: Uint8Array;
+
+    if (electronVault) {
+      const metaResult = await electronVault.encrypt(metadataPayload);
+      encryptedMetadata = new Uint8Array(metaResult.ciphertext);
+      metadataIv = new Uint8Array(metaResult.iv);
+      metadataTag = new Uint8Array(metaResult.tag);
+    } else {
+      const metaResult = await CryptoService.encrypt(metadataPayload, masterKey);
+      encryptedMetadata = metaResult.ciphertext;
+      metadataIv = metaResult.iv;
+      metadataTag = metaResult.tag;
+    }
 
     const securityScore = this.calculateStrength(plainEntry.sensitive.password || '');
 
@@ -185,10 +267,17 @@ export class VaultService {
       encryptedUsername: usernameCiphertext,
       usernameIv: usernameIv,
       usernameTag: usernameTag,
-      category: plainEntry.category || Category.LOGIN,
-      updatedAt: Date.now(),
-      isFavorite: plainEntry.isFavorite || false,
-      folderId: plainEntry.folderId,
+
+      encryptedMetadata,
+      metadataIv,
+      metadataTag,
+
+      category: Category.LOGIN,
+      updatedAt: 0,
+      isFavorite: false,
+      folderId: undefined,
+      deletedAt: undefined,
+
       securityScore,
       fileSize: plainEntry.fileSize,
       encryptedData: ciphertext,
@@ -222,18 +311,72 @@ export class VaultService {
     items: (Partial<VaultEntry> & { sensitive: SensitiveData; title?: string; username?: string })[],
     masterKey: CryptoKey
   ): Promise<void> {
+    const electronVault = (window as any).electronAPI?.vault;
+
     // Perform encryptions in parallel for better speed
     const encryptedEntries = await Promise.all(items.map(async (plainEntry) => {
       try {
         const sensitiveJson = JSON.stringify(plainEntry.sensitive);
-        const { ciphertext, iv, tag } = await CryptoService.encrypt(sensitiveJson, masterKey);
+        let ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array;
+        let titleCiphertext: Uint8Array, titleIv: Uint8Array, titleTag: Uint8Array;
+        let usernameCiphertext: Uint8Array, usernameIv: Uint8Array, usernameTag: Uint8Array;
 
-        // SECURITY: Encrypt metadata for bulk import too
         const displayTitle = plainEntry.title || (plainEntry.category === Category.FILE ? `Secure-Asset-${crypto.randomUUID().slice(0, 8)}` : 'Unnamed Entry');
         const displayUsername = plainEntry.username || '';
 
-        const { ciphertext: titleCiphertext, iv: titleIv, tag: titleTag } = await CryptoService.encrypt(displayTitle, masterKey);
-        const { ciphertext: usernameCiphertext, iv: usernameIv, tag: usernameTag } = await CryptoService.encrypt(displayUsername, masterKey);
+        if (electronVault) {
+          const sensitiveResult = await electronVault.encrypt(sensitiveJson);
+          ciphertext = new Uint8Array(sensitiveResult.ciphertext);
+          iv = new Uint8Array(sensitiveResult.iv);
+          tag = new Uint8Array(sensitiveResult.tag);
+
+          const titleResult = await electronVault.encrypt(displayTitle);
+          titleCiphertext = new Uint8Array(titleResult.ciphertext);
+          titleIv = new Uint8Array(titleResult.iv);
+          titleTag = new Uint8Array(titleResult.tag);
+
+          const usernameResult = await electronVault.encrypt(displayUsername);
+          usernameCiphertext = new Uint8Array(usernameResult.ciphertext);
+          usernameIv = new Uint8Array(usernameResult.iv);
+          usernameTag = new Uint8Array(usernameResult.tag);
+        } else {
+          const sensitiveResult = await CryptoService.encrypt(sensitiveJson, masterKey);
+          ciphertext = sensitiveResult.ciphertext;
+          iv = sensitiveResult.iv;
+          tag = sensitiveResult.tag;
+
+          const titleResult = await CryptoService.encrypt(displayTitle, masterKey);
+          titleCiphertext = titleResult.ciphertext;
+          titleIv = titleResult.iv;
+          titleTag = titleResult.tag;
+
+          const usernameResult = await CryptoService.encrypt(displayUsername, masterKey);
+          usernameCiphertext = usernameResult.ciphertext;
+          usernameIv = usernameResult.iv;
+          usernameTag = usernameResult.tag;
+        }
+
+        // Encrypt Metadata
+        const metadataPayload = JSON.stringify({
+          category: plainEntry.category || Category.LOGIN,
+          folderId: plainEntry.folderId,
+          updatedAt: Date.now(),
+          isFavorite: plainEntry.isFavorite,
+          fileSize: plainEntry.fileSize
+        });
+
+        let encryptedMetadata: Uint8Array, metadataIv: Uint8Array, metadataTag: Uint8Array;
+        if (electronVault) {
+          const res = await electronVault.encrypt(metadataPayload);
+          encryptedMetadata = new Uint8Array(res.ciphertext);
+          metadataIv = new Uint8Array(res.iv);
+          metadataTag = new Uint8Array(res.tag);
+        } else {
+          const res = await CryptoService.encrypt(metadataPayload, masterKey);
+          encryptedMetadata = res.ciphertext;
+          metadataIv = res.iv;
+          metadataTag = res.tag;
+        }
 
         const securityScore = this.calculateStrength(plainEntry.sensitive.password || '');
 
@@ -245,10 +388,16 @@ export class VaultService {
           encryptedUsername: usernameCiphertext,
           usernameIv: usernameIv,
           usernameTag: usernameTag,
-          category: plainEntry.category || Category.LOGIN,
-          updatedAt: Date.now(),
-          isFavorite: plainEntry.isFavorite || false,
-          folderId: plainEntry.folderId,
+
+          encryptedMetadata,
+          metadataIv,
+          metadataTag,
+
+          category: Category.LOGIN,
+          updatedAt: 0,
+          isFavorite: false,
+          folderId: undefined,
+
           securityScore,
           fileSize: plainEntry.fileSize,
           encryptedData: ciphertext,
@@ -271,13 +420,26 @@ export class VaultService {
 
   static async decryptEntry(entry: VaultEntry, masterKey: CryptoKey): Promise<SensitiveData> {
     try {
-      const decryptedJson = await CryptoService.decrypt(entry.encryptedData, masterKey, entry.iv, entry.tag);
+      const electronVault = (window as any).electronAPI?.vault;
+      let decryptedJson = "";
+
+      if (electronVault) {
+        decryptedJson = await electronVault.decrypt(entry.encryptedData, entry.iv, entry.tag);
+      } else {
+        decryptedJson = await CryptoService.decrypt(entry.encryptedData, masterKey, entry.iv, entry.tag);
+      }
+
       const sensitive: SensitiveData = JSON.parse(decryptedJson);
 
       // Memory Optimized: If a separate binary file exists, decrypt it directly
       if (entry.encryptedFile && entry.fileIv && entry.fileTag) {
-        const decryptedFile = await CryptoService.decryptBinary(entry.encryptedFile, masterKey, entry.fileIv, entry.fileTag);
-        sensitive.fileBlob = decryptedFile; // returns Uint8Array
+        if (electronVault) {
+          const decryptedBuffer = await electronVault.decryptBinary(entry.encryptedFile, entry.fileIv, entry.fileTag);
+          sensitive.fileBlob = new Uint8Array(decryptedBuffer);
+        } else {
+          const decryptedFile = await CryptoService.decryptBinary(entry.encryptedFile, masterKey, entry.fileIv, entry.fileTag);
+          sensitive.fileBlob = decryptedFile; // returns Uint8Array
+        }
       }
 
       return sensitive;
@@ -287,20 +449,124 @@ export class VaultService {
     }
   }
 
-  // SECURITY: Decrypt metadata (title, username) for display
-  static async decryptEntryMetadata(entry: VaultEntry, masterKey: CryptoKey): Promise<{ title: string; username: string }> {
+  // SECURITY: Decrypt metadata (title, username, category, folderId, etc.) for display
+  static async decryptEntryMetadata(entry: VaultEntry, masterKey: CryptoKey): Promise<{
+    title: string;
+    username: string;
+    category?: Category;
+    folderId?: string;
+    updatedAt?: number;
+    isFavorite?: boolean;
+    deletedAt?: number;
+    fileSize?: number;
+  }> {
     try {
-      // Decrypt title (binary format)
-      const decryptedTitle = await CryptoService.decrypt(entry.encryptedTitle, masterKey, entry.titleIv, entry.titleTag);
+      const electronVault = (window as any).electronAPI?.vault;
+      let decryptedTitle = "";
+      let decryptedUsername = "";
 
-      // Decrypt username (binary format)
-      const decryptedUsername = await CryptoService.decrypt(entry.encryptedUsername, masterKey, entry.usernameIv, entry.usernameTag);
+      if (electronVault) {
+        decryptedTitle = await electronVault.decrypt(entry.encryptedTitle, entry.titleIv, entry.titleTag);
+        decryptedUsername = await electronVault.decrypt(entry.encryptedUsername, entry.usernameIv, entry.usernameTag);
+      } else {
+        decryptedTitle = await CryptoService.decrypt(entry.encryptedTitle, masterKey, entry.titleIv, entry.titleTag);
+        decryptedUsername = await CryptoService.decrypt(entry.encryptedUsername, masterKey, entry.usernameIv, entry.usernameTag);
+      }
 
-      return { title: decryptedTitle, username: decryptedUsername };
+      let extendedMeta: any = {};
+
+      // Decrypt System Metadata if available
+      if (entry.encryptedMetadata && entry.metadataIv && entry.metadataTag) {
+        let metaJson = "";
+        if (electronVault) {
+          metaJson = await electronVault.decrypt(entry.encryptedMetadata, entry.metadataIv, entry.metadataTag);
+        } else {
+          metaJson = await CryptoService.decrypt(entry.encryptedMetadata, masterKey, entry.metadataIv, entry.metadataTag);
+        }
+        extendedMeta = JSON.parse(metaJson);
+      } else {
+        // Fallback for legacy entries (Plain fields)
+        extendedMeta = {
+          category: entry.category,
+          folderId: entry.folderId,
+          updatedAt: entry.updatedAt,
+          isFavorite: entry.isFavorite,
+          deletedAt: entry.deletedAt,
+          fileSize: entry.fileSize
+        };
+      }
+
+      return { title: decryptedTitle, username: decryptedUsername, ...extendedMeta };
     } catch (e) {
       console.error("Metadata Decryption Error:", e);
       return { title: '[Decryption Error]', username: '[Decryption Error]' };
     }
+  }
+
+  static async updateEntryMetadata(
+    id: string,
+    changes: { isFavorite?: boolean; deletedAt?: number | undefined; folderId?: string | undefined },
+    masterKey: CryptoKey
+  ): Promise<void> {
+    const entry = await db.vault.get(id);
+    if (!entry) throw new Error("Entry not found");
+
+    const electronVault = (window as any).electronAPI?.vault;
+
+    // 1. Decrypt current metadata to get base
+    let currentMeta: any = {
+      category: entry.category,
+      folderId: entry.folderId,
+      updatedAt: entry.updatedAt,
+      isFavorite: entry.isFavorite,
+      fileSize: entry.fileSize,
+      deletedAt: entry.deletedAt
+    };
+
+    if (entry.encryptedMetadata && entry.metadataIv && entry.metadataTag) {
+      let metaJson = "";
+      if (electronVault) {
+        metaJson = await electronVault.decrypt(entry.encryptedMetadata, entry.metadataIv, entry.metadataTag);
+      } else {
+        metaJson = await CryptoService.decrypt(entry.encryptedMetadata, masterKey, entry.metadataIv, entry.metadataTag);
+      }
+      currentMeta = JSON.parse(metaJson);
+    }
+
+    // 2. Apply changes
+    const newMeta = {
+      ...currentMeta,
+      ...changes,
+      updatedAt: Date.now()
+    };
+
+    // 3. Encrypt new metadata
+    const metadataPayload = JSON.stringify(newMeta);
+    let encryptedMetadata: Uint8Array, metadataIv: Uint8Array, metadataTag: Uint8Array;
+
+    if (electronVault) {
+      const metaResult = await electronVault.encrypt(metadataPayload);
+      encryptedMetadata = new Uint8Array(metaResult.ciphertext);
+      metadataIv = new Uint8Array(metaResult.iv);
+      metadataTag = new Uint8Array(metaResult.tag);
+    } else {
+      const metaResult = await CryptoService.encrypt(metadataPayload, masterKey);
+      encryptedMetadata = metaResult.ciphertext;
+      metadataIv = metaResult.iv;
+      metadataTag = metaResult.tag;
+    }
+
+    // 4. Update DB
+    await db.vault.update(id, {
+      encryptedMetadata,
+      metadataIv,
+      metadataTag,
+      updatedAt: 0, // Dummy
+      isFavorite: false, // Dummy
+      folderId: undefined, // Dummy
+      deletedAt: undefined, // Dummy
+      // Update specific dummy fields if needed? No, always mask.
+    });
   }
 
   static async deleteEntry(id: string): Promise<void> {

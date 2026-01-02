@@ -36,6 +36,14 @@ export interface VaultEntry {
   // Metadata (şifreli olarak indexed/searchable hale getirilmiş)
   encryptedTitle: Uint8Array;
   encryptedUsername: Uint8Array;
+
+  // Encrypted System Metadata (Category, FolderId, UpdatedAt, etc.)
+  // This blob contains: { category, folderId, updatedAt, isFavorite, fileSize, deletedAt }
+  encryptedMetadata?: Uint8Array;
+  metadataIv?: Uint8Array;
+  metadataTag?: Uint8Array;
+
+  // Legacy/Masked Plain Fields (kept for type compatibility, but may contain dummy data)
   category: Category;
   updatedAt: number;
   deletedAt?: number;

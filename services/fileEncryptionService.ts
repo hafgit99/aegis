@@ -1,8 +1,9 @@
 
 import { CryptoService } from './cryptoService';
+import { FileValidationService } from './fileValidationService';
 
 export class FileEncryptionService {
-  private static MAX_SIZE = 5 * 1024 * 1024; // 5MB
+  private static MAX_SIZE = 25 * 1024 * 1024; // 25MB (updated from 5MB)
 
   static async processFile(file: File, masterKey: CryptoKey): Promise<{ 
     encryptedData: string, 
@@ -12,8 +13,18 @@ export class FileEncryptionService {
     fileMime: string,
     fileSize: number
   }> {
-    if (file.size > this.MAX_SIZE) {
-      throw new Error("FILE_TOO_LARGE");
+    // SECURITY: Validate file before processing
+    const validation = await FileValidationService.validateFileUpload(file);
+    
+    if (!validation.valid) {
+      const errorMsg = validation.errors
+        .map(err => FileValidationService.getErrorMessage(err, 'en'))
+        .join('; ');
+      throw new Error(`FILE_VALIDATION_FAILED: ${errorMsg}`);
+    }
+
+    if (validation.warnings.length > 0) {
+      console.warn('File upload warnings:', validation.warnings);
     }
 
     const buffer = await file.arrayBuffer();

@@ -1,4 +1,5 @@
 import { CryptoService } from './cryptoService';
+import { RecoveryService } from './recoveryService';
 import { db } from '../db';
 import { VaultEntry, SensitiveData } from '../types';
 
@@ -22,11 +23,11 @@ export class ChangeMasterKeyService {
       const metadata = localStorage.getItem(MASTER_METADATA_KEY);
       if (!metadata) throw new Error("Vault not setup");
 
-      const { salt: saltB64 } = JSON.parse(metadata);
+      const { salt: saltB64, iterations = CryptoService.DEFAULT_ITERATIONS } = JSON.parse(metadata);
       const salt = new Uint8Array(CryptoService.base64ToArrayBuffer(saltB64));
 
       // Derive key from current password
-      const currentKey = await CryptoService.deriveKeyFromPassword(currentPassword, salt);
+      const currentKey = await CryptoService.deriveKeyFromPassword(currentPassword, salt, iterations);
 
       // Try to decrypt verifier
       const verifierStr = localStorage.getItem(MASTER_VERIFIER_KEY);
@@ -82,9 +83,9 @@ export class ChangeMasterKeyService {
       const metadata = localStorage.getItem(MASTER_METADATA_KEY);
       if (!metadata) throw new Error("Vault not setup");
 
-      const { salt: currentSaltB64 } = JSON.parse(metadata);
+      const { salt: currentSaltB64, iterations: currentIterations = CryptoService.DEFAULT_ITERATIONS } = JSON.parse(metadata);
       const currentSalt = new Uint8Array(CryptoService.base64ToArrayBuffer(currentSaltB64));
-      const currentKey = await CryptoService.deriveKeyFromPassword(currentPassword, currentSalt);
+      const currentKey = await CryptoService.deriveKeyFromPassword(currentPassword, currentSalt, currentIterations);
 
       // Stage 2: Decrypt all entries with current key
       onProgress?.({
@@ -161,7 +162,9 @@ export class ChangeMasterKeyService {
       });
 
       const newSalt = window.crypto.getRandomValues(new Uint8Array(16));
-      const newKey = await CryptoService.deriveKeyFromPassword(newPassword, newSalt);
+      // Benchmark for new optimized iterations
+      const newIterations = await CryptoService.benchmarkIterations();
+      const newKey = await CryptoService.deriveKeyFromPassword(newPassword, newSalt, newIterations);
 
       // Stage 4: Re-encrypt all entries with new key
       const newEntries: VaultEntry[] = [];
@@ -255,7 +258,8 @@ export class ChangeMasterKeyService {
       // Update localStorage
       localStorage.setItem(MASTER_METADATA_KEY, JSON.stringify({
         salt: CryptoService.arrayBufferToBase64(newSalt.buffer),
-        version: 4,
+        iterations: newIterations,
+        version: 5,
         createdAt: Date.now()
       }));
 
@@ -276,6 +280,11 @@ export class ChangeMasterKeyService {
           entriesUpdated: newEntries.length
         });
       }
+
+      // WARNING: Recovery blob is now invalid because it stores the OLD master key.
+      // We must reset recovery so the user is forced/prompted to set it up again.
+      // We cannot update it automatically without the user's recovery words.
+      RecoveryService.resetRecovery();
 
       onProgress?.({
         stage: 'complete',

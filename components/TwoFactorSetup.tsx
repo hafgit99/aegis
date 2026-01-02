@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Shield, CheckCircle2, Copy, Check,
   ChevronRight, RefreshCw, Key, AlertCircle, Loader2
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { TwoFactorService } from '../services/twoFactorService';
@@ -32,16 +32,38 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
 
   useEffect(() => {
     if (step === 'scan' && !secret) {
-      const newSecret = TwoFactorService.generateSecret();
-      const codes = TwoFactorService.generateRecoveryCodes();
-      setSecret(newSecret);
-      setRecoveryCodes(codes);
+      const generate = async () => {
+        try {
+          const newSecret = TwoFactorService.generateSecret();
+          const codes = TwoFactorService.generateRecoveryCodes();
+          setSecret(newSecret);
+          setRecoveryCodes(codes);
 
-      const issuer = encodeURIComponent("Aegis Vault");
-      const account = encodeURIComponent("User");
-      const url = `otpauth://totp/${issuer}:${account}?secret=${newSecret}&issuer=${issuer}`;
-      // Fixed QR Service URL as requested
-      setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(url)}`);
+          const issuer = "Aegis Vault";
+          const account = "User"; // Bu dinamik olabilir, örneğin kullanıcı adı varsa
+          // otpauth URL formatı önemli: otpauth://totp/Issuer:Account?secret=...&issuer=Issuer
+          // Boşlukları ve özel karakterleri encodeURIComponent ile kaçırmalıyız ama 'label' kısmı (Issuer:Account) bazen düz de çalışır. Standarda uyalım.
+          const label = `${encodeURIComponent(issuer)}:${encodeURIComponent(account)}`;
+          const url = `otpauth://totp/${label}?secret=${newSecret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
+
+          // QR kodunu oluştur
+          const qrDataUrl = await QRCode.toDataURL(url, {
+            errorCorrectionLevel: 'H',
+            margin: 2,
+            width: 256,
+            color: {
+              dark: '#000000',
+              light: '#ffffff'
+            }
+          });
+          setQrUrl(qrDataUrl);
+        } catch (err) {
+          console.error("QR Code generation failed", err);
+          setError("QR Code generation failed");
+        }
+      };
+
+      generate();
     }
   }, [step, secret]);
 
@@ -102,6 +124,9 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
         </button>
       </div>
 
+      {/* QR kodu oluşturmak için gizli canvas - ARTIK GEREK YOK, qrcode kütüphanesi kullanılıyor */}
+      {/* <canvas ref={qrCanvasRef} style={{ display: 'none' }} /> */}
+
       <AnimatePresence mode="wait">
         {step === 'intro' && (
           <motion.div key="intro" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="text-center py-6">
@@ -126,9 +151,9 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
             <h3 className="text-2xl font-black text-white uppercase mb-8 tracking-tight">{t('scan_qr')}</h3>
             <div className="bg-white p-6 rounded-[2.5rem] inline-block mb-10 shadow-2xl border-4 border-blue-600/10">
               {qrUrl ? (
-                <img src={qrUrl} alt="QR Code" className="w-56 h-56" />
+                <img src={qrUrl} alt="QR Code" className="w-64 h-64" />
               ) : (
-                <div className="w-56 h-56 flex items-center justify-center bg-zinc-100">
+                <div className="w-64 h-64 flex items-center justify-center bg-zinc-100">
                   <RefreshCw className="animate-spin text-zinc-300" size={32} />
                 </div>
               )}

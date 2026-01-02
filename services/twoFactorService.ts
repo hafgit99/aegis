@@ -1,6 +1,14 @@
 
 import { CryptoService } from './cryptoService';
 
+interface EncryptedRecoveryCodes {
+  v: 1; // Version for future compatibility
+  iv: string; // Base64 encoded initialization vector
+  ciphertext: string; // Base64 encoded encrypted data
+  tag: string; // Base64 encoded authentication tag
+  createdAt: number; // Timestamp for audit
+}
+
 /**
  * Minimal TOTP Implementation using Web Crypto
  * Avoids heavy node-based dependencies.
@@ -9,6 +17,8 @@ export class TwoFactorService {
   private static BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   private static lastServerTime: number | null = null;
   private static clockDriftWarning: string | null = null;
+  private static readonly RECOVERY_CODES_ENCRYPTED_KEY = 'twofa_recovery_codes_encrypted';
+  private static readonly RECOVERY_CODES_PLAINTEXT_KEY = 'twofa_recovery_codes'; // Legacy (deprecated)
 
   static generateSecret(): string {
     const randomValues = window.crypto.getRandomValues(new Uint8Array(20));
@@ -144,5 +154,170 @@ export class TwoFactorService {
       codes.push(arr[0].toString(16).toUpperCase().padStart(8, '0'));
     }
     return codes;
+  }
+
+  /**
+   * Encrypt and store recovery codes with master key
+   * @param codes Array of recovery codes to encrypt
+   * @param masterKey Master encryption key (ArrayBuffer)
+   */
+  static async encryptAndStoreRecoveryCodes(codes: string[], masterKey: ArrayBuffer): Promise<void> {
+    try {
+      // Import master key as AES-GCM key
+      const cryptoKey = await window.crypto.subtle.importKey(
+        'raw',
+        masterKey,
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt']
+      );
+
+      // Generate random IV
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+      // Encrypt the codes JSON
+      const codesJson = JSON.stringify(codes);
+      const encoder = new TextEncoder();
+      const data = encoder.encode(codesJson);
+
+      const encrypted = await window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        cryptoKey,
+        data
+      );
+
+      // Extract tag from encrypted result (GCM appends 16-byte tag)
+      const encryptedBytes = new Uint8Array(encrypted);
+      const ciphertext = encryptedBytes.slice(0, encryptedBytes.length - 16);
+      const tag = encryptedBytes.slice(encryptedBytes.length - 16);
+
+      const encryptedData: EncryptedRecoveryCodes = {
+        v: 1,
+        iv: CryptoService.arrayBufferToBase64(iv),
+        ciphertext: CryptoService.arrayBufferToBase64(ciphertext),
+        tag: CryptoService.arrayBufferToBase64(tag),
+        createdAt: Date.now(),
+      };
+
+      // Store encrypted codes
+      localStorage.setItem(
+        this.RECOVERY_CODES_ENCRYPTED_KEY,
+        JSON.stringify(encryptedData)
+      );
+
+      // Remove legacy plaintext codes
+      localStorage.removeItem(this.RECOVERY_CODES_PLAINTEXT_KEY);
+    } catch (error) {
+      console.error('Failed to encrypt recovery codes:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Decrypt recovery codes from encrypted storage
+   * @param masterKey Master decryption key (ArrayBuffer)
+   * @returns Array of recovery codes or null if not found
+   */
+  static async decryptRecoveryCodes(masterKey: ArrayBuffer): Promise<string[] | null> {
+    try {
+      const stored = localStorage.getItem(this.RECOVERY_CODES_ENCRYPTED_KEY);
+      if (!stored) {
+        // Check for legacy plaintext format (shouldn't happen in production)
+        const legacy = localStorage.getItem(this.RECOVERY_CODES_PLAINTEXT_KEY);
+        if (legacy) {
+          try {
+            return JSON.parse(legacy);
+          } catch {
+            return null;
+          }
+        }
+        return null;
+      }
+
+      const encrypted: EncryptedRecoveryCodes = JSON.parse(stored);
+
+      // Import master key as AES-GCM key
+      const cryptoKey = await window.crypto.subtle.importKey(
+        'raw',
+        masterKey,
+        { name: 'AES-GCM' },
+        false,
+        ['decrypt']
+      );
+
+      // Reconstruct IV, ciphertext, and tag
+      const iv = new Uint8Array(CryptoService.base64ToArrayBuffer(encrypted.iv));
+      const ciphertext = new Uint8Array(CryptoService.base64ToArrayBuffer(encrypted.ciphertext));
+      const tag = new Uint8Array(CryptoService.base64ToArrayBuffer(encrypted.tag));
+
+      // Combine ciphertext + tag for Web Crypto API
+      const fullEncrypted = new Uint8Array(ciphertext.length + tag.length);
+      fullEncrypted.set(ciphertext);
+      fullEncrypted.set(tag, ciphertext.length);
+
+      // Decrypt
+      const decrypted = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        cryptoKey,
+        fullEncrypted
+      );
+
+      const decoder = new TextDecoder();
+      const codesJson = decoder.decode(decrypted);
+      return JSON.parse(codesJson);
+    } catch (error) {
+      console.error('Failed to decrypt recovery codes:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Consume a recovery code (remove it from storage after use)
+   * @param code Code to consume
+   * @param masterKey Master decryption key (ArrayBuffer)
+   * @returns true if code was valid and consumed, false otherwise
+   */
+  static async consumeRecoveryCode(code: string, masterKey: ArrayBuffer): Promise<boolean> {
+    try {
+      const codes = await this.decryptRecoveryCodes(masterKey);
+      if (!codes) return false;
+
+      const index = codes.indexOf(code);
+      if (index === -1) return false;
+
+      // Remove consumed code
+      codes.splice(index, 1);
+
+      // Save updated codes
+      if (codes.length > 0) {
+        await this.encryptAndStoreRecoveryCodes(codes, masterKey);
+      } else {
+        // All codes consumed, clear storage
+        localStorage.removeItem(this.RECOVERY_CODES_ENCRYPTED_KEY);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Failed to consume recovery code:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get number of remaining recovery codes (for UI display)
+   * @returns Number of codes remaining or 0
+   */
+  static getRemainingRecoveryCodesCount(): number {
+    try {
+      const stored = localStorage.getItem(this.RECOVERY_CODES_ENCRYPTED_KEY);
+      if (stored) {
+        const encrypted: EncryptedRecoveryCodes = JSON.parse(stored);
+        // Can't decrypt without master key, so we return status from metadata or a placeholder
+        return -1; // Encrypted storage exists but count unavailable without decryption
+      }
+      return 0; // No codes stored
+    } catch {
+      return 0;
+    }
   }
 }

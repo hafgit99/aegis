@@ -21,6 +21,14 @@ export default defineConfig(({ mode }) => {
       }
     },
     build: {
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true,
+        },
+        mangle: true, // Obfuscate variable names
+      },
       chunkSizeWarningLimit: 1500,
       rollupOptions: {
         output: {

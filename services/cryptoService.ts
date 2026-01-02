@@ -8,37 +8,74 @@ import { argon2id } from 'hash-wasm';
 
 export class CryptoService {
   private static ALGORITHM = 'AES-GCM';
+  public static readonly DEFAULT_ITERATIONS = 3;
 
-  static deriveKeyFromPassword(password: string, salt: Uint8Array): Promise<CryptoKey> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const hash = await argon2id({
-          password: password,
-          salt: salt as any,
-          iterations: 3,        // Reverted to 3 for compatibility
-          memorySize: 65536,    // 64MB RAM
-          parallelism: 4,       // 4 thread
-          hashLength: 32,
-          outputType: 'binary',
-        });
+  /**
+   * Benchmarks the hardware to find an iteration count that takes ~500-1000ms.
+   * This ensures high security adaptable to the user's device power.
+   */
+  static async benchmarkIterations(targetTimeMs: number = 600): Promise<number> {
+    try {
+      const startTime = performance.now();
+      await argon2id({
+        password: 'benchmark_test_password',
+        salt: new Uint8Array(16),
+        iterations: 1,
+        memorySize: 65536,
+        parallelism: 4,
+        hashLength: 32,
+        outputType: 'binary',
+      });
+      const endTime = performance.now();
+      const singleRunTime = endTime - startTime;
 
-        // SECURITY TRADE-OFF: Recovery blob'ı oluşturmak için exportable = true gerekli
-        // Ama master key Electron Main Process RAM'de tutulduğundan direct export riski düşük
-        // Alternatif: Recovery'yi parola-tabanlı yapabilirdik (recovery kelimeleri yerine)
-        const key = await window.crypto.subtle.importKey(
-          'raw',
-          hash as any,
-          { name: this.ALGORITHM },
-          true, // Recovery blob oluşturması için gerekli, Electron protection ile mitigate edilir
-          ['encrypt', 'decrypt']
-        );
+      // Calculate ratio (e.g. if single run is 50ms, we need 12 iterations for 600ms)
+      // Safety limits: Min 3 (legacy), Max 60 (to prevent extreme lockouts)
+      let calculated = Math.floor(targetTimeMs / singleRunTime);
+      if (calculated < 3) calculated = 3;
+      if (calculated > 60) calculated = 60;
 
-        new Uint8Array(hash).fill(0);
-        resolve(key);
-      } catch (err) {
-        reject(new Error("Anahtar türetme başarısız: " + (err as Error).message));
-      }
-    });
+      return calculated;
+    } catch (e) {
+      console.warn("Benchmark failed, falling back to safe default", e);
+      return 15; // Safe modern default if benchmark fails
+    }
+  }
+
+
+  static async deriveKeyWithRaw(password: string, salt: Uint8Array, iterations: number = this.DEFAULT_ITERATIONS): Promise<{ key: CryptoKey; raw: Uint8Array }> {
+    try {
+      const hash = await argon2id({
+        password: password,
+        salt: salt as any,
+        iterations: iterations,
+        memorySize: 65536,    // 64MB RAM
+        parallelism: 4,       // 4 thread
+        hashLength: 32,
+        outputType: 'binary',
+      });
+
+      // SECURITY: Non-extractable key for maximum protection
+      // Raw bytes are returned separately for recovery purposes only
+      const key = await window.crypto.subtle.importKey(
+        'raw',
+        hash as any,
+        { name: this.ALGORITHM },
+        false, // SECURITY: NOT extractable - prevents memory dump attacks
+        ['encrypt', 'decrypt']
+      );
+
+      return { key, raw: hash };
+    } catch (err) {
+      throw new Error("Anahtar türetme başarısız: " + (err as Error).message);
+    }
+  }
+
+  static async deriveKeyFromPassword(password: string, salt: Uint8Array, iterations: number = this.DEFAULT_ITERATIONS): Promise<CryptoKey> {
+    const { key, raw } = await this.deriveKeyWithRaw(password, salt, iterations);
+    // Wipe raw memory immediately if not needed
+    try { raw.fill(0); } catch (e) { }
+    return key;
   }
 
   static async encrypt(data: string, key: CryptoKey): Promise<{ ciphertext: Uint8Array; iv: Uint8Array; tag: Uint8Array }> {
@@ -88,8 +125,9 @@ export class CryptoService {
       const decoder = new TextDecoder();
       return decoder.decode(decryptedBuffer);
     } catch (e) {
-      console.error("Decryption failed", e);
-      throw new Error("DECRYPTION_FAILED");
+      // SECURITY: Generic error message to prevent information disclosure
+      console.error("[CryptoService] Decryption failed:", e);
+      throw new Error("OPERATION_FAILED");
     }
   }
 
@@ -105,8 +143,8 @@ export class CryptoService {
 
       return { ciphertext, iv, tag };
     } catch (e) {
-      console.error("Binary Encryption failed", e);
-      throw new Error("ENCRYPTION_FAILED");
+      console.error("[CryptoService] Binary Encryption failed:", e);
+      throw new Error("OPERATION_FAILED");
     }
   }
 
@@ -119,8 +157,8 @@ export class CryptoService {
       const decrypted = await window.crypto.subtle.decrypt({ name: this.ALGORITHM, iv: iv as any }, key, combined.buffer as any);
       return new Uint8Array(decrypted);
     } catch (e) {
-      console.error("Binary Decryption failed", e);
-      throw new Error("DECRYPTION_FAILED");
+      console.error("[CryptoService] Binary Decryption failed:", e);
+      throw new Error("OPERATION_FAILED");
     }
   }
 

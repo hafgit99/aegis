@@ -1,1 +1,13 @@
 node_modules
+dist
+dist_electron
+aegis-build
+release
+*.log
+*.pem
+.DS_Store
+.env
+.env.local
+.idea
+.vscode
+*.tsbuildinfo

@@ -78,17 +78,17 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         setDeriving(true);
         try {
-            const key = await VaultService.deriveMasterKey(password);
+            const { key, raw } = await VaultService.deriveMasterKey(password);
             const twoFactorConfigB64 = localStorage.getItem('aegis_2fa_config');
 
             if (twoFactorConfigB64) {
-                setTempMasterKey(key);
+                setTempMasterKey(key, raw);
                 setVerifying2FA(true);
                 return;
             }
 
             await BruteForceService.recordSuccess();
-            setKey(key);
+            setKey(key, raw);
         } catch (err: any) {
             await BruteForceService.recordFailure();
             throw err;
@@ -100,8 +100,8 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const setup = useCallback(async (password: string) => {
         setDeriving(true);
         try {
-            const key = await VaultService.setup(password);
-            setKey(key);
+            const { key, raw } = await VaultService.setup(password);
+            setKey(key, raw);
             setEntries([]);
             setFolders([]);
         } finally {
@@ -116,14 +116,16 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, [masterKey, loadEntries]);
 
     const deleteEntry = useCallback(async (id: string) => {
-        await db.vault.update(id, { deletedAt: Date.now() });
+        if (!masterKey) throw new Error("Vault locked");
+        await VaultService.updateEntryMetadata(id, { deletedAt: Date.now() }, masterKey);
         await loadEntries();
-    }, [loadEntries]);
+    }, [masterKey, loadEntries]);
 
     const restoreEntry = useCallback(async (id: string) => {
-        await db.vault.update(id, { deletedAt: undefined });
+        if (!masterKey) throw new Error("Vault locked");
+        await VaultService.updateEntryMetadata(id, { deletedAt: undefined }, masterKey);
         await loadEntries();
-    }, [loadEntries]);
+    }, [masterKey, loadEntries]);
 
     const permanentDelete = useCallback(async (id: string) => {
         await VaultService.deleteEntry(id);
@@ -136,11 +138,12 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, [masterKey]);
 
     const toggleFavorite = useCallback(async (id: string) => {
+        if (!masterKey) throw new Error("Vault locked");
         const entry = entries.find(e => e.id === id);
         if (!entry) return;
-        await db.vault.update(id, { isFavorite: !entry.isFavorite });
+        await VaultService.updateEntryMetadata(id, { isFavorite: !entry.isFavorite }, masterKey);
         await loadEntries();
-    }, [entries, loadEntries]);
+    }, [entries, masterKey, loadEntries]);
 
     const createFolder = useCallback(async (name: string, color: string, icon: string, parentId?: string) => {
         if (!masterKey) return;

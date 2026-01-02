@@ -60,7 +60,7 @@ const TitleBar: React.FC = () => {
     return (
         <div className="h-8 bg-black/60 backdrop-blur-md border-b border-white/10 flex items-center justify-between select-none fixed top-0 left-0 right-0 z-[9999]" style={{ WebkitAppRegion: 'drag' } as any}>
             <div className="flex items-center gap-3 px-4 min-w-0" style={{ WebkitAppRegion: 'no-drag' } as any}>
-                <div className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.6)] flex-shrink-0" />
+                <img src="./icon1.png" alt="Logo" className="w-4 h-4 object-contain opacity-80" />
                 <span className="text-[8px] font-bold text-zinc-300 uppercase tracking-widest whitespace-nowrap">
                     {isElectron ? '✓ Aegis Vault' : '○ Aegis Vault'}
                 </span>
