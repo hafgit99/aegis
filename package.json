@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "start": "npx electron .",
-    "build": "npx vite build && npx electron-builder build --win"
+    "build": "node build/convert-icon1-to-ico.cjs && npx vite build && npx electron-builder build --win"
   },
   "dependencies": {
     "@types/qrcode": "^1.5.6",
@@ -70,15 +70,21 @@
     "win": {
       "target": [
         {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
           "target": "portable",
           "arch": [
             "x64"
           ]
         }
       ],
-      "icon": "build/icon1.png",
+      "icon": "build/icon.ico",
       "publisherName": "Aegis Security",
-      "verifyUpdateCodeSignature": true,
+      "verifyUpdateCodeSignature": false,
       "forceCodeSigning": false
     },
     "publish": {
@@ -88,14 +94,16 @@
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": true,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "runAfterFinish": true,
       "shortcutName": "Aegis Vault",
       "license": "license.txt",
-      "installerIcon": "build/icon1.png",
-      "uninstallerIcon": "build/icon1.png",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
       "uninstallDisplayName": "Aegis Vault - Uninstall",
       "deleteAppDataOnUninstall": false
     },

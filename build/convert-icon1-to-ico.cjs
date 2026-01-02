@@ -21,33 +21,43 @@ async function convertIcon1AoIco() {
         // 1. icon1.png'i oku
         const sourceImage = sharp(sourcePath);
 
-        // 2. ICO oluştur (çoklu boyutlar: 256, 128, 64, 32, 16)
-        const sizes = [256, 128, 64, 32, 16];
-        const buffers = await Promise.all(
-            sizes.map(size =>
-                sourceImage
-                    .clone()
+        // 2. ICO için her boyutu ayrı ayrı, agresif trim ile oluştur
+        // Bu, logonun icon dosyasının içinde olabildiğince büyük görünmesini sağlar.
+        const icoSizes = [256, 128, 64, 48, 32, 16];
+        const icoBuffers = await Promise.all(
+            icoSizes.map(async (size) => {
+                return await sharp(sourcePath)
+                    .trim({ threshold: 12 }) // Kenarlardaki yarı-şeffaf gürültüleri temizle
                     .resize(size, size, {
                         fit: 'contain',
-                        background: { r: 0, g: 0, b: 0, alpha: 0 }
+                        background: { r: 0, g: 0, b: 0, alpha: 0 },
+                        kernel: sharp.kernel.lanczos3
                     })
                     .png()
-                    .toBuffer()
-            )
+                    .toBuffer();
+            })
         );
 
         // ICO dosyası oluştur
-        const icoData = createIcoFile(buffers, sizes);
+        const icoData = createIcoFile(icoBuffers, icoSizes);
         const icoPath = path.join(buildDir, 'icon.ico');
-        fs.writeFileSync(icoPath, icoData);
-        console.log('✓ icon.ico oluşturuldu: 16, 32, 64, 128, 256 px boyutlarında');
 
-        // 3. Verification - icon.png de güncelle (yedek olarak)
-        await sourceImage
-            .resize(256, 256, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        // Eski dosyayı sil (bazı sistemlerde üzerine yazma sorun çıkarabilir)
+        if (fs.existsSync(icoPath)) fs.unlinkSync(icoPath);
+
+        fs.writeFileSync(icoPath, icoData);
+        console.log('✓ icon.ico oluşturuldu: 16-256 px boyutlarında (Agresif dolgu uygulandı)');
+
+        // 3. icon.png'i (linux/mac/fallback) 512x512 ile güncelle
+        await sharp(sourcePath)
+            .trim({ threshold: 12 })
+            .resize(512, 512, {
+                fit: 'contain',
+                background: { r: 0, g: 0, b: 0, alpha: 0 }
+            })
             .png()
             .toFile(path.join(buildDir, 'icon.png'));
-        console.log('✓ icon.png güncellendi: 256x256');
+        console.log('✓ icon.png güncellendi: 512x512');
 
         console.log('\n✅ İkon dosyaları başarıyla güncellendi!');
         console.log('   - icon.ico (Windows executable & shortcuts)');

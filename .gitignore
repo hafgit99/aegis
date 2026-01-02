@@ -15,6 +15,7 @@ release
 # Documentation - Ignore all except README
 *.md
 !README.md
+!*_WHITEPAPER_*.md
 
 # Critical Security Files
 private_key.pem

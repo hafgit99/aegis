@@ -93,7 +93,14 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
 6. Secure Files
 - Encrypt up to 5MB files
 - PDFs, documents, images
-- Stored as encrypted attachments`,
+- Stored as encrypted attachments
+
+7. Crypto Wallets
+- Wallet Name: Identify your different wallets
+- Network: Ethereum, Bitcoin, Solana, etc.
+- Public Address: Your shareable wallet address
+- Seed Phrase: Your 12 or 24 recovery words (masked)
+- Private Key: Direct access key (AES-256 encrypted)`,
       detailsTr: `Farklı Sır Türleri Ekleyin:
 
 1. Giriş Kimlik Bilgileri
@@ -126,7 +133,14 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
 6. Güvenli Dosyalar
 - 5MB'ye kadar dosyaları şifreleyin
 - PDF'ler, belgeler, resimler
-- Şifreli ekler olarak depolanır`
+- Şifreli ekler olarak depolanır
+
+7. Kripto Cüzdanları
+- Cüzdan Adı: Farklı cüzdanlarınızı tanımlayın
+- Ağ: Ethereum, Bitcoin, Solana vb.
+- Açık Adres: Paylaşılabilir cüzdan adresiniz
+- Tohum İfadeler: 12 veya 24 kelimelik kurtarma kelimeleri
+- Özel Anahtar: Doğrudan erişim anahtarı (AES-256 şifreli)`
     },
     {
       id: 'organization',
