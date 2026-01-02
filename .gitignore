@@ -11,3 +11,15 @@ release
 .idea
 .vscode
 *.tsbuildinfo
+
+# Documentation - Ignore all except README
+*.md
+!README.md
+
+# Critical Security Files
+private_key.pem
+public_key.pem
+*.key
+*.p12
+*.pfx
+build-output.txt
