@@ -40,7 +40,7 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 
 This is a commercial product. To use the full version, you must purchase a license key.
 
-1. Download the latest release from the [Release Page](#).
+1. Download the latest release from the [Release Page](https://github.com/hafgit99/aegis/releases).
 2. Run the executable.
 3. Enter your license key when prompted.
 
