@@ -43,8 +43,8 @@ This is a commercial product. To use the full version, you must purchase a licen
 1. Download the latest release from the [Release Page](https://github.com/hafgit99/aegis/releases).
 2. Run the executable.
 3. Enter your license key when prompted.
-⚠️ Security Note 
 
+⚠️ Security Note 
 Since Aegis Vault is a security tool, some antivirus software might flag it. This is a common "false positive" for standalone security apps. Feel free to check the source code!
 
 ## ⚖️ License
