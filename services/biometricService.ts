@@ -89,7 +89,7 @@ export class BiometricService {
     }
   }
 
-  static async unlock(): Promise<CryptoKey | null> {
+  static async unlock(): Promise<{ key: CryptoKey, raw: Uint8Array } | null> {
     const configStr = localStorage.getItem(this.STORAGE_KEY);
     if (!configStr) return null;
 
@@ -140,13 +140,15 @@ export class BiometricService {
       const decryptedRawKeyB64 = await CryptoService.decrypt(wrappedData, wrapperKey, iv, tag);
       const rawKey = CryptoService.base64ToArrayBuffer(decryptedRawKeyB64);
 
-      return await window.crypto.subtle.importKey(
+      const key = await window.crypto.subtle.importKey(
         'raw',
         rawKey,
         { name: 'AES-GCM' },
         true,
         ['encrypt', 'decrypt']
       );
+
+      return { key, raw: new Uint8Array(rawKey) };
     } catch (e: any) {
       console.error("Biometric Unlock Error:", e.name, e.message);
       return null;

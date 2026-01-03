@@ -52,7 +52,12 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     return {
                         ...entry,
                         title: metadata.title,
-                        username: metadata.username
+                        username: metadata.username,
+                        category: metadata.category || entry.category,
+                        folderId: metadata.folderId,
+                        isFavorite: metadata.isFavorite ?? entry.isFavorite,
+                        deletedAt: metadata.deletedAt,
+                        fileSize: metadata.fileSize ?? entry.fileSize
                     };
                 })
             );

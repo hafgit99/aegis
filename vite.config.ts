@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       minify: 'terser',
+      sourcemap: false, // SECURITY: Disable source maps in production
       terserOptions: {
         compress: {
           drop_console: true,

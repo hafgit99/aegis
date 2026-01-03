@@ -1,7 +1,8 @@
 
-import { VaultEntry, SensitiveData, Category } from '../types.ts';
+import { VaultEntry, SensitiveData, Category, Folder } from '../types.ts';
 import { CryptoService } from './cryptoService.ts';
 import { RecoveryService } from './recoveryService.ts';
+import { FolderService } from './folderService.ts';
 import { db } from '../db.ts';
 import zxcvbn from 'zxcvbn';
 
@@ -69,6 +70,12 @@ export class VaultService {
 
       if (decrypted !== VALIDATOR_TEXT) {
         throw new Error("WRONG_PASSWORD");
+      }
+
+      // SECURITY UPGRADE: If iterations is less than default, migrate automatically
+      const metadata = JSON.parse(metadataStr!);
+      if (iterations < CryptoService.DEFAULT_ITERATIONS) {
+        return await this.migrateVault(password, salt, { key, raw }, CryptoService.DEFAULT_ITERATIONS, metadata);
       }
 
       // Electron varsa verifier'ı RAM'e de yükle (session için)
@@ -583,5 +590,168 @@ export class VaultService {
 
   static isInitialized(): boolean {
     return !!localStorage.getItem(MASTER_METADATA_KEY);
+  }
+
+  private static async migrateVault(
+    password: string,
+    salt: Uint8Array,
+    oldData: { key: CryptoKey; raw: Uint8Array },
+    targetIterations: number,
+    oldMetadata: any
+  ): Promise<{ key: CryptoKey; raw: Uint8Array }> {
+    try {
+      // 1. Derive NEW key
+      const { key: newKey, raw: newRaw } = await CryptoService.deriveKeyWithRaw(password, salt, targetIterations);
+
+      // 2. Transcribe entries (Decrypt with old, encrypt with new)
+      const allEntries = await db.vault.toArray();
+      const migratedEntries: VaultEntry[] = [];
+
+      for (const entry of allEntries) {
+        try {
+          const sensitive = await this.decryptEntry(entry, oldData.key);
+          const metadata = await this.decryptEntryMetadata(entry, oldData.key);
+
+          const reEncrypted = await this.encryptEntryHelper({
+            ...entry,
+            ...metadata,
+            sensitive,
+            id: entry.id
+          }, newKey);
+
+          migratedEntries.push(reEncrypted);
+        } catch (err) {
+          console.error(`Migration failed for entry ${entry.id}`, err);
+          throw new Error("MIGRATION_ENTRY_FAILED");
+        }
+      }
+
+      // 3. Transcribe folders
+      const allFolders = await db.folders.toArray();
+      const migratedFolders: Folder[] = [];
+      for (const folder of allFolders) {
+        try {
+          const name = await FolderService.decryptFolderName(folder, oldData.key);
+          const reEncryptedFolder = await FolderService.encryptFolderHelper(name, folder.color, folder.icon, folder.parentId, newKey);
+          migratedFolders.push({ ...reEncryptedFolder, id: folder.id });
+        } catch (err) {
+          console.error(`Migration failed for folder ${folder.id}`, err);
+        }
+      }
+
+      // 4. Batch update DB
+      await db.transaction('rw', [db.vault, db.folders], async () => {
+        if (migratedEntries.length > 0) await db.vault.bulkPut(migratedEntries);
+        if (migratedFolders.length > 0) await db.folders.bulkPut(migratedFolders);
+      });
+
+      // 5. Update Verifier (Validator)
+      const encoder = new TextEncoder();
+      const dataBytes = encoder.encode(VALIDATOR_TEXT);
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      const encrypted = await window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv as any },
+        newKey,
+        dataBytes as any
+      );
+      const fullBuffer = new Uint8Array(encrypted);
+      const ciphertext = fullBuffer.slice(0, fullBuffer.length - 16);
+      const tag = fullBuffer.slice(fullBuffer.length - 16);
+
+      const verifierBlob = {
+        payload: CryptoService.arrayBufferToBase64(ciphertext.buffer),
+        iv: CryptoService.arrayBufferToBase64(iv.buffer),
+        tag: CryptoService.arrayBufferToBase64(tag.buffer)
+      };
+
+      // 6. Update Storage Metadata
+      const newMetadata = {
+        ...oldMetadata,
+        iterations: targetIterations,
+        version: 6,
+        migratedAt: Date.now()
+      };
+
+      localStorage.setItem(MASTER_METADATA_KEY, JSON.stringify(newMetadata));
+      localStorage.setItem(MASTER_VERIFIER_KEY, JSON.stringify(verifierBlob));
+
+      if ((window as any).electronAPI?.vault) {
+        await (window as any).electronAPI.vault.setVerifier(verifierBlob);
+      }
+
+      // 7. Security flag for recovery
+      localStorage.setItem('aegis_recovery_sync_required', 'true');
+
+      console.log(`[Security] Vault successfully migrated to ${targetIterations} iterations.`);
+      return { key: newKey, raw: newRaw };
+    } catch (e) {
+      console.error("Vault migration failed critically:", e);
+      return oldData; // Fallback
+    }
+  }
+
+  private static async encryptEntryHelper(
+    plainEntry: Partial<VaultEntry> & { sensitive: SensitiveData; title?: string; username?: string },
+    masterKey: CryptoKey
+  ): Promise<VaultEntry> {
+    const sensitiveCopy = { ...plainEntry.sensitive };
+    let encryptedFile: Uint8Array | undefined;
+    let fileIv: Uint8Array | undefined;
+    let fileTag: Uint8Array | undefined;
+
+    if (sensitiveCopy.fileBlob instanceof Uint8Array) {
+      const resp = await CryptoService.encryptBinary(sensitiveCopy.fileBlob, masterKey);
+      encryptedFile = resp.ciphertext;
+      fileIv = resp.iv;
+      fileTag = resp.tag;
+      delete sensitiveCopy.fileBlob;
+    }
+
+    const sensitiveJson = JSON.stringify(sensitiveCopy);
+    const { ciphertext, iv, tag } = await CryptoService.encrypt(sensitiveJson, masterKey);
+
+    const displayTitle = plainEntry.title || 'Unnamed Entry';
+    const displayUsername = plainEntry.username || '';
+
+    const titleRes = await CryptoService.encrypt(displayTitle, masterKey);
+    const usernameRes = await CryptoService.encrypt(displayUsername, masterKey);
+
+    const metadataPayload = JSON.stringify({
+      category: plainEntry.category || Category.LOGIN,
+      folderId: plainEntry.folderId,
+      updatedAt: Date.now(),
+      isFavorite: plainEntry.isFavorite,
+      fileSize: plainEntry.fileSize,
+      deletedAt: (plainEntry as any).deletedAt
+    });
+
+    const metaRes = await CryptoService.encrypt(metadataPayload, masterKey);
+    const securityScore = this.calculateStrength(plainEntry.sensitive.password || '');
+
+    return {
+      id: plainEntry.id || crypto.randomUUID(),
+      encryptedTitle: titleRes.ciphertext,
+      titleIv: titleRes.iv,
+      titleTag: titleRes.tag,
+      encryptedUsername: usernameRes.ciphertext,
+      usernameIv: usernameRes.iv,
+      usernameTag: usernameRes.tag,
+      encryptedMetadata: metaRes.ciphertext,
+      metadataIv: metaRes.iv,
+      metadataTag: metaRes.tag,
+      category: Category.LOGIN,
+      updatedAt: Date.now(),
+      isFavorite: plainEntry.isFavorite || false,
+      folderId: plainEntry.folderId,
+      deletedAt: (plainEntry as any).deletedAt,
+      securityScore,
+      fileSize: plainEntry.fileSize,
+      encryptedData: ciphertext,
+      iv: iv,
+      tag: tag,
+      encryptedFile,
+      fileIv,
+      fileTag
+    } as VaultEntry;
   }
 }

@@ -29,6 +29,11 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
   const [error, setError] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isAlreadyEnabled, setIsAlreadyEnabled] = useState(false);
+
+  useEffect(() => {
+    setIsAlreadyEnabled(!!localStorage.getItem('aegis_2fa_config'));
+  }, []);
 
   useEffect(() => {
     if (step === 'scan' && !secret) {
@@ -116,6 +121,13 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleDisable = () => {
+    if (confirm(lang === 'tr' ? '2FA\'yı devre dışı bırakmak istediğinizden emin misiniz?' : 'Are you sure you want to disable 2FA?')) {
+      localStorage.removeItem('aegis_2fa_config');
+      onComplete();
+    }
+  };
+
   return (
     <div className="glass border border-white/5 rounded-[3rem] p-12 w-full max-w-xl shadow-2xl relative overflow-hidden">
       <div className="absolute top-8 right-8 z-20">
@@ -137,12 +149,30 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
             <p className="text-sm text-zinc-400 leading-relaxed mb-12 max-w-xs mx-auto font-medium">
               {t('two_factor_desc')}
             </p>
-            <button
-              onClick={() => setStep('scan')}
-              className="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-blue-600/20"
-            >
-              {lang === 'tr' ? 'BAŞLAT' : 'GET STARTED'} <ChevronRight size={18} />
-            </button>
+            <div className="flex flex-col gap-4">
+              <button
+                onClick={() => setStep('scan')}
+                className="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-blue-600/20"
+              >
+                {isAlreadyEnabled ? (lang === 'tr' ? 'YENİDEN YAPILANDIR' : 'RECONFIGURE') : (lang === 'tr' ? 'BAŞLAT' : 'GET STARTED')} <ChevronRight size={18} />
+              </button>
+
+              {isAlreadyEnabled && (
+                <button
+                  onClick={handleDisable}
+                  className="w-full py-4 bg-red-600/10 hover:bg-red-600/20 text-red-500 font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px] border border-red-500/20"
+                >
+                  {lang === 'tr' ? '2FA\'YI DEVRE DIŞI BIRAK' : 'DISABLE 2FA'}
+                </button>
+              )}
+
+              <button
+                onClick={onClose}
+                className="w-full py-4 bg-white/5 hover:bg-white/10 text-zinc-500 font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px]"
+              >
+                {lang === 'tr' ? 'İPTAL ET' : 'CANCEL'}
+              </button>
+            </div>
           </motion.div>
         )}
 
@@ -167,12 +197,20 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
                 </button>
               </div>
             </div>
-            <button
-              onClick={() => setStep('verify')}
-              className="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px] shadow-2xl"
-            >
-              {t('qr_scanned_next')}
-            </button>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setStep('intro')}
+                className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-zinc-500 font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px]"
+              >
+                {lang === 'tr' ? 'GERİ' : 'BACK'}
+              </button>
+              <button
+                onClick={() => setStep('verify')}
+                className="flex-[2] py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px] shadow-2xl"
+              >
+                {t('qr_scanned_next')}
+              </button>
+            </div>
           </motion.div>
         )}
 
@@ -194,13 +232,22 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
               {error && <div className="flex items-center justify-center gap-2 text-red-500 text-[10px] font-black uppercase tracking-widest">
                 <AlertCircle size={14} /> {error}
               </div>}
-              <button
-                type="submit"
-                disabled={isVerifying || verifyCode.length < 6}
-                className="w-full py-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em] text-[10px] shadow-2xl"
-              >
-                {isVerifying ? <Loader2 className="animate-spin" size={24} /> : t('verify')}
-              </button>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setStep('scan')}
+                  className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-zinc-500 font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px]"
+                >
+                  {lang === 'tr' ? 'GERİ' : 'BACK'}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifying || verifyCode.length < 6}
+                  className="flex-[2] py-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em] text-[10px] shadow-2xl"
+                >
+                  {isVerifying ? <Loader2 className="animate-spin" size={24} /> : t('verify')}
+                </button>
+              </div>
             </form>
           </motion.div>
         )}

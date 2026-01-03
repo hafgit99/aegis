@@ -1,9 +1,9 @@
-
 export enum Category {
   LOGIN = 'Login',
   CARD = 'Credit Card',
   NOTE = 'Secure Note',
-  FILE = 'Secure File'
+  FILE = 'Secure File',
+  CRYPTO = 'Crypto Wallet'
 }
 
 export interface CustomField {
@@ -18,6 +18,14 @@ export interface CardDetails {
   expiry: string;
   cvv: string;
   holder: string;
+}
+
+export interface CryptoDetails {
+  walletName: string; // e.g. "Main MetaMask"
+  network: string; // e.g. "Ethereum"
+  address: string; // Public Address
+  seed: string; // Mnemonic (12/24 words) - Masked UI
+  privateKey?: string; // Optional
 }
 
 export interface Folder {
@@ -81,5 +89,6 @@ export interface SensitiveData {
   fileName?: string;
   fileMime?: string;
   cardDetails?: CardDetails;
+  cryptoDetails?: CryptoDetails;
   customFields?: CustomField[];
 }

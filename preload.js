@@ -74,6 +74,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     logEvent: (action, metadata) => ipcRenderer.invoke('audit:log-event', action, metadata),
     flush: () => ipcRenderer.invoke('audit:flush'),
     getLogs: (limit) => ipcRenderer.invoke('audit:get-logs', limit)
+  },
+
+  // Secure Memory Control
+  secureMemory: {
+    lockPages: () => ipcRenderer.invoke('secure-memory:lock-pages'),
+    getStatus: () => ipcRenderer.invoke('secure-memory:get-status')
   }
 });
 

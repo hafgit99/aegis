@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 // Added Loader2 to the imports from lucide-react
-import { X, Crown, ShieldCheck, Key, Copy, Check, Award, Cpu, Smartphone, AlertTriangle, Loader2 } from 'lucide-react';
+import { X, Crown, ShieldCheck, Key, Copy, Check, Award, Cpu, Smartphone, AlertTriangle, Loader2, Coins } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LicensingService } from '../services/licensingService';
+import CryptoPaymentModal from './CryptoPaymentModal';
 
 const LicensingView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { t, lang } = useLanguage();
@@ -12,7 +13,7 @@ const LicensingView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [licenseKey, setLicenseKey] = useState('');
   const [isCopied, setIsCopied] = useState(false);
   const [status, setStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
-  
+  const [showCryptoPayment, setShowCryptoPayment] = useState(false);
   useEffect(() => {
     LicensingService.getDeviceId().then(setDeviceId);
   }, []);
@@ -37,7 +38,7 @@ const LicensingView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ scale: 0.9, opacity: 0, y: 20 }}
       animate={{ scale: 1, opacity: 1, y: 0 }}
       className="glass p-12 rounded-[3.5rem] border border-amber-500/20 w-full max-w-xl text-center shadow-[0_0_100px_rgba(245,158,11,0.1)] relative"
@@ -64,7 +65,7 @@ const LicensingView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             </label>
             <button onClick={handleCopyId} className="text-zinc-500 hover:text-amber-500 transition-colors flex items-center gap-1 text-[9px] font-black uppercase">
               {isCopied ? <Check size={12} /> : <Copy size={12} />}
-              {isCopied ? 'COPIED' : 'COPY'}
+              {isCopied ? t('copied_btn') : t('copy_btn')}
             </button>
           </div>
           <div className="font-mono text-xs text-zinc-400 break-all bg-black/20 p-3 rounded-xl border border-white/5">
@@ -75,11 +76,11 @@ const LicensingView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         {/* License Entry */}
         <div className="space-y-3 text-left">
           <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-4">{t('license_key_label')}</label>
-          <input 
-            type="text" 
+          <input
+            type="text"
             value={licenseKey}
             onChange={e => setLicenseKey(e.target.value)}
-            className="w-full px-6 py-5 bg-black/60 border border-amber-500/10 rounded-[1.5rem] text-amber-500 outline-none focus:border-amber-500/40 font-mono transition-all placeholder:text-zinc-800" 
+            className="w-full px-6 py-5 bg-black/60 border border-amber-500/10 rounded-[1.5rem] text-amber-500 outline-none focus:border-amber-500/40 font-mono transition-all placeholder:text-zinc-800"
             placeholder="XXXX-XXXX-XXXX-XXXX"
           />
         </div>
@@ -98,7 +99,7 @@ const LicensingView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </div>
         )}
 
-        <button 
+        <button
           onClick={handleActivate}
           disabled={status === 'verifying' || !licenseKey}
           className="w-full py-5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-black font-black uppercase tracking-[0.3em] text-[11px] rounded-[1.5rem] shadow-2xl shadow-amber-600/20 transition-all flex items-center justify-center gap-3"
@@ -106,10 +107,29 @@ const LicensingView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           {status === 'verifying' ? <Loader2 className="animate-spin" size={18} /> : <Award size={18} />}
           {t('activate_btn')}
         </button>
+
+        {/* Buy with Crypto Button */}
+        <button
+          onClick={() => setShowCryptoPayment(true)}
+          className="w-full py-5 bg-gradient-to-r from-amber-600/20 to-orange-600/20 hover:from-amber-600/30 hover:to-orange-600/30 border-2 border-amber-500/30 text-amber-500 font-black uppercase tracking-[0.3em] text-[11px] rounded-[1.5rem] shadow-2xl shadow-amber-600/10 transition-all flex items-center justify-center gap-3 mt-4"
+        >
+          <Coins size={18} />
+          {t('buy_with_crypto')}
+        </button>
       </div>
 
+      {/* Crypto Payment Modal */}
+      <AnimatePresence>
+        {showCryptoPayment && (
+          <CryptoPaymentModal
+            onClose={() => setShowCryptoPayment(false)}
+            deviceId={deviceId}
+          />
+        )}
+      </AnimatePresence>
+
       <div className="mt-8">
-        <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">Aegis Licensing Server v4.2 • Secured with ECDSA-P256</p>
+        <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest">{t('license_server_info')}</p>
       </div>
     </motion.div>
   );

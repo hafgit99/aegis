@@ -10,9 +10,15 @@ export interface Breadcrumb {
 
 export class FolderService {
   static async createFolder(name: string, color: string, icon: string, parentId: string | undefined, masterKey: CryptoKey): Promise<Folder> {
+    const folder = await this.encryptFolderHelper(name, color, icon, parentId, masterKey);
+    await db.folders.add(folder);
+    return folder;
+  }
+
+  static async encryptFolderHelper(name: string, color: string, icon: string, parentId: string | undefined, masterKey: CryptoKey): Promise<Folder> {
     const { ciphertext, iv, tag } = await CryptoService.encrypt(name, masterKey);
 
-    const folder: Folder = {
+    return {
       id: crypto.randomUUID(),
       parentId,
       color,
@@ -22,9 +28,6 @@ export class FolderService {
       iv: CryptoService.arrayBufferToBase64(iv.buffer),
       tag: CryptoService.arrayBufferToBase64(tag.buffer)
     };
-
-    await db.folders.add(folder);
-    return folder;
   }
 
   static async decryptFolderName(folder: Folder, masterKey: CryptoKey): Promise<string> {

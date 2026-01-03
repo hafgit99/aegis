@@ -12,6 +12,7 @@ interface AuthContextType {
   setVerifying2FA: (val: boolean) => void;
   tempMasterKey: CryptoKey | null;
   setTempMasterKey: (key: CryptoKey | null, rawKey?: Uint8Array) => void;
+  finalize2FA: () => Promise<void>;
   withMasterKeyRaw: <T>(callback: (raw: Uint8Array) => Promise<T>) => Promise<T>;
 }
 
@@ -34,6 +35,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (rawKey) setTempRawKey(rawKey);
     } else {
       setTempRawKey(undefined);
+    }
+  };
+
+  const finalize2FA = async () => {
+    if (tempMasterKey && tempRawKey) {
+      await setKey(tempMasterKey, tempRawKey);
+      // Clean up temp state
+      setTempMasterKeyState(null);
+      setTempRawKey(undefined);
+      setVerifying2FA(false);
+    } else {
+      throw new Error("2FA_FINALIZE_NO_TEMP_KEY");
     }
   };
 
@@ -104,6 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setVerifying2FA,
       tempMasterKey,
       setTempMasterKey,
+      finalize2FA,
       withMasterKeyRaw
     }}>
       {children}

@@ -8,7 +8,7 @@ import { argon2id } from 'hash-wasm';
 
 export class CryptoService {
   private static ALGORITHM = 'AES-GCM';
-  public static readonly DEFAULT_ITERATIONS = 3;
+  public static readonly DEFAULT_ITERATIONS = 10;
 
   /**
    * Benchmarks the hardware to find an iteration count that takes ~500-1000ms.
@@ -30,9 +30,9 @@ export class CryptoService {
       const singleRunTime = endTime - startTime;
 
       // Calculate ratio (e.g. if single run is 50ms, we need 12 iterations for 600ms)
-      // Safety limits: Min 3 (legacy), Max 60 (to prevent extreme lockouts)
+      // Safety limits: Min 10 (modern), Max 60 (to prevent extreme lockouts)
       let calculated = Math.floor(targetTimeMs / singleRunTime);
-      if (calculated < 3) calculated = 3;
+      if (calculated < 10) calculated = 10;
       if (calculated > 60) calculated = 60;
 
       return calculated;

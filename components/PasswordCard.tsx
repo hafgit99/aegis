@@ -4,7 +4,7 @@ import React, { useState, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Star, Trash2, Copy, Check, Eye, EyeOff, Globe, CreditCard,
-  FileText, Download, CheckSquare, Square, RotateCcw, ShieldAlert
+  FileText, Download, CheckSquare, Square, RotateCcw, ShieldAlert, Wallet
 } from 'lucide-react';
 import { VaultEntry, SensitiveData, Category } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -133,6 +133,13 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
           iconBg: 'bg-indigo-500/10 text-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.1)]',
           accent: 'text-indigo-500'
         };
+      case Category.CRYPTO:
+        return {
+          bg: isDark ? 'bg-gradient-to-br from-[#2e1065] to-[#020617]' : 'bg-gradient-to-br from-purple-50 to-white',
+          border: 'border-purple-500/10 group-hover:border-purple-500/40',
+          iconBg: 'bg-purple-500/10 text-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.1)]',
+          accent: 'text-purple-500'
+        };
       default: // LOGIN
         return {
           bg: isDark ? 'bg-gradient-to-br from-[#0f172a] to-[#020617]' : 'bg-gradient-to-br from-blue-50 to-white',
@@ -174,6 +181,7 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
             {entry.category === Category.CARD && <CreditCard size={22} />}
             {entry.category === Category.NOTE && <FileText size={22} />}
             {entry.category === Category.FILE && <Download size={22} />}
+            {entry.category === Category.CRYPTO && <Wallet size={22} />}
           </div>
 
           <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0">
@@ -237,69 +245,137 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
           )}
         </div>
 
-        {/* Reveal Overlay */}
+        {/* Reveal Overlay - Standard types are inline, Crypto uses a specialized Modal */}
         <AnimatePresence>
           {isRevealed && sensitiveData && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 z-30 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center text-center rounded-[2.5rem]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {(entry.category === Category.CARD || entry.category === 'Credit Card') ? (
-                <div className="relative w-full h-full p-4 perspective-1000 flex flex-col">
-                  <motion.div
-                    className={`relative w-full flex-1 rounded-2xl shadow-xl transition-transform duration-700 ${isFlipped ? 'rotate-y-180' : ''}`}
-                    style={{ transformStyle: 'preserve-3d' }}
-                  >
-                    {/* Front of the card */}
-                    <div className="absolute inset-0 backface-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-2xl p-4 flex flex-col justify-between">
-                      <div className="flex justify-between items-start">
-                        <CreditCard size={24} className="text-amber-400" />
-                        <span className="text-xs font-mono text-zinc-400">{sensitiveData.cardDetails?.number?.slice(-4) || '****'}</span>
-                      </div>
-                      <div className="text-left">
-                        <p className="text-white text-lg font-bold tracking-wider mb-1">{sensitiveData.cardDetails?.number?.replace(/\s/g, '').match(/.{1,4}/g)?.join(' ') || '**** **** **** ****'}</p>
-                        <div className="flex justify-between text-zinc-400 text-xs">
-                          <span>{sensitiveData.cardDetails?.holder || 'CARD HOLDER'}</span>
-                          <span>{sensitiveData.cardDetails?.expiry || 'MM/YY'}</span>
-                        </div>
+            entry.category === Category.CRYPTO ? (
+              <motion.div
+                key="crypto-modal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+                onClick={() => setIsRevealed(false)}
+              >
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                  className="w-full max-w-lg bg-[#0a0a0b] border border-purple-500/30 rounded-[3rem] p-8 text-left shadow-[0_0_100px_rgba(0,0,0,0.5)] relative overflow-hidden my-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="absolute -right-20 -top-20 w-64 h-64 bg-purple-500/5 blur-[100px] rounded-full" />
+
+                  <div className="flex items-center gap-4 mb-8 border-b border-white/5 pb-6 relative z-10">
+                    <div className="w-14 h-14 bg-purple-600/10 text-purple-500 rounded-3xl flex items-center justify-center shadow-inner flex-shrink-0">
+                      <Wallet size={28} />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-xl font-black text-white uppercase tracking-tighter leading-none truncate">{sensitiveData.cryptoDetails?.network || t('cat_crypto')}</h3>
+                      <p className="text-[10px] text-purple-500 font-bold uppercase tracking-[0.2em] mt-2 opacity-80">Secure Wallet Data</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6 relative z-10 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                    <div className="space-y-2">
+                      <label className="text-[9px] text-zinc-600 uppercase tracking-widest font-black block pl-2">{t('crypto_address')}</label>
+                      <div className="p-4 bg-black/40 rounded-2xl border border-white/5 font-mono text-[10px] text-zinc-300 break-all leading-relaxed shadow-inner group/addr">
+                        {sensitiveData.cryptoDetails?.address}
                       </div>
                     </div>
 
-                    {/* Back of the card */}
-                    <div className="absolute inset-0 backface-hidden rotate-y-180 bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-2xl p-4 flex flex-col justify-between">
-                      <div className="h-10 bg-black mt-4 rounded" />
-                      <div className="flex justify-end items-center mt-4">
-                        <span className="bg-zinc-700 text-white text-xs px-2 py-1 rounded">{sensitiveData.cardDetails?.cvv || '***'}</span>
+                    <div className="space-y-2">
+                      <label className="text-[9px] text-amber-500 uppercase tracking-widest font-black block pl-2">{t('crypto_seed')}</label>
+                      <div className="p-4 bg-amber-500/[0.03] rounded-2xl border border-amber-500/10 font-mono text-xs text-amber-500/90 break-words leading-relaxed select-all shadow-inner font-bold">
+                        {sensitiveData.cryptoDetails?.seed}
                       </div>
-                      <p className="text-zinc-400 text-xs text-center mt-2">
-                        {t('card_security_code_info')}
-                      </p>
                     </div>
-                  </motion.div>
-                  <div className="mt-4 flex gap-3 justify-center w-full relative z-50">
-                    <button onClick={(e) => { e.stopPropagation(); setIsFlipped(!isFlipped); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-[10px] font-black text-white uppercase tracking-[0.2em] rounded-xl transition-all shadow-lg active:scale-95">
-                      <RotateCcw size={14} />
-                      {lang === 'tr' ? (isFlipped ? 'ÖN YÜZ' : 'ARKA YÜZ') : (isFlipped ? 'FRONT' : 'BACK')}
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setIsRevealed(false); }} className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 text-[10px] font-black text-red-400 uppercase tracking-[0.3em] rounded-xl transition-all border border-red-500/20">
-                      {t('abort')}
-                    </button>
+
+                    {sensitiveData.cryptoDetails?.privateKey && (
+                      <div className="space-y-2">
+                        <label className="text-[9px] text-rose-500 uppercase tracking-widest font-black block pl-2">{t('crypto_private_key')}</label>
+                        <div className="p-4 bg-rose-500/[0.03] rounded-2xl border border-rose-500/10 font-mono text-[10px] text-rose-400 break-all select-all shadow-inner">
+                          {sensitiveData.cryptoDetails.privateKey}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ) : (
-                <div className="mb-4 p-3 bg-white/5 rounded-2xl border border-white/10 w-full overflow-hidden">
-                  <span className="text-xs font-mono text-blue-400 tracking-[0.2em] break-all select-all">
-                    {sensitiveData.password || '••••••••'}
-                  </span>
-                </div>
-              )}
-              {!(entry.category === Category.CARD || entry.category === 'Credit Card') && (
-                <button onClick={() => setIsRevealed(false)} className="px-6 py-2 bg-white/10 hover:bg-white/20 text-[10px] font-black text-white uppercase tracking-[0.3em] rounded-xl transition-all">{t('abort')}</button>
-              )}
-            </motion.div>
+
+                  <button onClick={() => setIsRevealed(false)} className="mt-8 w-full py-4 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-[0.3em] rounded-2xl transition-all shadow-[0_20px_40px_rgba(147,51,234,0.3)]">
+                    {t('hide_wallet')}
+                  </button>
+                </motion.div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="inline-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-30 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center text-center rounded-[2.5rem]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {(entry.category === Category.CARD || entry.category === 'Credit Card') ? (
+                  <div className="relative w-full h-full p-4 perspective-1000 flex flex-col">
+                    <motion.div
+                      className={`relative w-full flex-1 rounded-2xl shadow-xl transition-transform duration-700 ${isFlipped ? 'rotate-y-180' : ''}`}
+                      style={{ transformStyle: 'preserve-3d' }}
+                    >
+                      {/* Front: Reverted to old design */}
+                      <div className="absolute inset-0 backface-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-2xl p-4 flex flex-col justify-between">
+                        <div className="flex justify-between items-start">
+                          <CreditCard size={24} className="text-amber-400" />
+                          <span className="text-xs font-mono text-zinc-400">{sensitiveData.cardDetails?.number?.slice(-4) || '****'}</span>
+                        </div>
+                        <div className="text-left">
+                          <p className="text-white text-lg font-bold tracking-wider mb-1">{sensitiveData.cardDetails?.number?.replace(/\s/g, '').match(/.{1,4}/g)?.join(' ') || '**** **** **** ****'}</p>
+                          <div className="flex justify-between text-zinc-400 text-xs">
+                            <span>{sensitiveData.cardDetails?.holder || 'CARD HOLDER'}</span>
+                            <span>{sensitiveData.cardDetails?.expiry || 'MM/YY'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Back: Reverted to old design */}
+                      <div className="absolute inset-0 backface-hidden rotate-y-180 bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-2xl p-4 flex flex-col justify-between">
+                        <div className="h-10 bg-black mt-4 rounded" />
+                        <div className="flex justify-end items-center mt-4">
+                          <span className="bg-zinc-700 text-white text-xs px-2 py-1 rounded">{sensitiveData.cardDetails?.cvv || '***'}</span>
+                        </div>
+                        <p className="text-zinc-400 text-xs text-center mt-2">
+                          {t('card_security_code_info')}
+                        </p>
+                      </div>
+                    </motion.div>
+                    <div className="mt-4 flex gap-3 justify-center w-full relative z-50">
+                      <button onClick={(e) => { e.stopPropagation(); setIsFlipped(!isFlipped); }} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-[10px] font-black text-white uppercase tracking-[0.2em] rounded-xl transition-all shadow-lg active:scale-95">
+                        <RotateCcw size={14} />
+                        {lang === 'tr' ? (isFlipped ? 'ÖN YÜZ' : 'ARKA YÜZ') : (isFlipped ? 'FRONT' : 'BACK')}
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); setIsRevealed(false); }} className="px-6 py-2 bg-red-500/20 hover:bg-red-500/30 text-[10px] font-black text-red-400 uppercase tracking-[0.3em] rounded-xl transition-all border border-red-500/20">
+                        {t('abort')}
+                      </button>
+                    </div>
+                  </div>
+                ) : entry.category === Category.NOTE ? (
+                  <div className="w-full h-full p-4 flex flex-col justify-center items-center">
+                    <div className="bg-black/60 border border-white/5 rounded-2xl p-4 font-bold text-sm text-zinc-300 whitespace-pre-wrap text-left flex-1 w-full overflow-y-auto custom-scrollbar leading-relaxed shadow-inner">
+                      {sensitiveData.notes}
+                    </div>
+                    <button onClick={() => setIsRevealed(false)} className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 text-[10px] font-black text-white uppercase tracking-[0.3em] rounded-xl transition-all">{t('abort')}</button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-4 p-3 bg-white/5 rounded-2xl border border-white/10 w-full overflow-hidden">
+                      <span className="text-xs font-mono text-blue-400 tracking-[0.2em] break-all select-all">
+                        {sensitiveData.password || '••••••••'}
+                      </span>
+                    </div>
+                    <button onClick={() => setIsRevealed(false)} className="px-6 py-2 bg-white/10 hover:bg-white/20 text-[10px] font-black text-white uppercase tracking-[0.3em] rounded-xl transition-all">{t('abort')}</button>
+                  </>
+                )}
+              </motion.div>
+            )
           )}
         </AnimatePresence>
       </div>

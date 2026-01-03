@@ -67,16 +67,16 @@ const brandIconSvg = `
     d="M100 15C65 15 35 30 35 65C35 125 100 180 100 180C100 180 165 125 165 65C165 30 135 15 100 15Z"
     fill="none"
     stroke="url(#security-accent)"
-    strokeWidth="2"
-    strokeOpacity="0.3"
+    strokeWidth="3"
+    strokeOpacity="0.6"
   />
 
   {/* Ana kalkan gövdesi */}
   <path
     d="M100 20C70 20 40 35 40 70C40 120 100 170 100 170C100 170 160 120 160 70C160 35 130 20 100 20Z"
     fill="url(#shield-body)"
-    stroke="rgba(96, 165, 250, 0.1)"
-    strokeWidth="1"
+    stroke="rgba(96, 165, 250, 0.3)"
+    strokeWidth="2"
   />
 
   {/* Cam katmanı */}
@@ -97,15 +97,15 @@ const brandIconSvg = `
   <path
     d="M70 50L130 150"
     stroke="url(#security-accent)"
-    strokeWidth="1.5"
-    strokeOpacity="0.2"
+    strokeWidth="3"
+    strokeOpacity="0.5"
     strokeLinecap="round"
   />
   <path
     d="M130 50L70 150"
     stroke="url(#security-accent)"
-    strokeWidth="1.5"
-    strokeOpacity="0.2"
+    strokeWidth="3"
+    strokeOpacity="0.5"
     strokeLinecap="round"
   />
 
@@ -126,7 +126,7 @@ async function generateIcon() {
     
     console.log('📝 BrandIcon SVG → PNG → ICO dönüştürülüyor...\n');
 
-    // 1. PNG oluştur (256x256)
+    // 1. PNG oluştur (256x256 - High DPI)
     await sharp(Buffer.from(brandIconSvg))
       .png()
       .toFile(path.join(buildDir, 'icon.png'));

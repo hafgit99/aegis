@@ -125,41 +125,22 @@ export function generateRecoveryPIN(): string {
   return pin;
 }
 
-// Hash recovery PIN for secure storage with PBKDF2
+// Hash recovery PIN for secure storage with Argon2id (GPU-resistant)
 async function hashRecoveryPIN(pin: string): Promise<string> {
   // SECURITY: Generate 16-byte cryptographic salt
   const salt = window.crypto.getRandomValues(new Uint8Array(16));
+  const saltB64 = CryptoService.arrayBufferToBase64(salt);
 
   try {
-    // PBKDF2 with 100,000 iterations (NIST-recommended)
-    const key = await window.crypto.subtle.deriveKey(
-      {
-        name: 'PBKDF2',
-        salt: salt,
-        iterations: 100000,
-        hash: 'SHA-256'
-      },
-      await window.crypto.subtle.importKey(
-        'raw',
-        new TextEncoder().encode(pin),
-        'PBKDF2',
-        false,
-        ['deriveKey']
-      ),
-      { name: 'AES-GCM', length: 256 },
-      true,
-      ['encrypt']
-    );
+    // Use Argon2id via CryptoService (memory-hard, GPU-resistant)
+    const { raw: hashBytes } = await CryptoService.deriveKeyWithRaw(pin, salt, 3);
 
-    const exported = await window.crypto.subtle.exportKey('raw', key);
-    const hashBytes = new Uint8Array(exported);
-
-    // Return JSON with both hash and salt for verification
+    // Return JSON with new Argon2id format
     return JSON.stringify({
       hash: CryptoService.arrayBufferToBase64(hashBytes),
-      salt: CryptoService.arrayBufferToBase64(salt),
-      algorithm: 'PBKDF2-SHA256-100k',
-      version: 2
+      salt: saltB64,
+      algorithm: 'ARGON2ID-SHA256',
+      version: 3
     });
   } catch (e) {
     console.error('PIN hashing failed:', e);
@@ -439,7 +420,37 @@ export class RecoveryService {
         return isValid;
       }
 
-      // PBKDF2 verification (version 2+)
+      // Argon2id verification (version 3+) - Modern, GPU-resistant
+      if (stored.algorithm === 'ARGON2ID-SHA256' && stored.salt && stored.hash) {
+        const salt = new Uint8Array(CryptoService.base64ToArrayBuffer(stored.salt));
+
+        // Derive using Argon2id with same parameters
+        const { raw: hashBytes } = await CryptoService.deriveKeyWithRaw(pin, salt, 3);
+        const providedHash = CryptoService.arrayBufferToBase64(hashBytes);
+
+        const isValid = providedHash === stored.hash;
+
+        if (isValid) {
+          // Update metadata with encrypted support
+          if (masterKey) {
+            await this.updateEncryptedMetadata(masterKey, {
+              lastVerified: Date.now(),
+              verificationCount: ((await this.getDecryptedRecoveryMetadata(masterKey))?.verificationCount || 0) + 1,
+            });
+          } else {
+            const metadata = this.getRecoveryMetadata();
+            if (metadata && !this.isEncryptedRecoveryMetadata(metadata)) {
+              metadata.lastVerified = Date.now();
+              metadata.verificationCount = (metadata.verificationCount || 0) + 1;
+              localStorage.setItem(RECOVERY_METADATA_KEY, JSON.stringify(metadata));
+            }
+          }
+        }
+
+        return isValid;
+      }
+
+      // PBKDF2 verification (version 2) - Legacy support with transparent upgrade
       if (stored.algorithm === 'PBKDF2-SHA256-100k' && stored.salt && stored.hash) {
         const salt = new Uint8Array(
           CryptoService.base64ToArrayBuffer(stored.salt)
@@ -471,6 +482,15 @@ export class RecoveryService {
         const isValid = providedHash === stored.hash;
 
         if (isValid) {
+          // SECURITY: Transparent upgrade to Argon2id
+          console.log('[Security] Upgrading PIN hash from PBKDF2 to Argon2id...');
+          try {
+            const newHash = await hashRecoveryPIN(pin);
+            localStorage.setItem(RECOVERY_HASH_KEY, newHash);
+          } catch (e) {
+            console.error('[Security] PIN upgrade failed:', e);
+          }
+
           // Update metadata with encrypted support
           if (masterKey) {
             await this.updateEncryptedMetadata(masterKey, {
@@ -703,12 +723,16 @@ export class RecoveryService {
       );
       return { key, raw: new Uint8Array(rawKey) };
     } catch (e) {
-      // Try legacy method (v2.1)
+      // Try Argon2id legacy (3 iterations)
       try {
-        const legacyKey = await this.deriveKeyFromWordsLegacy(words);
+        const deviceId = await getDeviceIdFromElectron();
+        const combined = words.map(w => w.trim().toLowerCase()).join(' ');
+        const salt = encoder.encode(`aegis_vault_recovery_device_${deviceId}_argon2id_${RECOVERY_VERSION}_secure`);
+        const { key: recoveryKey } = await CryptoService.deriveKeyWithRaw(combined, salt, 3);
+
         const decryptedRawKeyB64 = await CryptoService.decrypt(
           new Uint8Array(ciphertext),
-          legacyKey,
+          recoveryKey,
           iv,
           tag
         );
@@ -717,12 +741,32 @@ export class RecoveryService {
           'raw',
           rawKey,
           { name: 'AES-GCM' },
-          false, // SECURITY: Non-extractable
+          false,
           ['encrypt', 'decrypt']
         );
         return { key, raw: new Uint8Array(rawKey) };
-      } catch (legacyErr) {
-        throw new Error("RECOVERY_AUTH_FAILED");
+      } catch (argonLegacyErr) {
+        // Try legacy method (v2.1 PBKDF2)
+        try {
+          const legacyKey = await this.deriveKeyFromWordsLegacy(words);
+          const decryptedRawKeyB64 = await CryptoService.decrypt(
+            new Uint8Array(ciphertext),
+            legacyKey,
+            iv,
+            tag
+          );
+          const rawKey = CryptoService.base64ToArrayBuffer(decryptedRawKeyB64);
+          const key = await window.crypto.subtle.importKey(
+            'raw',
+            rawKey,
+            { name: 'AES-GCM' },
+            false,
+            ['encrypt', 'decrypt']
+          );
+          return { key, raw: new Uint8Array(rawKey) };
+        } catch (legacyErr) {
+          throw new Error("RECOVERY_AUTH_FAILED");
+        }
       }
     }
   }

@@ -6,7 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { usePasswordGenerator } from '../hooks/usePasswordGenerator';
 // Added Check icon to imports from lucide-react
-import { FileUp, File, X, AlertCircle, Loader2, Plus, Trash2, Eye, EyeOff, Lock, Globe, CreditCard, FileText, Download, ChevronRight, Wand2, Check } from 'lucide-react';
+import { FileUp, File, X, AlertCircle, Loader2, Plus, Trash2, Eye, EyeOff, Lock, Globe, CreditCard, FileText, Download, ChevronRight, Wand2, Check, Wallet } from 'lucide-react';
 
 interface EntryFormProps {
   entry?: VaultEntry;
@@ -37,7 +37,8 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
     notes: '',
     url: '',
     customFields: [],
-    cardDetails: { number: '', expiry: '', cvv: '', holder: '' }
+    cardDetails: { number: '', expiry: '', cvv: '', holder: '' },
+    cryptoDetails: { walletName: '', network: '', address: '', seed: '', privateKey: '' }
   });
 
   const handleQuickGenerate = () => {
@@ -115,7 +116,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
           </div>
           <div>
             <h2 className="text-2xl font-black text-white tracking-tight uppercase leading-none">{entry ? t('synced') : t('new_secret')}</h2>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Secure AES-256 Vault Write</p>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">{t('vault_write_msg')}</p>
           </div>
         </div>
         <button onClick={onClose} className="p-3 text-zinc-500 hover:text-white transition-all bg-white/5 rounded-2xl"><X size={24} /></button>
@@ -123,12 +124,17 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
 
       <form className="p-10 space-y-8" onSubmit={(e) => {
         e.preventDefault();
-        onSave({ ...formData, tags: formData.tags.split(',').map(s => s.trim()).filter(Boolean), sensitive: sensitiveData });
+        onSave({
+          ...formData,
+          id: entry?.id,
+          tags: formData.tags.split(',').map(s => s.trim()).filter(Boolean),
+          sensitive: sensitiveData
+        });
       }}>
         <div className="grid grid-cols-2 gap-8">
           <div className="space-y-3 col-span-2">
             <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('asset_name')}</label>
-            <input required autoFocus value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 transition-all font-bold" placeholder="Example: Google, Amazon, My Wallet..." />
+            <input required autoFocus value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 transition-all font-bold select-text" placeholder={t('placeholder_title')} />
           </div>
 
           <div className="space-y-3 col-span-2 md:col-span-1">
@@ -139,6 +145,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
                 <option value={Category.CARD}>{t('cat_card')}</option>
                 <option value={Category.NOTE}>{t('cat_note')}</option>
                 <option value={Category.FILE}>{t('cat_file')}</option>
+                <option value={Category.CRYPTO}>{t('cat_crypto')}</option>
               </select>
               <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-zinc-600 pointer-events-none" size={18} />
             </div>
@@ -146,7 +153,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
 
           <div className="space-y-3 col-span-2 md:col-span-1">
             <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('tags')}</label>
-            <input value={formData.tags} onChange={e => setFormData({ ...formData, tags: e.target.value })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-bold" placeholder="Personal, Work, Important..." />
+            <input value={formData.tags} onChange={e => setFormData({ ...formData, tags: e.target.value })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-bold select-text" placeholder={t('placeholder_tags')} />
           </div>
 
           {formData.category === Category.LOGIN && (
@@ -154,7 +161,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="col-span-2 grid grid-cols-2 gap-8">
                 <div className="space-y-3 col-span-2 md:col-span-1">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('identity')}</label>
-                  <input value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono" placeholder="username@email.com" />
+                  <input value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono select-text" placeholder={t('placeholder_username')} />
                 </div>
                 <div className="space-y-3 col-span-2 md:col-span-1">
                   <div className="flex justify-between items-center pr-2">
@@ -168,7 +175,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
                       type={showPassword ? "text" : "password"}
                       value={sensitiveData.password}
                       onChange={e => setSensitiveData({ ...sensitiveData, password: e.target.value })}
-                      className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono pr-14"
+                      className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono pr-14 select-text"
                       placeholder="••••••••••••"
                     />
                     <button
@@ -182,7 +189,63 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
                 </div>
                 <div className="space-y-3 col-span-2">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('portal_url')}</label>
-                  <input type="url" value={sensitiveData.url} onChange={e => setSensitiveData({ ...sensitiveData, url: e.target.value })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono" placeholder="https://example.com" />
+                  <input type="url" value={sensitiveData.url} onChange={e => setSensitiveData({ ...sensitiveData, url: e.target.value })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono select-text" placeholder={t('placeholder_url')} />
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          )}
+
+          {formData.category === Category.CRYPTO && (
+            <AnimatePresence mode="wait">
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="col-span-2 grid grid-cols-2 gap-8">
+                <div className="space-y-3 col-span-1">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('crypto_network')}</label>
+                  <input
+                    value={sensitiveData.cryptoDetails?.network || ''}
+                    onChange={e => setSensitiveData({ ...sensitiveData, cryptoDetails: { ...sensitiveData.cryptoDetails!, network: e.target.value, walletName: formData.title, address: sensitiveData.cryptoDetails?.address || '', seed: sensitiveData.cryptoDetails?.seed || '' } })}
+                    className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-bold select-text"
+                    placeholder={t('crypto_network_placeholder')}
+                  />
+                </div>
+                <div className="space-y-3 col-span-1">
+                </div>
+
+                <div className="space-y-3 col-span-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('crypto_address')}</label>
+                  <input
+                    value={sensitiveData.cryptoDetails?.address || ''}
+                    onChange={e => setSensitiveData({ ...sensitiveData, cryptoDetails: { ...sensitiveData.cryptoDetails!, address: e.target.value, walletName: formData.title, network: sensitiveData.cryptoDetails?.network || '', seed: sensitiveData.cryptoDetails?.seed || '' } })}
+                    className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono text-xs select-text"
+                    placeholder={t('crypto_address_placeholder')}
+                  />
+                </div>
+
+                <div className="space-y-3 col-span-2">
+                  <div className="flex justify-between items-center pr-2">
+                    <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest block pl-1">{t('crypto_seed')}</label>
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-zinc-500 hover:text-white transition-colors">
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={sensitiveData.cryptoDetails?.seed || ''}
+                    onChange={e => setSensitiveData({ ...sensitiveData, cryptoDetails: { ...sensitiveData.cryptoDetails!, seed: e.target.value, walletName: formData.title, network: sensitiveData.cryptoDetails?.network || '', address: sensitiveData.cryptoDetails?.address || '' } })}
+                    className={`w-full px-6 py-5 bg-black/60 border border-amber-500/20 rounded-[1.5rem] text-white outline-none focus:border-amber-500/50 font-mono text-sm resize-none select-text ${!showPassword ? 'text-security-disc' : ''}`}
+                    placeholder={showPassword ? t('crypto_seed_placeholder_shown') : t('crypto_seed_placeholder_hidden')}
+                    style={!showPassword ? { WebkitTextSecurity: 'disc' } : {}}
+                  />
+                </div>
+
+                <div className="space-y-3 col-span-2">
+                  <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest block pl-1">{t('crypto_private_key')}</label>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={sensitiveData.cryptoDetails?.privateKey || ''}
+                    onChange={e => setSensitiveData({ ...sensitiveData, cryptoDetails: { ...sensitiveData.cryptoDetails!, privateKey: e.target.value, seed: sensitiveData.cryptoDetails?.seed || '', walletName: formData.title, network: sensitiveData.cryptoDetails?.network || '', address: sensitiveData.cryptoDetails?.address || '' } })}
+                    className="w-full px-6 py-5 bg-black/60 border border-rose-500/20 rounded-[1.5rem] text-white outline-none focus:border-rose-500/50 font-mono text-xs select-text"
+                    placeholder={t('crypto_pk_placeholder')}
+                  />
                 </div>
               </motion.div>
             </AnimatePresence>
@@ -193,19 +256,19 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="col-span-2 grid grid-cols-2 gap-8">
                 <div className="space-y-3 col-span-2">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('card_number')}</label>
-                  <input value={sensitiveData.cardDetails?.number} onChange={handleCardNumberChange} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono tracking-widest" placeholder="0000 0000 0000 0000" />
+                  <input value={sensitiveData.cardDetails?.number} onChange={handleCardNumberChange} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono tracking-widest select-text" placeholder="0000 0000 0000 0000" />
                 </div>
                 <div className="space-y-3 col-span-1">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('expiry')}</label>
-                  <input value={sensitiveData.cardDetails?.expiry} onChange={e => setSensitiveData({ ...sensitiveData, cardDetails: { ...sensitiveData.cardDetails!, expiry: e.target.value } })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50" placeholder="MM/YY" />
+                  <input value={sensitiveData.cardDetails?.expiry} onChange={e => setSensitiveData({ ...sensitiveData, cardDetails: { ...sensitiveData.cardDetails!, expiry: e.target.value } })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 select-text" placeholder="MM/YY" />
                 </div>
                 <div className="space-y-3 col-span-1">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('cvv')}</label>
-                  <input type="password" maxLength={4} value={sensitiveData.cardDetails?.cvv} onChange={e => setSensitiveData({ ...sensitiveData, cardDetails: { ...sensitiveData.cardDetails!, cvv: e.target.value } })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50" placeholder="***" />
+                  <input type="password" maxLength={4} value={sensitiveData.cardDetails?.cvv} onChange={e => setSensitiveData({ ...sensitiveData, cardDetails: { ...sensitiveData.cardDetails!, cvv: e.target.value } })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 select-text" placeholder="***" />
                 </div>
                 <div className="space-y-3 col-span-2">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('card_holder')}</label>
-                  <input value={sensitiveData.cardDetails?.holder} onChange={e => setSensitiveData({ ...sensitiveData, cardDetails: { ...sensitiveData.cardDetails!, holder: e.target.value } })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-bold" />
+                  <input value={sensitiveData.cardDetails?.holder} onChange={e => setSensitiveData({ ...sensitiveData, cardDetails: { ...sensitiveData.cardDetails!, holder: e.target.value } })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-bold select-text" />
                 </div>
               </motion.div>
             </AnimatePresence>
@@ -215,7 +278,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
             <AnimatePresence mode="wait">
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-3 col-span-2">
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('note_content')}</label>
-                <textarea rows={8} value={sensitiveData.notes} onChange={e => setSensitiveData({ ...sensitiveData, notes: e.target.value })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 resize-none font-bold" placeholder="Write your secret notes here..." />
+                <textarea rows={8} value={sensitiveData.notes} onChange={e => setSensitiveData({ ...sensitiveData, notes: e.target.value })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 resize-none font-bold select-text" placeholder={t('placeholder_notes')} />
               </motion.div>
             </AnimatePresence>
           )}
@@ -233,11 +296,11 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
                   </span>
                   {sensitiveData.fileBlob && (
                     <span className="text-[9px] text-zinc-500 font-bold uppercase mt-2 tracking-widest">
-                      {(formData.fileSize / 1024 / 1024).toFixed(2)} MB - READY TO SYNC
+                      {(formData.fileSize / 1024 / 1024).toFixed(2)} MB - {t('ready_to_sync')}
                     </span>
                   )}
                   {!sensitiveData.fileBlob && (
-                    <span className="text-[10px] text-zinc-600 uppercase font-bold mt-2 tracking-widest">Max 5MB • Encrypted Storage</span>
+                    <span className="text-[10px] text-zinc-600 uppercase font-bold mt-2 tracking-widest">{t('file_storage_info')}</span>
                   )}
                 </div>
               </motion.div>
@@ -259,10 +322,10 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
                 {(sensitiveData.customFields || []).map((field) => (
                   <motion.div layout initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={field.id} className="flex gap-3 items-end">
                     <div className="flex-1">
-                      <input value={field.label} onChange={e => updateCustomField(field.id, { label: e.target.value })} placeholder={t('field_label')} className="w-full bg-black/40 border border-white/5 px-4 py-3.5 rounded-xl text-[10px] text-white font-black uppercase tracking-widest outline-none focus:border-blue-500/20" />
+                      <input value={field.label} onChange={e => updateCustomField(field.id, { label: e.target.value })} placeholder={t('field_label')} className="w-full bg-black/40 border border-white/5 px-4 py-3.5 rounded-xl text-[10px] text-white font-black uppercase tracking-widest outline-none focus:border-blue-500/20 select-text" />
                     </div>
                     <div className="flex-[2] relative">
-                      <input type={field.isSecret ? "password" : "text"} value={field.value} onChange={e => updateCustomField(field.id, { value: e.target.value })} placeholder={t('field_value')} className="w-full bg-black/40 border border-white/5 px-4 py-3.5 rounded-xl text-xs text-white font-mono outline-none focus:border-blue-500/20 pr-12" />
+                      <input type={field.isSecret ? "password" : "text"} value={field.value} onChange={e => updateCustomField(field.id, { value: e.target.value })} placeholder={t('field_value')} className="w-full bg-black/40 border border-white/5 px-4 py-3.5 rounded-xl text-xs text-white font-mono outline-none focus:border-blue-500/20 pr-12 select-text" />
                       <button type="button" onClick={() => updateCustomField(field.id, { isSecret: !field.isSecret })} className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-white">
                         {field.isSecret ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>

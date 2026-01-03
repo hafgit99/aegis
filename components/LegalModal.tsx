@@ -16,26 +16,19 @@ const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, docType }) => 
   const [agreed, setAgreed] = useState(false);
 
   const getDocumentTitle = () => {
-    if (docType === 'terms') {
-      return lang === 'en' ? t('legal_terms_title') : t('legal_terms_title_tr');
-    } else {
-      return lang === 'en' ? t('legal_privacy_title') : t('legal_privacy_title_tr');
-    }
+    return docType === 'terms' ? t('legal_terms_title') : t('legal_privacy_title');
   };
 
   const renderTermsContent = () => {
-    const prefix = lang === 'en' ? 'terms_of_use_section_' : 'terms_section_';
-    const suffix = lang === 'en' ? '' : '_tr';
-
     return (
       <div className="space-y-6">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
           <div key={num} className="space-y-2">
             <h3 className="text-sm font-bold text-white uppercase tracking-widest">
-              {t(`${prefix}${num}${suffix}` as any)}
+              {t(`legal_terms_section_${num}` as any)}
             </h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              {t(`${prefix}${num}_desc${suffix}` as any)}
+              {t(`legal_terms_section_${num}_desc` as any)}
             </p>
           </div>
         ))}
@@ -44,18 +37,15 @@ const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, docType }) => 
   };
 
   const renderPrivacyContent = () => {
-    const prefix = lang === 'en' ? 'privacy_policy_section_' : 'privacy_section_';
-    const suffix = lang === 'en' ? '' : '_tr';
-
     return (
       <div className="space-y-6">
         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => (
           <div key={num} className="space-y-2">
             <h3 className="text-sm font-bold text-white uppercase tracking-widest">
-              {t(`${prefix}${num}${suffix}` as any)}
+              {t(`legal_privacy_section_${num}` as any)}
             </h3>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              {t(`${prefix}${num}_desc${suffix}` as any)}
+              {t(`legal_privacy_section_${num}_desc` as any)}
             </p>
           </div>
         ))}
@@ -108,7 +98,7 @@ const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, docType }) => 
                   className="w-4 h-4 mt-0.5 accent-blue-500 cursor-pointer"
                 />
                 <span className="text-xs text-zinc-400 group-hover:text-zinc-300 leading-relaxed">
-                  {lang === 'en' ? t('legal_agree_checkbox') : t('legal_agree_checkbox_tr')}
+                  {t('legal_agree_checkbox')}
                 </span>
               </label>
 
@@ -117,7 +107,7 @@ const LegalModal: React.FC<LegalModalProps> = ({ isOpen, onClose, docType }) => 
                   onClick={onClose}
                   className="flex-1 px-6 py-3 border border-zinc-800 hover:bg-white/5 text-zinc-400 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all"
                 >
-                  {lang === 'en' ? t('legal_close_button') : t('legal_close_button_tr')}
+                  {t('legal_close_button')}
                 </button>
                 <button
                   disabled={!agreed}

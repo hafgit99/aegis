@@ -23,13 +23,13 @@ type AuthState = 'idle' | 'stretching' | '2fa' | 'recovery' | 'success' | 'error
 const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup }) => {
   const { t, lang, setLang } = useLanguage();
   const { theme } = useTheme();
-  const { setKey, isVerifying2FA, setVerifying2FA, tempMasterKey, setDeriving } = useAuth();
+  const { setKey, isVerifying2FA, setVerifying2FA, tempMasterKey, setDeriving, finalize2FA } = useAuth();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [status, setStatus] = useState<AuthState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [recoveryWords, setRecoveryWords] = useState<string[]>(Array(16).fill(''));
+  const [recoveryWords, setRecoveryWords] = useState<string[]>(Array(24).fill(''));
   const [eulaAccepted, setEulaAccepted] = useState(false);
   const [showEulaModal, setShowEulaModal] = useState(false);
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
@@ -88,10 +88,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
     if (lockoutTimer > 0) return;
     setStatus('stretching');
     try {
-      const key = await BiometricService.unlock();
-      if (key) {
+      const result = await BiometricService.unlock();
+      if (result) {
         await BruteForceService.recordSuccess();
-        setKey(key);
+        await setKey(result.key, result.raw);
         setStatus('success');
       } else {
         await BruteForceService.recordFailure();
@@ -159,7 +159,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
     if (words.length > 1) {
       e.preventDefault();
       const next = [...recoveryWords];
-      for (let i = 0; i < words.length && (index + i) < 16; i++) {
+      for (let i = 0; i < words.length && (index + i) < 24; i++) {
         next[index + i] = words[i].toLowerCase().trim();
       }
       setRecoveryWords(next);
@@ -170,7 +170,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
     e.preventDefault();
     const filledWordsCount = recoveryWords.filter(w => w.trim() !== '').length;
 
-    if (filledWordsCount !== 16) {
+    if (filledWordsCount !== 24) {
       setErrorMessage(t('fill_all_words'));
       return;
     }
@@ -178,9 +178,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
     setErrorMessage(null);
     setStatus('stretching');
     try {
-      const key = await RecoveryService.recoverVault(recoveryWords);
+      const { key, raw } = await RecoveryService.recoverVault(recoveryWords);
       await BruteForceService.recordSuccess();
-      setKey(key);
+      await setKey(key, raw);
       setStatus('success');
     } catch (err: any) {
       console.error("Recovery process failed:", err);
@@ -225,8 +225,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
         }
 
         await BruteForceService.recordSuccess();
-        setKey(tempMasterKey);
-        setVerifying2FA(false);
+        await finalize2FA();
         setStatus('success');
       } else {
         setErrorMessage(t('invalid_code'));

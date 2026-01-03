@@ -7,7 +7,7 @@ import {
   Trash2, Globe, CheckCircle2,
   Smartphone, Key, Zap, Languages, Database, CreditCard, FileText, Download, Fingerprint, Moon, Sun,
   ChevronUp, SortAsc, SortDesc, Filter, CheckSquare, Square, Check, Copy, Loader2, ShieldCheck,
-  RotateCcw, Flame, Clock, Calendar, ShieldX, Crown, Gem, Award, ChevronRight, Eye, MoreVertical, SlidersHorizontal, RefreshCw, Folder, BookOpen, Hourglass
+  RotateCcw, Flame, Clock, Calendar, ShieldX, Crown, Gem, Award, ChevronRight, Eye, MoreVertical, SlidersHorizontal, RefreshCw, Folder, BookOpen, Hourglass, Wallet
 } from 'lucide-react';
 import { VaultEntry, SensitiveData, Category } from '../types.ts';
 import { AutoLockStatus } from '../hooks/useAutoLock.ts';
@@ -659,11 +659,11 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-1">
                   <span className={`text-[9px] font-black uppercase tracking-widest ${isPro ? 'text-amber-500' : isExpired ? 'text-red-500' : 'text-blue-500'}`}>
-                    {isPro ? 'PRO AKTİF' : isExpired ? t('trial_expired_title') : t('trial_status_days').replace('{count}', remainingDays.toString())}
+                    {isPro ? t('pro_active') : isExpired ? t('trial_expired_title_short') : t('trial_status_days').replace('{count}', remainingDays.toString())}
                   </span>
                   {isPro ? <Award size={12} className="text-amber-500" /> : <Crown size={12} className={isExpired ? 'text-red-500' : 'text-blue-500'} />}
                 </div>
-                <p className="text-[8px] font-bold text-dim uppercase">{isPro ? 'ÖMÜR BOYU GÜVENLİK' : isExpired ? 'SADECE YEDEKLEME MODU' : 'PRO SÜRÜME GEÇ'}</p>
+                <p className="text-[8px] font-bold text-dim uppercase">{isPro ? t('access_granted_lifetime') : isExpired ? t('backup_mode_only') : t('upgrade_to_pro')}</p>
               </div>
             </button>
           )}
@@ -685,7 +685,8 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                   { id: Category.LOGIN, icon: Globe, label: t('cat_login') },
                   { id: Category.CARD, icon: CreditCard, label: t('cat_card') },
                   { id: Category.NOTE, icon: FileText, label: t('cat_note') },
-                  { id: Category.FILE, icon: Download, label: t('cat_file') }
+                  { id: Category.FILE, icon: Download, label: t('cat_file') },
+                  { id: Category.CRYPTO, icon: Wallet, label: t('cat_crypto') }
                 ].map(cat => (
                   <button key={cat.id} onClick={() => setActiveCat(cat.id)} className={`w-full flex items-center gap-3 py-2 px-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeCat === cat.id ? 'text-blue-500 bg-blue-500/5' : 'text-zinc-600 hover:text-zinc-400'}`}>
                     <cat.icon size={14} />
@@ -771,7 +772,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                   className="absolute top-[calc(100%+12px)] left-0 right-0 glass border border-white/5 rounded-[2.5rem] shadow-2xl p-8 z-50 grid grid-cols-2 gap-10"
                 >
                   <div>
-                    <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 ml-2">Sıralama Seçenekleri</h4>
+                    <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 ml-2">{t('sort_options')}</h4>
                     <div className="flex flex-col gap-2">
                       {[
                         { id: 'recent', label: t('sort_recent'), icon: Clock },
@@ -793,7 +794,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                     </div>
                   </div>
                   <div>
-                    <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 ml-2">Güvenlik Durumu</h4>
+                    <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-4 ml-2">{t('security_status')}</h4>
                     <div className="grid grid-cols-1 gap-2">
                       <button className="flex items-center gap-3 px-5 py-3 rounded-xl hover:bg-white/5 text-zinc-400 text-[11px] font-bold uppercase tracking-wider">
                         <ShieldCheck size={14} className="text-emerald-500" /> {t('filter_secure')}
@@ -922,12 +923,12 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                         <div className="flex items-center gap-8 relative z-10">
                           <div className="p-5 bg-amber-500/10 text-amber-500 rounded-[2rem] shadow-inner"><Award size={32} /></div>
                           <div>
-                            <h3 className="text-lg font-black text-main uppercase tracking-tighter">{isPro ? 'Aegis Pro Edition' : 'Aegis Ücretsiz Deneme'}</h3>
-                            <p className="text-[11px] text-dim font-bold uppercase mt-1 tracking-widest">{isPro ? 'ÖMÜR BOYU ERİŞİM ETKİN' : t('trial_status_days').replace('{count}', remainingDays.toString())}</p>
+                            <h3 className="text-lg font-black text-main uppercase tracking-tighter">{isPro ? t('pro_edition') : t('free_trial')}</h3>
+                            <p className="text-[11px] text-dim font-bold uppercase mt-1 tracking-widest">{isPro ? t('access_enabled') : t('trial_status_days').replace('{count}', remainingDays.toString())}</p>
                           </div>
                         </div>
                         <button onClick={() => setShowLicensing(true)} className="relative z-10 px-8 py-4 bg-amber-600 hover:bg-amber-500 text-black text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-amber-600/20 active:scale-95">
-                          {isPro ? 'LİSANSI GÖRÜNTÜLE' : 'PRO SÜRÜME GEÇ'}
+                          {isPro ? t('view_license') : t('upgrade_to_pro')}
                         </button>
                       </div>
 
@@ -956,9 +957,9 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                         >
                           <div className="flex items-center gap-4 mb-4">
                             <FileText size={20} className="text-purple-500 group-hover:scale-110 transition-transform" />
-                            <h5 className="text-[11px] font-black uppercase tracking-widest text-white group-hover:text-purple-300">{lang === 'en' ? t('legal_terms_title') : t('legal_terms_title_tr')}</h5>
+                            <h5 className="text-[11px] font-black uppercase tracking-widest text-white group-hover:text-purple-300">{t('legal_terms_title')}</h5>
                           </div>
-                          <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed">Yasal şartlar ve koşullar</p>
+                          <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed">{t('legal_terms_desc')}</p>
                         </button>
 
                         <button
@@ -967,9 +968,9 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                         >
                           <div className="flex items-center gap-4 mb-4">
                             <Shield size={20} className="text-green-500 group-hover:scale-110 transition-transform" />
-                            <h5 className="text-[11px] font-black uppercase tracking-widest text-white group-hover:text-green-300">{lang === 'en' ? t('legal_privacy_title') : t('legal_privacy_title_tr')}</h5>
+                            <h5 className="text-[11px] font-black uppercase tracking-widest text-white group-hover:text-green-300">{t('legal_privacy_title')}</h5>
                           </div>
-                          <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed">Veri gizliliği ve koruma</p>
+                          <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed">{t('legal_privacy_desc')}</p>
                         </button>
                       </div>
 
@@ -984,8 +985,8 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                               <BookOpen size={28} className="text-blue-400" />
                             </div>
                             <div className="text-left flex-1">
-                              <h4 className="text-lg font-black text-white uppercase tracking-tight">{lang === 'en' ? 'Complete User Guide' : 'Tam Kullanıcı Kılavuzu'}</h4>
-                              <p className="text-xs text-zinc-400 mt-2 uppercase tracking-widest">{lang === 'en' ? 'Learn how to use all features • Getting started • Troubleshooting' : 'Tüm özellikleri nasıl kullanacağınızı öğrenin • Başlarken • Sorun Giderme'}</p>
+                              <h4 className="text-lg font-black text-white uppercase tracking-tight">{t('complete_user_guide')}</h4>
+                              <p className="text-xs text-zinc-400 mt-2 uppercase tracking-widest">{t('user_guide_subtext')}</p>
                             </div>
                             <div className="text-blue-500 group-hover:translate-x-1 transition-transform">
                               <ChevronRight size={24} />
@@ -1170,7 +1171,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                         </div>
                         <div>
                           <h4 className="text-[11px] font-black uppercase tracking-widest text-white leading-tight">{folder.name}</h4>
-                          <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1 tracking-widest opacity-60">Collection</p>
+                          <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1 tracking-widest opacity-60">{t('collection')}</p>
                         </div>
                       </motion.div>
                     ))}
