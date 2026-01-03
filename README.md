@@ -3,7 +3,7 @@
 ![Aegis Vault Banner](https://img.shields.io/badge/Security-AES--256--GCM-blue?style=for-the-badge&logo=shield)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-green?style=for-the-badge&logo=linux)
 ![License](https://img.shields.io/badge/License-Commercial-red?style=for-the-badge)
-
+<a href="https://www.producthunt.com/products/aegis-vault?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-aegis-vault" target="_blank" rel="noopener noreferrer"><img alt="Aegis Vault - Offline vault for passwords &amp; crypto | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1057731&amp;theme=light&amp;t=1767469897837"></a>
 Aegis Vault is an offline-first, portable, and ultra-secure password manager designed for serious security needs. Built with **Electron**, it runs locally on your machine without relying on any cloud servers, ensuring true Zero-Knowledge privacy.
 
 ## 🛡️ Core Security Features
