@@ -7,6 +7,14 @@
 
 Aegis Vault is an offline-first, portable, and ultra-secure password manager designed for serious security needs. Built with **Electron**, it runs locally on your machine without relying on any cloud servers, ensuring true Zero-Knowledge privacy.
 
+Why choose Aegis Vault?
+
+Privacy by Design: Unlike cloud-based managers, your master key never leaves your device.
+
+Zero Knowledge: We have no access to your data. No servers = No breaches.
+
+All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in a single offline fortress.
+
 ## 🛡️ Core Security Features
 
 - **Zero-Knowledge Architecture**: Your data never leaves your device. We cannot see your passwords even if we wanted to.
