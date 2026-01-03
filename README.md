@@ -32,6 +32,10 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 - **Offline-First**: No internet connection required. Your vault is always accessible.
 - **Breach Monitoring**: (Pro Feature) Local analysis of password strength and reuse.
 
+## Preview
+![Dashboard](https://github.com/hafgit99/aegis/raw/main/screenshot/1.png)
+![Vault](https://github.com/hafgit99/aegis/raw/main/screenshot/2.png)
+
 ## 📦 Installation
 
 This is a commercial product. To use the full version, you must purchase a license key.
