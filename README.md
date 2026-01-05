@@ -158,16 +158,6 @@ This software is **Open Source** under consideration for MIT License.
 
 For licensing inquiries, please contact: sales@hetech-me.space
 
-## 🤝 Contributing
-
-We welcome security researchers, developers, and privacy advocates to contribute!
-
-### How to Contribute
-
-1. **Security Issues**: Report via [GitHub Security Advisories](https://github.com/hafgit99/aegis/security/advisories)
-2. **Bug Reports**: Open an issue with detailed reproduction steps
-3. **Feature Requests**: Discuss in GitHub Issues before implementing
-4. **Code Contributions**: Fork, create a feature branch, and submit a PR
 
 ### Development Setup
 
