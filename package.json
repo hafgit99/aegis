@@ -1,8 +1,8 @@
 {
   "name": "aegis-vault",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
-  "description": "Premium, Offline-First, Zero-Knowledge Password Manager",
+  "description": "Premium, Offline-First, Zero-Knowledge Password Manager - Security Hardened Edition",
   "main": "main.js",
   "author": "Aegis Security",
   "license": "MIT",
@@ -84,8 +84,12 @@
       ],
       "icon": "build/icon.ico",
       "publisherName": "Aegis Security",
-      "verifyUpdateCodeSignature": false,
-      "forceCodeSigning": false
+      "verifyUpdateCodeSignature": true,
+      "forceCodeSigning": false,
+      "certificateFile": null,
+      "certificatePassword": null,
+      "signingHashAlgorithms": ["sha256"],
+      "rfc3161TimeStampServer": "http://timestamp.digicert.com"
     },
     "publish": {
       "provider": "github",

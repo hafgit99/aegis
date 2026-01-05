@@ -8,11 +8,17 @@ import { argon2id } from 'hash-wasm';
 
 export class CryptoService {
   private static ALGORITHM = 'AES-GCM';
-  public static readonly DEFAULT_ITERATIONS = 10;
+
+  // SECURITY UPGRADE: Increased from 10 to 15 iterations for OWASP 2024 compliance
+  // This provides stronger protection against brute-force attacks while maintaining
+  // reasonable unlock times (~600-900ms on modern hardware)
+  public static readonly DEFAULT_ITERATIONS = 15;
+  public static readonly MINIMUM_ITERATIONS = 15; // Enforced minimum for security
 
   /**
    * Benchmarks the hardware to find an iteration count that takes ~500-1000ms.
    * This ensures high security adaptable to the user's device power.
+   * SECURITY: Minimum 15 iterations enforced regardless of hardware speed
    */
   static async benchmarkIterations(targetTimeMs: number = 600): Promise<number> {
     try {
@@ -30,15 +36,16 @@ export class CryptoService {
       const singleRunTime = endTime - startTime;
 
       // Calculate ratio (e.g. if single run is 50ms, we need 12 iterations for 600ms)
-      // Safety limits: Min 10 (modern), Max 60 (to prevent extreme lockouts)
+      // SECURITY UPGRADE: Min 15 (OWASP 2024), Max 60 (to prevent extreme lockouts)
       let calculated = Math.floor(targetTimeMs / singleRunTime);
-      if (calculated < 10) calculated = 10;
+      if (calculated < this.MINIMUM_ITERATIONS) calculated = this.MINIMUM_ITERATIONS;
       if (calculated > 60) calculated = 60;
 
+      console.log(`[Security] Argon2id benchmark: ${calculated} iterations (${Math.round(calculated * singleRunTime)}ms unlock time)`);
       return calculated;
     } catch (e) {
       console.warn("Benchmark failed, falling back to safe default", e);
-      return 15; // Safe modern default if benchmark fails
+      return this.DEFAULT_ITERATIONS; // Fallback to 15 iterations
     }
   }
 

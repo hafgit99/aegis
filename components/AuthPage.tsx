@@ -11,6 +11,7 @@ import ImageBrandIcon from './ImageBrandIcon.tsx';
 import EULAView from './EULAView.tsx';
 import { CryptoService } from '../services/cryptoService.ts';
 import { TwoFactorService } from '../services/twoFactorService.ts';
+import { PasswordPolicy } from '../utils/passwordPolicy.ts';
 
 interface AuthPageProps {
   isInitialized: boolean;
@@ -35,6 +36,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [isVerifyingTOTP, setIsVerifyingTOTP] = useState(false);
+
+  // SECURITY: Password policy enforcement state
+  const [passwordStrength, setPasswordStrength] = useState(0);
+  const [passwordPolicyErrors, setPasswordPolicyErrors] = useState<string[]>([]);
+  const [passwordPolicyWarnings, setPasswordPolicyWarnings] = useState<string[]>([]);
 
   // Match local status with context 2FA state
   useEffect(() => {
@@ -77,10 +83,31 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
     }
   }, [lockoutTimer]);
 
+  // SECURITY: Real-time password policy validation
+  useEffect(() => {
+    if (!isInitialized && password.length > 0) {
+      const policyResult = PasswordPolicy.validateMasterPassword(password);
+      setPasswordStrength(policyResult.strength);
+      setPasswordPolicyErrors(policyResult.errors);
+      setPasswordPolicyWarnings(policyResult.warnings);
+    } else {
+      setPasswordStrength(0);
+      setPasswordPolicyErrors([]);
+      setPasswordPolicyWarnings([]);
+    }
+  }, [password, isInitialized]);
+
   const validatePassword = (pass: string): string | null => {
-    if (pass.length < 8) return lang === 'tr' ? "Şifre en az 8 karakter olmalıdır." : "Password must be at least 8 characters.";
-    if (!/[A-Z]/.test(pass)) return lang === 'tr' ? "Şifre en az bir büyük harf içermelidir." : "Password must contain at least one uppercase letter.";
-    if (!/[a-z]/.test(pass)) return lang === 'tr' ? "Şifre en az bir küçük harf içermelidir." : "Password must contain at least one lowercase letter.";
+    // SECURITY: Use PasswordPolicy for comprehensive validation
+    const policyResult = PasswordPolicy.validateMasterPassword(pass);
+
+    if (!policyResult.valid) {
+      // Return first error message
+      return policyResult.errors[0] || (lang === 'tr'
+        ? "Şifre güvenlik gereksinimlerini karşılamıyor."
+        : "Password does not meet security requirements.");
+    }
+
     return null;
   };
 
@@ -396,9 +423,62 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
                       placeholder="••••••••••••"
                       required
                     />
-                    {!isInitialized && (
+                    {!isInitialized && password.length > 0 && (
+                      <>
+                        {/* Password Strength Indicator */}
+                        <div className="mt-2 px-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-dim">
+                              {lang === 'tr' ? 'Şifre Gücü' : 'Password Strength'}
+                            </span>
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${
+                              passwordStrength >= 75 ? 'text-green-500' :
+                              passwordStrength >= 50 ? 'text-yellow-500' :
+                              'text-red-500'
+                            }`}>
+                              {passwordStrength}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-zinc-800/50 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-300 ${
+                                passwordStrength >= 75 ? 'bg-green-500' :
+                                passwordStrength >= 50 ? 'bg-yellow-500' :
+                                'bg-red-500'
+                              }`}
+                              style={{ width: `${passwordStrength}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Policy Errors */}
+                        {passwordPolicyErrors.length > 0 && (
+                          <div className="mt-2 px-2 space-y-1">
+                            {passwordPolicyErrors.map((error, idx) => (
+                              <div key={idx} className="flex items-start gap-2 text-red-500">
+                                <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />
+                                <p className="text-[9px] font-bold leading-tight">{error}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Policy Warnings */}
+                        {passwordPolicyWarnings.length > 0 && passwordPolicyErrors.length === 0 && (
+                          <div className="mt-2 px-2 space-y-1">
+                            {passwordPolicyWarnings.slice(0, 2).map((warning, idx) => (
+                              <div key={idx} className="flex items-start gap-2 text-yellow-500">
+                                <Info size={12} className="mt-0.5 flex-shrink-0" />
+                                <p className="text-[9px] font-bold leading-tight">{warning}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {!isInitialized && password.length === 0 && (
                       <p className="text-[10px] text-dim font-black uppercase tracking-widest pl-2 pt-1 opacity-70">
-                        {t('pass_rule_hint')}
+                        {lang === 'tr' ? 'Minimum 12 karakter, güçlü şifre' : 'Minimum 12 characters, strong password'}
                       </p>
                     )}
                   </div>

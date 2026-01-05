@@ -353,13 +353,60 @@ ipcMain.on('vault:panic', () => {
 let sessionKey = null; // Master Key stays in Main process RAM
 let verifierBlob = null; // Master Verifier stays in Main process RAM (SECURE)
 
-// --- Brute Force Protection (Server-side, tamper-proof) ---
-const bruteForceTracker = new Map(); // { deviceId -> { attempts, lockedUntil } }
+// --- Brute Force Protection (Server-side, tamper-proof with persistence) ---
+const bruteForceFilePath = path.join(app.getPath('userData'), '.bruteforce-state.json');
+const bruteForceTracker = new Map(); // In-memory cache
 const BRUTE_FORCE_RULES = [
   { threshold: 3, lockout: 30 * 1000 },       // 3 hata -> 30 sn
   { threshold: 5, lockout: 5 * 60 * 1000 },   // 5 hata -> 5 dk
   { threshold: 10, lockout: 30 * 60 * 1000 }  // 10 hata -> 30 dk
 ];
+
+// SECURITY UPGRADE: Load brute-force state from disk on startup
+function loadBruteForceState() {
+  try {
+    if (fs.existsSync(bruteForceFilePath)) {
+      const data = JSON.parse(fs.readFileSync(bruteForceFilePath, 'utf8'));
+      const now = Date.now();
+
+      // Load only non-expired entries
+      for (const [deviceId, entry] of Object.entries(data)) {
+        if (!entry.lockedUntil || entry.lockedUntil > now) {
+          bruteForceTracker.set(deviceId, entry);
+        }
+      }
+
+      console.log(`[Security] Loaded ${bruteForceTracker.size} active brute-force entries from disk`);
+    }
+  } catch (e) {
+    console.error('[Security] Failed to load brute-force state:', e.message);
+  }
+}
+
+// SECURITY UPGRADE: Save brute-force state to disk (persistent across restarts)
+function saveBruteForceState() {
+  try {
+    const data = {};
+    for (const [deviceId, entry] of bruteForceTracker.entries()) {
+      data[deviceId] = entry;
+    }
+    fs.writeFileSync(bruteForceFilePath, JSON.stringify(data), 'utf8');
+  } catch (e) {
+    console.error('[Security] Failed to save brute-force state:', e.message);
+  }
+}
+
+// Auto-save on changes (debounced)
+let bruteForceSaveTimer = null;
+function scheduleBruteForceSave() {
+  if (bruteForceSaveTimer) clearTimeout(bruteForceSaveTimer);
+  bruteForceSaveTimer = setTimeout(() => {
+    saveBruteForceState();
+  }, 1000); // Save 1 second after last change
+}
+
+// Load state on app start
+loadBruteForceState();
 
 ipcMain.handle('vault:set-key', (event, keyRaw) => {
   sessionKey = Buffer.from(keyRaw);
@@ -454,9 +501,10 @@ ipcMain.handle('bruteforce:check-status', async (event, deviceId) => {
     return { locked: true, attempts: tracker.attempts, remaining };
   }
 
-  // Lockout süresi geçti, temizle
+  // Lockout süresi geçti, temizle ve persist
   if (tracker.lockedUntil && now >= tracker.lockedUntil) {
     bruteForceTracker.delete(deviceId);
+    scheduleBruteForceSave(); // SECURITY UPGRADE: Persist to disk
     return { locked: false, attempts: 0, remaining: 0 };
   }
 
@@ -481,6 +529,7 @@ ipcMain.handle('bruteforce:record-failure', async (event, deviceId) => {
   }
 
   bruteForceTracker.set(deviceId, tracker);
+  scheduleBruteForceSave(); // SECURITY UPGRADE: Persist to disk
 
   return {
     locked: !!tracker.lockedUntil,
@@ -491,6 +540,7 @@ ipcMain.handle('bruteforce:record-failure', async (event, deviceId) => {
 
 ipcMain.handle('bruteforce:record-success', async (event, deviceId) => {
   bruteForceTracker.delete(deviceId);
+  scheduleBruteForceSave(); // SECURITY UPGRADE: Persist to disk
   return { attempts: 0, remaining: 0 };
 });
 
@@ -632,6 +682,7 @@ ipcMain.handle('audit:get-logs', async (event, limit = 100) => {
 
 app.on('window-all-closed', () => {
   flushAuditLog(); // Ensure all logs are written before closing
+  saveBruteForceState(); // SECURITY UPGRADE: Save brute-force state before exit
   if (sessionKey) {
     sessionKey.fill(0);
     sessionKey = null;
