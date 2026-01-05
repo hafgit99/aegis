@@ -125,12 +125,6 @@ npm run dev
 npm run build
 ```
 
-## 📚 Documentation
-
-- **[Security Improvements Report](SECURITY_IMPROVEMENTS_REPORT.md)**: Detailed security audit and enhancements
-- **[Code Signing Guide](CODE_SIGNING.md)**: How to sign your builds for distribution
-- **[IndexedDB Security Analysis](INDEXEDDB_SECURITY_ANALYSIS.md)**: Technical encryption deep-dive
-
 ## 🆕 What's New in v1.1.0
 
 ### Security Enhancements
