@@ -203,7 +203,7 @@ If you find a security vulnerability:
 
 ## 📞 Support & Contact
 
-- **GitHub Issues**: [Bug Reports & Feature Requests](https://github.com/hafgit99/aegis/issues)
+- **GitHub Issues**: [Bug Reports & Feature Requests](https://github.com/hafgit99/aegis/issues/new?template=bug_report.md)
 - **Email**: sales@hetech-me.space
 - **Security**: sales@hetech-me.space (PGP key available on request)
 - **Twitter/X**: Coming soon
