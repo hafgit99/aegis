@@ -5,7 +5,25 @@
 ![License](https://img.shields.io/badge/License-Commercial-red?style=for-the-badge)
 ![Security Score](https://img.shields.io/badge/Security%20Score-92%2F100-brightgreen?style=for-the-badge&logo=security)
 ![Version](https://img.shields.io/badge/Version-1.1.0-blue?style=for-the-badge)
-<a href="https://www.producthunt.com/products/aegis-vault?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-aegis-vault" target="_blank" rel="noopener noreferrer"><img alt="Aegis Vault - Offline vault for passwords &amp; crypto | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1057731&amp;theme=light&amp;t=1767469897837"></a> <a href="https://www.producthunt.com/products/aegis-vault/reviews/new?utm_source=badge-product_review&utm_medium=badge&utm_source=badge-aegis&#0045;vault" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/product_review.svg?product_id=1144571&theme=light" alt="Aegis&#0032;Vault - Offline&#0032;vault&#0032;for&#0032;passwords&#0032;&#0038;&#0032;crypto | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a> <a href="https://www.producthunt.com/products/aegis-vault?utm_source=badge-follow&utm_medium=badge&utm_source=badge-aegis&#0045;vault" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/follow.svg?product_id=1144571&theme=light" alt="Aegis&#0032;Vault - Offline&#0032;vault&#0032;for&#0032;passwords&#0032;&#0038;&#0032;crypto | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+<table align="center" border="0">
+  <tr>
+    <td align="center">
+      <a href="https://www.producthunt.com/products/aegis-vault?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-aegis-vault" target="_blank" rel="noopener noreferrer">
+        <img alt="Aegis Vault - Featured" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1057731&amp;theme=light&amp;t=1767469897837">
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://www.producthunt.com/products/aegis-vault/reviews/new?utm_source=badge-product_review&utm_medium=badge&utm_source=badge-aegis&#0045;vault" target="_blank">
+        <img src="https://api.producthunt.com/widgets/embed-image/v1/product_review.svg?product_id=1144571&theme=light" alt="Aegis Vault - Reviews" width="250" height="54" />
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://www.producthunt.com/products/aegis-vault?utm_source=badge-follow&utm_medium=badge&utm_source=badge-aegis&#0045;vault" target="_blank">
+        <img src="https://api.producthunt.com/widgets/embed-image/v1/follow.svg?product_id=1144571&theme=light" alt="Aegis Vault - Follow" width="250" height="54" />
+      </a>
+    </td>
+  </tr>
+</table>
 
 Aegis Vault is an offline-first, portable, and ultra-secure password manager designed for serious security needs. Built with **Electron**, it runs locally on your machine without relying on any cloud servers, ensuring true Zero-Knowledge privacy.
 
