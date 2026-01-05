@@ -159,14 +159,7 @@ This software is **Open Source** under consideration for MIT License.
 For licensing inquiries, please contact: sales@hetech-me.space
 
 
-### Development Setup
 
-```bash
-git clone https://github.com/hafgit99/aegis.git
-cd aegis
-npm install
-npm run dev
-```
 
 ### Security Contributions
 
