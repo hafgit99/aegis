@@ -19,7 +19,9 @@ export interface RateLimitStatus {
 export class RateLimitingService {
   private static readonly DEFAULT_WINDOW_MS = 60000; // 1 minute
   private static readonly DEFAULT_MAX_ATTEMPTS = 5;
-  private static readonly STORAGE_PREFIX = 'rate_limit_';
+  
+  private static inMemoryStorage = new Map<string, { count: number; windowStart: number; windowEnd: number }>();
+  private static cleanupInterval: NodeJS.Timeout | null = null;
 
   /**
    * Check if an action is allowed under rate limit
@@ -30,19 +32,18 @@ export class RateLimitingService {
   static check(key: string, config: Partial<RateLimitConfig> = {}): RateLimitStatus {
     const windowMs = config.windowMs ?? this.DEFAULT_WINDOW_MS;
     const maxAttempts = config.maxAttempts ?? this.DEFAULT_MAX_ATTEMPTS;
-    const storageKey = `${this.STORAGE_PREFIX}${config.keyPrefix || ''}${key}`;
+    const storageKey = `${config.keyPrefix || ''}${key}`;
 
     const now = Date.now();
-    let data = this.getAttemptData(storageKey);
+    let data = this.inMemoryStorage.get(storageKey);
 
-    // Initialize if first attempt or window expired
     if (!data || now > data.windowEnd) {
       data = {
         count: 1,
         windowStart: now,
         windowEnd: now + windowMs,
       };
-      this.setAttemptData(storageKey, data);
+      this.inMemoryStorage.set(storageKey, data);
 
       return {
         isAllowed: true,
@@ -52,11 +53,9 @@ export class RateLimitingService {
       };
     }
 
-    // Window still active
     if (data.count < maxAttempts) {
-      // Still within limit
       data.count++;
-      this.setAttemptData(storageKey, data);
+      this.inMemoryStorage.set(storageKey, data);
 
       return {
         isAllowed: true,
@@ -85,14 +84,9 @@ export class RateLimitingService {
    * @returns true if reset successful
    */
   static reset(key: string, keyPrefix?: string): boolean {
-    const storageKey = `${this.STORAGE_PREFIX}${keyPrefix || ''}${key}`;
-    try {
-      localStorage.removeItem(storageKey);
-      return true;
-    } catch (error) {
-      console.error(`Failed to reset rate limit for ${key}:`, error);
-      return false;
-    }
+    const storageKey = `${keyPrefix || ''}${key}`;
+    this.inMemoryStorage.delete(storageKey);
+    return true;
   }
 
   /**
@@ -105,10 +99,10 @@ export class RateLimitingService {
   static increment(key: string, amount: number = 1, config: Partial<RateLimitConfig> = {}): number {
     const windowMs = config.windowMs ?? this.DEFAULT_WINDOW_MS;
     const maxAttempts = config.maxAttempts ?? this.DEFAULT_MAX_ATTEMPTS;
-    const storageKey = `${this.STORAGE_PREFIX}${config.keyPrefix || ''}${key}`;
+    const storageKey = `${config.keyPrefix || ''}${key}`;
 
     const now = Date.now();
-    let data = this.getAttemptData(storageKey);
+    let data = this.inMemoryStorage.get(storageKey);
 
     if (!data || now > data.windowEnd) {
       data = {
@@ -120,7 +114,7 @@ export class RateLimitingService {
       data.count = Math.min(data.count + amount, maxAttempts);
     }
 
-    this.setAttemptData(storageKey, data);
+    this.inMemoryStorage.set(storageKey, data);
     return Math.max(0, maxAttempts - data.count);
   }
 
@@ -132,10 +126,10 @@ export class RateLimitingService {
    */
   static getStatus(key: string, config: Partial<RateLimitConfig> = {}): RateLimitStatus {
     const maxAttempts = config.maxAttempts ?? this.DEFAULT_MAX_ATTEMPTS;
-    const storageKey = `${this.STORAGE_PREFIX}${config.keyPrefix || ''}${key}`;
+    const storageKey = `${config.keyPrefix || ''}${key}`;
 
     const now = Date.now();
-    const data = this.getAttemptData(storageKey);
+    const data = this.inMemoryStorage.get(storageKey);
 
     if (!data || now > data.windowEnd) {
       return {
@@ -166,25 +160,12 @@ export class RateLimitingService {
   static cleanup(): number {
     let cleaned = 0;
     const now = Date.now();
-    const keysToRemove: string[] = [];
 
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith(this.STORAGE_PREFIX)) {
-          const data = this.getAttemptData(key);
-          if (data && now > data.windowEnd) {
-            keysToRemove.push(key);
-          }
-        }
-      }
-
-      keysToRemove.forEach(key => {
-        localStorage.removeItem(key);
+    for (const [key, data] of this.inMemoryStorage.entries()) {
+      if (now > data.windowEnd) {
+        this.inMemoryStorage.delete(key);
         cleaned++;
-      });
-    } catch (error) {
-      console.error('Failed to cleanup rate limit entries:', error);
+      }
     }
 
     return cleaned;
@@ -195,44 +176,23 @@ export class RateLimitingService {
    * @returns true if successful
    */
   static clearAll(): boolean {
-    try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith(this.STORAGE_PREFIX)) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
-      return true;
-    } catch (error) {
-      console.error('Failed to clear rate limit data:', error);
-      return false;
-    }
+    this.inMemoryStorage.clear();
+    return true;
   }
 
-  // Private helper methods
-
-  private static getAttemptData(key: string): { count: number; windowStart: number; windowEnd: number } | null {
-    try {
-      const data = localStorage.getItem(key);
-      if (!data) return null;
-      return JSON.parse(data);
-    } catch (error) {
-      console.warn(`Failed to parse rate limit data for ${key}:`, error);
-      return null;
+  static startAutoCleanup(intervalMs: number = 60000): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
     }
+    this.cleanupInterval = setInterval(() => {
+      this.cleanup();
+    }, intervalMs);
   }
 
-  private static setAttemptData(key: string, data: { count: number; windowStart: number; windowEnd: number }): void {
-    try {
-      localStorage.setItem(key, JSON.stringify(data));
-    } catch (error) {
-      if (error instanceof DOMException && error.code === 22) {
-        console.error('localStorage quota exceeded for rate limiting');
-      } else {
-        console.error('Failed to store rate limit data:', error);
-      }
+  static stopAutoCleanup(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
     }
   }
 }

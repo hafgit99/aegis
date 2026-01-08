@@ -85,6 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = useCallback(async () => {
+    // State'leri hemen sıfırla (UI güncellemesi için)
     setMasterKey(null);
     setTempMasterKey(null);
     setTempRawKey(undefined);

@@ -23,6 +23,8 @@ import LicensingView from './LicensingView.tsx';
 import ChangeMasterKeyModal from './ChangeMasterKeyModal.tsx';
 import LegalModal from './LegalModal.tsx';
 import UserGuideModal from './UserGuideModal.tsx';
+import { BackupSettings } from './BackupSettings.tsx';
+import { EmergencyAccess } from './EmergencyAccess.tsx';
 import { useLanguage } from '../contexts/LanguageContext.tsx';
 import { useVault } from '../hooks/useVault.ts';
 import { useAuth } from '../contexts/AuthContext.tsx';
@@ -30,6 +32,8 @@ import { LicensingService } from '../services/licensingService.ts';
 import { BiometricService } from '../services/biometricService.ts';
 import { RecoveryService } from '../services/recoveryService.ts';
 import { useTheme } from '../contexts/ThemeContext.tsx';
+import { db } from '../db.ts';
+import { VaultService } from '../services/vaultService.ts';
 
 type SortOrder = 'title_asc' | 'title_desc' | 'recent';
 
@@ -60,7 +64,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         setStage('verify');
       });
     } catch (err: any) {
-      setError(err.message || (lang === 'tr' ? "Anahtar oluşturma başarısız." : "Failed to generate key."));
+      setError(err.message || t('failed_to_generate_key'));
     } finally {
       setIsGenerating(false);
     }
@@ -121,7 +125,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Aegis Vault - Kurtarma Kelimeleri</title>
+  <title>Aegis Vault - ${t('recovery_words')}</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
     .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -135,78 +139,35 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     .checksum-box { background: #e3f2fd; border: 1px solid #2196f3; padding: 15px; border-radius: 5px; margin: 20px 0; }
     .checksum-label { color: #1976d2; font-weight: bold; margin-bottom: 5px; }
     .checksum-value { font-family: monospace; color: #333; word-break: break-all; }
-    .instructions { background: #f0f7f4; border: 1px solid #4caf50; padding: 15px; border-radius: 5px; margin: 20px 0; }
-    .instructions h3 { color: #2e7d32; margin-top: 0; }
-    .instructions ol { margin-left: 20px; }
-    .instructions li { margin: 8px 0; }
     .footer { text-align: center; color: #999; margin-top: 30px; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; }
-    .date-time { text-align: right; color: #666; margin-bottom: 20px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🔐 Aegis Vault - Kurtarma Kelimeleri</h1>
+    <h1>🔐 Aegis Vault - ${t('recovery_words')}</h1>
     <div class="subtitle">Aegis Vault Password Manager - Recovery Words Backup</div>
-    <div class="date-time">${lang === 'tr' ? 'Oluşturulma Tarihi' : 'Created'}: ${date} ${time}</div>
+    <div class="date-time">${t('created')}: ${date} ${time}</div>
     
     <div class="warning">
-      <strong>⚠️ ${lang === 'tr' ? 'ÖNEMLİ' : 'IMPORTANT'}:</strong> ${lang === 'tr'
-          ? 'Bu sayfayı GÜVENLİ BİR YERDE SAKLAYIN. Bu 16 kelime, master şifrenizi unuttuğunuzda kasanızı kurtarmanın TEK yoludur.'
-          : 'KEEP THIS DOCUMENT IN A SAFE PLACE. These 16 words are the ONLY way to recover your vault if you forget your master password.'}
+      <strong>⚠️ ${t('important')}:</strong> ${t('recovery_words_pdf_warning')}
     </div>
 
-    <h2 style="color: #333; text-align: center;">${lang === 'tr' ? 'Kurtarma Kelimeleri (16 Sözcük)' : 'Recovery Words (16 Words)'}</h2>
+    <h2 style="color: #333; text-align: center;">${t('recovery_words_16_words')}</h2>
     <div class="words-grid">
-      ${words.map((word, i) => `
-        <div class="word-item">
-          <div class="word-number">${i + 1}.</div>
-          <div class="word-text">${word}</div>
-        </div>
-      `).join('')}
+      ${words.map((word, i) => `<div class="word-item"><div class="word-number">${i + 1}.</div><div class="word-text">${word}</div></div>`).join('')}
     </div>
 
     <div class="checksum-box">
-      <div class="checksum-label">${lang === 'tr' ? 'Doğrulama Sağlama Toplamı (Verification Checksum)' : 'Verification Checksum'}:</div>
+      <div class="checksum-label">${t('checksum')}:</div>
       <div class="checksum-value">${checksum}</div>
-      <div style="font-size: 12px; color: #666; margin-top: 10px;">${lang === 'tr'
-          ? 'Kelimelerinizi doğrulamak için bu sağlama toplamını kullanın.'
-          : 'Use this checksum to verify your words.'}</div>
-    </div>
-
-    <div class="instructions">
-      <h3>${lang === 'tr' ? '📝 Talimatlar' : '📝 Instructions'}</h3>
-      <ol>
-        <li>${lang === 'tr'
-          ? 'Bu sayfayı YAZDIRIN ve güvenli bir yerde saklayın (kasa, safe vb.)'
-          : 'PRINT this document and keep it in a safe place (safe, safety deposit box, etc.)'}</li>
-        <li>${lang === 'tr'
-          ? 'Veya: Bu belgeyi şifrelenmiş bir dosya olarak kaydedin ve offline yedekleyin'
-          : 'Or: Save this document as an encrypted file and back up offline'}</li>
-        <li>${lang === 'tr'
-          ? 'Kelimelerin sırasını KESINLIKLE değiştirmeyin'
-          : 'DO NOT change the order of the words'}</li>
-        <li>${lang === 'tr'
-          ? 'Master şifrenizi unuttuğunuzda, bu kelimeleri kullanarak kasanızı kurtarabilirsiniz'
-          : 'If you forget your master password, use these words to recover your vault'}</li>
-        <li>${lang === 'tr'
-          ? 'Bu belgeyi ASLA e-mail veya bulut depolamada saklamayın'
-          : 'NEVER store this document in email or cloud storage'}</li>
-      </ol>
     </div>
 
     <div class="footer">
-      <p>Aegis Vault ${lang === 'tr' ? 'Kurtarma Kelimesi Yedeklemesi' : 'Recovery Words Backup'}</p>
-      <p>${lang === 'tr'
-          ? 'Bu belge önemli bilgiler içermektedir. Lütfen güvenli bir yerde saklayınız.'
-          : 'This document contains important information. Please keep it in a safe place.'}</p>
+      <p>Aegis Vault ${t('recovery_backup')}</p>
     </div>
   </div>
 
-  <script>
-    window.addEventListener('load', function() {
-      window.print();
-    });
-  </script>
+  <script>window.onload = () => window.print();</script>
 </body>
 </html>
       `;
@@ -235,7 +196,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </div>
           <div>
             <h3 className="text-2xl font-black text-white uppercase tracking-tighter">{t('recovery_words')}</h3>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">v4.0 - Enhanced Recovery</p>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">v4.0 - Aegis Protocol</p>
           </div>
         </div>
         <button onClick={onClose} className="p-2 text-zinc-500 hover:text-white">
@@ -257,9 +218,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       {stage === 'setup' && (
         <div className="space-y-6">
           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest leading-relaxed">
-            {lang === 'tr'
-              ? "Kurtarma kelimeleri, master şifrenizi unuttuğunuz durumda kasanızı geri yüklemek için kullanılır. Lütfen bu kelimeleri güvenli bir yerde saklayın."
-              : "Recovery words are used to restore your vault if you forget your master password. Please store them in a safe place."}
+            {t('recovery_words_setup_desc')}
           </p>
 
           <div className="space-y-4">
@@ -271,14 +230,12 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 className="w-4 h-4 accent-blue-500"
               />
               <span className="text-[10px] font-black uppercase tracking-widest text-white">
-                {lang === 'tr' ? 'PIN Koruması Ekle (4-6 Rakam)' : 'Add PIN Protection (4-6 Digits)'}
+                {t('add_pin_protection')}
               </span>
             </label>
 
             <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest px-2">
-              {lang === 'tr'
-                ? 'PIN koruması kurtarma anahtarlarını ek bir koruma katmanı ile şifreler.'
-                : 'PIN protection adds an extra layer of security to your recovery keys.'}
+              {t('pin_protection_desc')}
             </p>
           </div>
 
@@ -288,7 +245,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             className="w-full py-4 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-amber-600/20 flex items-center justify-center gap-2"
           >
             {isGenerating ? <RefreshCw className="animate-spin" size={16} /> : <Key size={16} />}
-            {lang === 'tr' ? 'KURTARMAKeliMELERİ OLUŞTUR' : 'GENERATE RECOVERY WORDS'}
+            {t('generate_recovery_words')}
           </button>
         </div>
       )}
@@ -296,8 +253,8 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       {stage === 'verify' && words.length > 0 && (
         <div className="space-y-6">
           <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-            <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mb-4">
-              {lang === 'tr' ? '⚠️ ÖNEMLİ - BU KELİMELERİ YAZIN VE GÜVENLİ BİR YERDE SAKLAYIN' : '⚠️ IMPORTANT - WRITE DOWN AND SAVE THESE WORDS'}
+            <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest mb-4 tracking-[0.2em]">
+              {t('recovery_important')}
             </p>
 
             <div className="grid grid-cols-4 gap-2 mb-6">
@@ -316,32 +273,32 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   }`}
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
-                {lang === 'tr' ? 'Tümünü Kopyala' : 'Copy All'}
+                {t('copy_all_words')}
               </button>
               <button
                 onClick={handleExportAsPDF}
                 className="flex-1 py-3 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
               >
                 <Download size={14} />
-                {lang === 'tr' ? 'PDF/Yazıyla İndir' : 'Export as PDF'}
+                {t('export_pdf')}
               </button>
               <button
                 onClick={handleExportRecovery}
                 className="flex-1 py-3 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
               >
                 <Download size={14} />
-                {lang === 'tr' ? 'Yedek (JSON)' : 'Backup (JSON)'}
+                {t('export_json')}
               </button>
             </div>
 
             <div className="p-3 bg-black/40 border border-white/5 rounded-xl">
-              <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Checksum (Verification):</p>
+              <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mb-1">{t('recovery_checksum_label')}:</p>
               <p className="font-mono text-[11px] text-blue-400">{checksum}</p>
             </div>
 
             {pin && (
               <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
-                <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest mb-2">PIN Koruması Aktif</p>
+                <p className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-2">{t('pin_protection_active')}</p>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -364,7 +321,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             onClick={handleVerifyWords}
             className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-blue-600/20"
           >
-            {lang === 'tr' ? 'Kelimeleri Doğrula' : 'Verify Words'}
+            {t('recovery_verify_words')}
           </button>
         </div>
       )}
@@ -376,19 +333,17 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </div>
           <div>
             <h4 className="text-xl font-black text-white uppercase tracking-tighter mb-2">
-              {lang === 'tr' ? 'Başarılı!' : 'Success!'}
+              {t('success_title')}
             </h4>
-            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
-              {lang === 'tr'
-                ? 'Kurtarma anahtarlarınız güvenli bir şekilde ayarlandı. Kelimeleri güvenli bir yerde saklayın.'
-                : 'Your recovery keys have been set up successfully. Keep the words in a safe place.'}
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest leading-relaxed">
+              {t('recovery_success_desc')}
             </p>
           </div>
           <button
             onClick={onClose}
             className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-blue-600/20"
           >
-            {lang === 'tr' ? 'Kapat' : 'Close'}
+            {t('close')}
           </button>
         </div>
       )}
@@ -468,9 +423,23 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
   }, [activeTab]);
 
   useEffect(() => {
-    loadEntries().then(() => setIsLoading(false));
+    loadEntries().then(() => {
+      setIsLoading(false);
+
+      // Duplicate kontrolü ve temizleme
+      if (masterKey) {
+        VaultService.deduplicateVault(masterKey).then(result => {
+          if (result.deletedCount > 0) {
+            console.log(`[Dashboard] ${result.deletedCount} duplicate otomatik temizlendi`);
+            loadEntries();
+          }
+        }).catch(err => {
+          console.error("[Dashboard] Deduplication hatası:", err);
+        });
+      }
+    });
     BiometricService.isSupported().then(setIsBiometricAvailable);
-  }, [loadEntries]);
+  }, [loadEntries, masterKey]);
 
   const toggleBiometrics = async () => {
     if (!masterKey) return;
@@ -498,7 +467,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
     localStorage.setItem('aegis_lock_on_bg', next.toString());
   };
 
-  const { resetVault } = useVault();
+  const { resetVault, deduplicateVault } = useVault();
 
   const triggerPanic = useCallback(() => {
     try {
@@ -523,6 +492,20 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [triggerPanic]);
+
+  const [isCleaning, setIsCleaning] = useState(false);
+  const handleDeduplicate = async () => {
+    if (isCleaning) return;
+    setIsCleaning(true);
+    try {
+      const result = await deduplicateVault();
+      alert(t('cleanup_success_desc').replace('{count}', result.deletedCount.toString()));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsCleaning(false);
+    }
+  };
 
   const performReset = async () => {
     if (!showResetConfirm) return;
@@ -577,50 +560,89 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
     return folders;
   }, [folders, entries, activeTab]);
 
+  // Performansı artırmak için arama sorgusunu ertele
+  const deferredQuery = React.useDeferredValue(searchQuery);
+
   const processedEntries = useMemo(() => {
+    // 1. Temel Filtreleme (Trash vs Active)
     let list = [...entries].filter(e => activeTab === 'trash' ? e.deletedAt !== undefined : e.deletedAt === undefined);
 
+    // Duplicate'leri gizle (Tüm görünüm türlerinde) - Daha agresif temizlik
+    const seen = new Map<string, VaultEntry>();
+    for (const entry of list) {
+      // Görünmez karakterleri temizle ve normalize et
+      const cleanTitle = (entry.title || '').toLowerCase().trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
+      const cleanUser = (entry.username || '').toLowerCase().trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
+
+      // Eğer başlık ve kullanıcı adı aynıysa, en son güncellenen kaydı tut
+      const key = `${cleanTitle}|${cleanUser}`;
+
+      if (seen.has(key)) {
+        const existing = seen.get(key)!;
+        // Eğer şimdiki kayıt daha yeniyse, eskisini ez
+        if ((entry.updatedAt || 0) > (existing.updatedAt || 0)) {
+          seen.set(key, entry);
+        }
+      } else {
+        seen.set(key, entry);
+      }
+    }
+    list = Array.from(seen.values());
+
+    // 2. Arama varsa Global Arama Yap (Klasörleri yoksay)
+    if (deferredQuery) {
+      const q = deferredQuery.toLowerCase();
+      list = list.filter(e =>
+        (e.title || '').toLowerCase().includes(q) ||
+        (e.username || '').toLowerCase().includes(q)
+      );
+    }
+
+    // 3. Arama Yoksa: Standart Görünüm Filtreleri
+
+    // Favori Filtresi
     if (activeTab === 'favorites') {
       list = list.filter(e => e.isFavorite);
     }
 
+    // Kategori Filtresi (Vault sekmesinde)
     if (activeTab === 'vault' && activeCat !== 'All') {
       list = list.filter(e => e.category === activeCat);
     }
 
-    // Klasör Filtreleme
+    // Klasör Filtresi
     if (currentFolderId) {
       list = list.filter(e => e.folderId === currentFolderId);
     } else if (activeTab === 'vault' || activeTab === 'favorites') {
-      // Ana görünümde sadece klasörsüzleri veya klasörleri göster (klasörler ayrı render edilecek)
-      list = list.filter(e => !e.folderId);
+      // Ana kök dizin (klasörü olmayanlar)
+      // Ancak arama yapılıyorsa klasör yapısını yoksay (Kullanıcı aradığı şeyi her yerde bulsun)
+      if (!deferredQuery) {
+        list = list.filter(e => !e.folderId);
+      }
     }
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(e => e.title.toLowerCase().includes(q) || e.username.toLowerCase().includes(q));
-    }
-
+    // Sıralama
     list.sort((a, b) => {
-      if (sortOrder === 'title_asc') return a.title.localeCompare(b.title);
-      if (sortOrder === 'title_desc') return b.title.localeCompare(a.title);
-      return b.updatedAt - a.updatedAt;
+      if (sortOrder === 'title_asc') return (a.title || '').localeCompare(b.title || '');
+      if (sortOrder === 'title_desc') return (b.title || '').localeCompare(a.title || '');
+      return (b.updatedAt || 0) - (a.updatedAt || 0);
     });
+
     return list;
-  }, [entries, activeTab, activeCat, currentFolderId, searchQuery, sortOrder]);
+  }, [entries, activeTab, activeCat, currentFolderId, deferredQuery, sortOrder]);
 
   const [visibleCount, setVisibleCount] = useState(24);
   const observerTarget = React.useRef(null);
 
-  // Lazy loading observer
+  // Lazy loading observer - Tüm kategorilerde aktif
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount(prev => prev + 24);
+        if (entries[0].isIntersecting && visibleCount < processedEntries.length) {
+          setVisibleCount(prev => Math.min(prev + 24, processedEntries.length));
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.3, rootMargin: '100px' }
     );
 
     if (observerTarget.current) {
@@ -628,12 +650,12 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
     }
 
     return () => observer.disconnect();
-  }, [processedEntries]);
+  }, [processedEntries.length, visibleCount]);
 
   // Reset pagination on tab/filter/category changes
   useEffect(() => {
     setVisibleCount(24);
-  }, [activeTab, searchQuery, activeCat, sortOrder]);
+  }, [activeTab, searchQuery, activeCat, sortOrder, currentFolderId]);
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-main text-main transition-colors duration-500">
@@ -744,7 +766,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                 placeholder={t('search_placeholder')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-12 py-3 bg-input-bg border border-main rounded-2xl text-sm text-main outline-none focus:border-blue-500/50 shadow-inner transition-all"
+                className="w-full pl-11 pr-12 py-3 bg-input-bg border border-main rounded-2xl text-sm text-main outline-none focus:border-blue-500/50 shadow-inner transition-all select-text"
               />
             </div>
 
@@ -814,53 +836,6 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
         </header>
 
         <section ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar relative">
-          {/* Session timeout warning - shown when < 1 minute remaining */}
-          <AnimatePresence>
-            {lockStatus?.isWarning && !lockStatus.isLocked && lockStatus.remainingSeconds > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="sticky top-0 z-50 mx-4 mt-4 mb-4 bg-red-500/10 border border-red-500/30 rounded-xl p-4 backdrop-blur-sm"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <Hourglass size={18} className="text-red-500 animate-spin" />
-                    <div className="flex flex-col gap-1">
-                      <p className="text-xs font-bold text-red-500 uppercase tracking-wider">
-                        {lang === 'tr' ? 'OTURUM SONA ERMEK ÜZERE' : 'SESSION EXPIRING SOON'}
-                      </p>
-                      <p className="text-[11px] text-red-400 font-semibold">
-                        {lang === 'tr'
-                          ? `Kalan zaman: ${lockStatus.remainingSeconds} saniye`
-                          : `Time remaining: ${lockStatus.remainingSeconds} seconds`
-                        }
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-black text-red-500 tabular-nums">
-                      {lockStatus.remainingSeconds}
-                    </div>
-                    <div className="text-[9px] text-red-400 font-bold uppercase tracking-widest">
-                      {lang === 'tr' ? 'Saniye' : 'SEC'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Progress bar */}
-                <div className="mt-3 h-1 bg-red-500/20 rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full bg-gradient-to-r from-red-500 to-orange-500"
-                    initial={{ width: '100%' }}
-                    animate={{ width: `${lockStatus.percentRemaining}%` }}
-                    transition={{ duration: 0.5 }}
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           <AnimatePresence mode="popLayout">
             <motion.div
               key={activeTab}
@@ -906,6 +881,50 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                 </>
               )}
 
+              {activeTab === 'favorites' && (
+                <>
+                  <div className="mb-8">
+                    <h2 className="text-xl font-black text-main uppercase tracking-tighter mb-2">{t('favorites')}</h2>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{t('found_items').replace('{count}', processedEntries.length.toString())}</p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8 pb-32">
+                    {processedEntries.map(entry => (
+                      <PasswordCard
+                        key={entry.id}
+                        entry={entry}
+                        onEdit={() => handleEditEntry(entry)}
+                        onDelete={() => deleteEntry(entry.id)}
+                        onToggleFavorite={() => toggleFavorite(entry.id)}
+                        onDecrypt={() => decryptData(entry)}
+                      />
+                    ))}
+                    <div ref={observerTarget} className="h-10 w-full" />
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'vault' && (
+                <>
+                  <div className="mb-8">
+                    <h2 className="text-xl font-black text-main uppercase tracking-tighter mb-2">{activeCat === 'All' ? t('all_items') : t(`cat_${activeCat.toLowerCase()}` as any)}</h2>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{t('found_items').replace('{count}', processedEntries.length.toString())}</p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8 pb-32">
+                    {processedEntries.slice(0, visibleCount).map(entry => (
+                      <PasswordCard
+                        key={entry.id}
+                        entry={entry}
+                        onEdit={() => handleEditEntry(entry)}
+                        onDelete={() => deleteEntry(entry.id)}
+                        onToggleFavorite={() => toggleFavorite(entry.id)}
+                        onDecrypt={() => decryptData(entry)}
+                      />
+                    ))}
+                    <div ref={observerTarget} className="h-10 w-full" />
+                  </div>
+                </>
+              )}
+
               {activeTab === 'settings' && (
                 <div className="max-w-4xl mx-auto space-y-4 pb-20">
                   <div className="flex gap-2 p-1.5 bg-black/40 rounded-[1.5rem] border border-white/5 w-fit mx-auto mb-4">
@@ -916,285 +935,355 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                     ))}
                   </div>
 
-                  {settingsTab === 'general' && (
-                    <div className="space-y-6">
-                      <div className="glass p-10 rounded-[3rem] border border-amber-500/10 bg-amber-500/[0.02] flex items-center justify-between shadow-lg relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                        <div className="flex items-center gap-8 relative z-10">
-                          <div className="p-5 bg-amber-500/10 text-amber-500 rounded-[2rem] shadow-inner"><Award size={32} /></div>
-                          <div>
-                            <h3 className="text-lg font-black text-main uppercase tracking-tighter">{isPro ? t('pro_edition') : t('free_trial')}</h3>
-                            <p className="text-[11px] text-dim font-bold uppercase mt-1 tracking-widest">{isPro ? t('access_enabled') : t('trial_status_days').replace('{count}', remainingDays.toString())}</p>
-                          </div>
-                        </div>
-                        <button onClick={() => setShowLicensing(true)} className="relative z-10 px-8 py-4 bg-amber-600 hover:bg-amber-500 text-black text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-amber-600/20 active:scale-95">
-                          {isPro ? t('view_license') : t('upgrade_to_pro')}
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-8">
-                        <div className="glass p-10 rounded-[3rem] border border-main space-y-8">
-                          <div className="flex items-center gap-4"><Moon size={20} className="text-blue-500" /> <h4 className="text-xs font-black uppercase tracking-widest">{t('theme')}</h4></div>
-                          <div className="flex gap-2 bg-black/20 p-1.5 rounded-2xl">
-                            <button onClick={() => setTheme('dark')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-white'}`}>{t('theme_dark')}</button>
-                            <button onClick={() => setTheme('light')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-zinc-100 text-black shadow-lg' : 'text-zinc-600 hover:text-black'}`}>{t('theme_light')}</button>
-                          </div>
-                        </div>
-                        <div className="glass p-10 rounded-[3rem] border border-main space-y-8">
-                          <div className="flex items-center gap-4"><Languages size={20} className="text-blue-500" /> <h4 className="text-xs font-black uppercase tracking-widest">{t('lang_select_title')}</h4></div>
-                          <div className="flex gap-2 bg-black/20 p-1.5 rounded-2xl">
-                            <button onClick={() => setLang('en')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lang === 'en' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-white'}`}>English</button>
-                            <button onClick={() => setLang('tr')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lang === 'tr' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-white'}`}>Türkçe</button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Legal Documents Section */}
-                      <div className="grid grid-cols-2 gap-8 mt-6">
-                        <button
-                          onClick={() => { setLegalDocType('terms'); setShowLegalModal(true); }}
-                          className="glass p-8 rounded-[2rem] border border-purple-500/20 hover:border-purple-500/50 bg-purple-500/[0.02] transition-all group shadow-lg"
-                        >
-                          <div className="flex items-center gap-4 mb-4">
-                            <FileText size={20} className="text-purple-500 group-hover:scale-110 transition-transform" />
-                            <h5 className="text-[11px] font-black uppercase tracking-widest text-white group-hover:text-purple-300">{t('legal_terms_title')}</h5>
-                          </div>
-                          <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed">{t('legal_terms_desc')}</p>
-                        </button>
-
-                        <button
-                          onClick={() => { setLegalDocType('privacy'); setShowLegalModal(true); }}
-                          className="glass p-8 rounded-[2rem] border border-green-500/20 hover:border-green-500/50 bg-green-500/[0.02] transition-all group shadow-lg"
-                        >
-                          <div className="flex items-center gap-4 mb-4">
-                            <Shield size={20} className="text-green-500 group-hover:scale-110 transition-transform" />
-                            <h5 className="text-[11px] font-black uppercase tracking-widest text-white group-hover:text-green-300">{t('legal_privacy_title')}</h5>
-                          </div>
-                          <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed">{t('legal_privacy_desc')}</p>
-                        </button>
-                      </div>
-
-                      {/* User Guide Section */}
-                      <div className="mt-6">
-                        <button
-                          onClick={() => setShowUserGuide(true)}
-                          className="w-full glass p-10 rounded-[2rem] border border-blue-500/30 hover:border-blue-500/60 bg-blue-500/[0.03] transition-all group shadow-lg"
-                        >
-                          <div className="flex items-center gap-6">
-                            <div className="p-4 bg-blue-600/20 rounded-xl group-hover:scale-110 transition-transform">
-                              <BookOpen size={28} className="text-blue-400" />
-                            </div>
-                            <div className="text-left flex-1">
-                              <h4 className="text-lg font-black text-white uppercase tracking-tight">{t('complete_user_guide')}</h4>
-                              <p className="text-xs text-zinc-400 mt-2 uppercase tracking-widest">{t('user_guide_subtext')}</p>
-                            </div>
-                            <div className="text-blue-500 group-hover:translate-x-1 transition-transform">
-                              <ChevronRight size={24} />
+                  <AnimatePresence mode="wait">
+                    {settingsTab === 'general' && (
+                      <motion.div key="general" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+                        <div className="glass p-10 rounded-[3rem] border border-amber-500/10 bg-amber-500/[0.02] flex items-center justify-between shadow-lg relative overflow-hidden group">
+                          <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                          <div className="flex items-center gap-8 relative z-10">
+                            <div className="p-5 bg-amber-500/10 text-amber-500 rounded-[2rem] shadow-inner"><Award size={32} /></div>
+                            <div>
+                              <h3 className="text-lg font-black text-main uppercase tracking-tighter">{isPro ? t('pro_edition') : t('free_trial')}</h3>
+                              <p className="text-[11px] text-dim font-bold uppercase mt-1 tracking-widest">{isPro ? t('access_enabled') : t('trial_status_days').replace('{count}', (remainingDays || 0).toString())}</p>
                             </div>
                           </div>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {settingsTab === 'security' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <button onClick={() => setShow2FASetup(true)} className="glass p-10 rounded-[3rem] border border-main text-left hover:border-blue-500/30 transition-all flex items-center justify-between group shadow-lg">
-                        <div className="flex items-center gap-8">
-                          <div className="p-5 bg-blue-600/10 text-blue-500 rounded-[2rem] shadow-inner group-hover:scale-110 transition-transform"><Key size={32} /></div>
-                          <div>
-                            <h4 className="text-sm font-black uppercase tracking-widest">{t('setup_2fa')}</h4>
-                            <p className={`text-[10px] font-black uppercase mt-1 tracking-widest ${localStorage.getItem('aegis_2fa_config') ? 'text-emerald-500' : 'text-zinc-500'}`}>
-                              {localStorage.getItem('aegis_2fa_config') ? t('status_protected') : t('two_factor_status_off')}
-                            </p>
-                          </div>
-                        </div>
-                        <ChevronRight size={24} className="text-zinc-700 group-hover:text-blue-500 transition-colors" />
-                      </button>
-
-                      <button onClick={toggleBiometrics} disabled={!isBiometricAvailable} className={`glass p-10 rounded-[3rem] border border-main text-left hover:border-blue-500/30 transition-all flex items-center justify-between group shadow-lg ${!isBiometricAvailable ? 'opacity-50 grayscale' : ''}`}>
-                        <div className="flex items-center gap-8">
-                          <div className={`p-5 rounded-[2rem] shadow-inner group-hover:scale-110 transition-transform ${isBioEnabled ? 'bg-emerald-600/10 text-emerald-500' : 'bg-zinc-600/10 text-zinc-500'}`}><Fingerprint size={32} /></div>
-                          <div>
-                            <h4 className="text-sm font-black uppercase tracking-widest">{t('biometric_lock')}</h4>
-                            <p className={`text-[10px] font-black uppercase mt-1 tracking-widest ${isBioEnabled ? 'text-emerald-500' : 'text-red-500'}`}>
-                              {isBioEnabled ? t('status_enabled') : t('status_disabled')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className={`w-14 h-7 rounded-full relative transition-colors ${isBioEnabled ? 'bg-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.4)]' : 'bg-zinc-800'}`}>
-                          <motion.div animate={{ x: isBioEnabled ? 28 : 4 }} className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-lg" />
-                        </div>
-                      </button>
-
-                      <button onClick={() => setShowRecovery(true)} className="glass p-10 rounded-[3rem] border border-main text-left hover:border-blue-500/30 transition-all flex items-center justify-between group shadow-lg">
-                        <div className="flex items-center gap-8">
-                          <div className="p-5 bg-amber-600/10 text-amber-500 rounded-[2rem] shadow-inner group-hover:scale-110 transition-transform"><Eye size={32} /></div>
-                          <div>
-                            <h4 className="text-sm font-black uppercase tracking-widest">{t('recovery_words')}</h4>
-                            <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1 tracking-widest">Acil Durum Protokolü</p>
-                          </div>
-                        </div>
-                        <ChevronRight size={24} className="text-zinc-700 group-hover:text-amber-500 transition-colors" />
-                      </button>
-
-                      <div className="glass p-10 rounded-[3rem] border border-main space-y-8 shadow-lg">
-                        <div className="flex items-center gap-4"><Clock size={20} className="text-blue-500" /> <h4 className="text-xs font-black uppercase tracking-widest">{t('auto_lock_timer')}</h4></div>
-                        <div className="grid grid-cols-3 gap-3">
-                          {[60000, 300000, 900000, 3600000].map(ms => (
-                            <button key={ms} onClick={() => handleAutoLockChange(ms)} className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${autoLockDuration === ms ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'bg-black/20 text-zinc-500 hover:text-zinc-300'}`}>
-                              {ms === 60000 ? '1dk' : ms === 300000 ? '5dk' : ms === 900000 ? '15dk' : '1sa'}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <button onClick={toggleLockOnBg} className="glass p-10 rounded-[3rem] border border-main text-left hover:border-blue-500/30 transition-all flex items-center justify-between group shadow-lg">
-                        <div className="flex items-center gap-8">
-                          <div className="p-5 bg-indigo-600/10 text-indigo-500 rounded-[2rem] shadow-inner group-hover:scale-110 transition-transform"><Smartphone size={32} /></div>
-                          <div>
-                            <h4 className="text-sm font-black uppercase tracking-widest">{t('lock_on_background')}</h4>
-                            <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1 tracking-widest">Anında Koruma</p>
-                          </div>
-                        </div>
-                        <div className={`w-14 h-7 rounded-full relative transition-colors ${lockOnBg ? 'bg-indigo-600 shadow-[0_0_15px_rgba(79,70,229,0.4)]' : 'bg-zinc-800'}`}>
-                          <motion.div animate={{ x: lockOnBg ? 28 : 4 }} className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-lg" />
-                        </div>
-                      </button>
-
-                      <button onClick={() => setShowChangeMasterKey(true)} className="glass p-10 rounded-[3rem] border border-main text-left hover:border-blue-500/30 transition-all flex items-center justify-between group shadow-lg">
-                        <div className="flex items-center gap-8">
-                          <div className="p-5 bg-blue-600/10 text-blue-500 rounded-[2rem] shadow-inner group-hover:scale-110 transition-transform"><Lock size={32} /></div>
-                          <div>
-                            <h4 className="text-sm font-black uppercase tracking-widest">{t('change_master_key') || 'Change Master Password'}</h4>
-                            <p className="text-[10px] text-zinc-500 font-bold uppercase mt-1 tracking-widest">Güvenli anahtar güncelleme</p>
-                          </div>
-                        </div>
-                        <ChevronRight size={24} className="text-zinc-700 group-hover:text-blue-500 transition-colors" />
-                      </button>
-
-                      <button onClick={triggerPanic} className="glass p-10 rounded-[3rem] border border-main col-span-1 md:col-span-2 flex items-center gap-10 shadow-lg group hover:border-red-500/30 transition-all text-left w-full">
-                        <div className="p-5 bg-red-600/10 text-red-500 rounded-[2rem] shadow-inner group-hover:scale-110 transition-transform"><Flame size={32} /></div>
-                        <div className="flex-1">
-                          <h4 className="text-sm font-black uppercase tracking-widest">{t('panic_button')}</h4>
-                          <p className="text-[11px] text-zinc-500 font-bold uppercase mt-1 leading-loose tracking-widest opacity-80">{t('panic_button_desc')}</p>
-                        </div>
-                        <div className="px-6 py-3 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-red-600/20 group-hover:scale-105 transition-all">
-                          {t('activate_panic_btn')}
-                        </div>
-                      </button>
-                    </div>
-                  )}
-
-                  {settingsTab === 'data' && (
-                    <div className="space-y-8">
-                      <div className="glass p-16 rounded-[4rem] border border-main text-center space-y-10 shadow-2xl relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <div className="w-24 h-24 bg-blue-600/10 text-blue-500 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl shadow-blue-600/10"><Database size={48} /></div>
-                        <div className="relative z-10">
-                          <h4 className="text-2xl font-black uppercase tracking-tighter text-white">{t('portability_title')}</h4>
-                          <p className="text-xs text-zinc-500 font-bold uppercase tracking-[0.2em] mt-3 max-w-md mx-auto leading-relaxed">{t('portability_desc')}</p>
-                        </div>
-                        <button onClick={() => setShowPortability(true)} className="relative z-10 px-12 py-6 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-black uppercase tracking-[0.4em] rounded-2xl shadow-2xl shadow-blue-600/20 active:scale-95 transition-all">
-                          {t('open_wizard')}
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="glass p-8 rounded-[2.5rem] border border-main flex flex-col items-center text-center gap-6 group hover:border-amber-500/30 transition-all">
-                          <div className="p-4 bg-amber-500/10 text-amber-500 rounded-2xl group-hover:scale-110 transition-transform"><RotateCcw size={24} /></div>
-                          <div>
-                            <h5 className="text-[11px] font-black uppercase tracking-widest text-white mb-2">{t('reset_settings')}</h5>
-                            <p className="text-[10px] text-zinc-500 font-bold uppercase leading-relaxed">{t('reset_settings_desc')}</p>
-                          </div>
-                          <button onClick={() => setShowResetConfirm({ type: 'settings', confirmText: '' })} className="mt-auto px-6 py-3 border border-zinc-800 hover:bg-white/5 text-zinc-400 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
-                            {t('initialize')}
+                          <button onClick={() => setShowLicensing(true)} className="relative z-10 px-8 py-4 bg-amber-600 hover:bg-amber-500 text-black text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl shadow-amber-600/20 active:scale-95">
+                            {isPro ? t('view_license') : t('upgrade_to_pro')}
                           </button>
                         </div>
 
-                        <div className="glass p-8 rounded-[2.5rem] border border-main flex flex-col items-center text-center gap-6 group hover:border-red-500/30 transition-all">
-                          <div className="p-4 bg-red-500/10 text-red-500 rounded-2xl group-hover:scale-110 transition-transform"><ShieldX size={24} /></div>
-                          <div>
-                            <h5 className="text-[11px] font-black uppercase tracking-widest text-white mb-2">{t('reset_vault')}</h5>
-                            <p className="text-[10px] text-zinc-500 font-bold uppercase leading-relaxed">{t('reset_vault_desc')}</p>
+                        <div className="grid grid-cols-2 gap-8">
+                          <div className="glass p-10 rounded-[3rem] border border-main space-y-8">
+                            <div className="flex items-center gap-4"><Moon size={20} className="text-blue-500" /> <h4 className="text-xs font-black uppercase tracking-widest">{t('theme')}</h4></div>
+                            <div className="flex gap-2 bg-black/20 p-1.5 rounded-2xl">
+                              <button onClick={() => setTheme('dark')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${theme === 'dark' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-white'}`}>{t('theme_dark')}</button>
+                              <button onClick={() => setTheme('light')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${theme === 'light' ? 'bg-zinc-100 text-black shadow-lg' : 'text-zinc-600 hover:text-black'}`}>{t('theme_light')}</button>
+                            </div>
                           </div>
-                          <button onClick={() => setShowResetConfirm({ type: 'vault', confirmText: '' })} className="mt-auto px-6 py-3 border border-red-500/20 hover:bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">
-                            {t('permanent_delete')}
+                          <div className="glass p-10 rounded-[3rem] border border-main space-y-8">
+                            <div className="flex items-center gap-4"><Languages size={20} className="text-blue-500" /> <h4 className="text-xs font-black uppercase tracking-widest">{t('lang_select_title')}</h4></div>
+                            <div className="flex gap-2 bg-black/20 p-1.5 rounded-2xl">
+                              <button onClick={() => setLang('en')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lang === 'en' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-white'}`}>English</button>
+                              <button onClick={() => setLang('tr')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${lang === 'tr' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-600 hover:text-white'}`}>Türkçe</button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-8 mt-6">
+                          <button onClick={() => { setLegalDocType('terms'); setShowLegalModal(true); }} className="glass p-8 rounded-[2rem] border border-purple-500/20 hover:border-purple-500/50 bg-purple-500/[0.02] transition-all group shadow-lg">
+                            <div className="flex items-center gap-4 mb-4">
+                              <FileText size={20} className="text-purple-500 group-hover:scale-110 transition-transform" />
+                              <h5 className="text-[11px] font-black uppercase tracking-widest text-white group-hover:text-purple-300">{t('legal_terms_title')}</h5>
+                            </div>
+                            <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed">{t('legal_terms_desc')}</p>
+                          </button>
+                          <button onClick={() => { setLegalDocType('privacy'); setShowLegalModal(true); }} className="glass p-8 rounded-[2rem] border border-green-500/20 hover:border-green-500/50 bg-green-500/[0.02] transition-all group shadow-lg">
+                            <div className="flex items-center gap-4 mb-4">
+                              <Shield size={20} className="text-green-500 group-hover:scale-110 transition-transform" />
+                              <h5 className="text-[11px] font-black uppercase tracking-widest text-white group-hover:text-green-300">{t('legal_privacy_title')}</h5>
+                            </div>
+                            <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed">{t('legal_privacy_desc')}</p>
                           </button>
                         </div>
 
-                        <div className="glass p-8 rounded-[2.5rem] border border-main flex flex-col items-center text-center gap-6 group hover:border-red-500 transition-all bg-red-500/[0.02]">
-                          <div className="p-4 bg-red-600 text-white rounded-2xl shadow-xl shadow-red-600/20 group-hover:scale-110 transition-transform"><Flame size={24} /></div>
-                          <div>
-                            <h5 className="text-[11px] font-black uppercase tracking-widest text-white mb-2">{t('factory_reset')}</h5>
-                            <p className="text-[10px] text-zinc-500 font-bold uppercase leading-relaxed">{t('factory_reset_desc')}</p>
-                          </div>
-                          <button onClick={() => setShowResetConfirm({ type: 'factory', confirmText: '' })} className="mt-auto px-6 py-3 bg-red-600 hover:bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl shadow-lg shadow-red-600/20 transition-all">
-                            {t('factory_reset')}
+                        <div className="mt-6">
+                          <button onClick={() => setShowUserGuide(true)} className="w-full glass p-10 rounded-[2rem] border border-blue-500/30 hover:border-blue-500/60 bg-blue-500/[0.03] transition-all group shadow-lg">
+                            <div className="flex items-center gap-6">
+                              <div className="p-4 bg-blue-600/20 rounded-xl group-hover:scale-110 transition-transform"><BookOpen size={28} className="text-blue-400" /></div>
+                              <div className="text-left flex-1">
+                                <h4 className="text-lg font-black text-white uppercase tracking-tight">{t('complete_user_guide')}</h4>
+                                <p className="text-xs text-zinc-400 mt-2 uppercase tracking-widest">{t('user_guide_subtext')}</p>
+                              </div>
+                              <div className="text-blue-500 group-hover:translate-x-1 transition-transform"><ChevronRight size={24} /></div>
+                            </div>
                           </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {(activeTab === 'vault' || activeTab === 'favorites') && (
-                <div className="space-y-8 pb-32">
-                  {currentFolderId && (
-                    <button
-                      onClick={() => setCurrentFolderId(null)}
-                      className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors mb-6 group"
-                    >
-                      <div className="p-2 bg-white/5 rounded-lg group-hover:bg-blue-600/20 group-hover:text-blue-500 transition-all">
-                        <ChevronLeft size={16} />
-                      </div>
-                      {t('back')}
-                    </button>
-                  )}
-
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8">
-                    {!isLoading && !currentFolderId && relevantFolders.map(folder => (
-                      <motion.div
-                        key={folder.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        whileHover={{ y: -5 }}
-                        onClick={() => setCurrentFolderId(folder.id)}
-                        className="glass p-6 rounded-[2.5rem] border border-main cursor-pointer hover:border-blue-500/30 transition-all group flex flex-col items-center text-center gap-4 shadow-xl"
-                      >
-                        <div className="w-16 h-16 bg-blue-600/10 text-blue-500 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner relative">
-                          <Folder size={32} />
-                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-[10px] font-black text-white border-2 border-[#050505]">
-                            {entries.filter(e => e.folderId === folder.id && !e.deletedAt && (activeTab === 'favorites' ? e.isFavorite : true)).length}
-                          </div>
-                        </div>
-                        <div>
-                          <h4 className="text-[11px] font-black uppercase tracking-widest text-white leading-tight">{folder.name}</h4>
-                          <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1 tracking-widest opacity-60">{t('collection')}</p>
                         </div>
                       </motion.div>
-                    ))}
-
-                    {isLoading ? Array(12).fill(0).map((_, i) => <SkeletonCard key={i} />) : processedEntries.slice(0, visibleCount).map(entry => (
-                      <PasswordCard key={entry.id} entry={entry} onEdit={() => handleEditEntry(entry)} onDelete={() => deleteEntry(entry.id)} onToggleFavorite={() => toggleFavorite(entry.id)} onDecrypt={() => decryptData(entry)} />
-                    ))}
-
-                    {processedEntries.length > visibleCount && (
-                      <div ref={observerTarget} className="col-span-full h-10 flex items-center justify-center">
-                        <Loader2 className="animate-spin text-zinc-700" size={24} />
-                      </div>
                     )}
 
-                    {!isLoading && processedEntries.length === 0 && relevantFolders.length === 0 && (
-                      <div className="col-span-full py-48 text-center opacity-30 font-black uppercase tracking-[1em] text-[10px] ml-[1em]">{t('no_assets')}</div>
+                    {settingsTab === 'security' && (
+                      <motion.div key="security" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-20">
+                        {/* Section 1: Multi-Factor Authentication */}
+                        <section className="glass p-6 rounded-[2rem] border border-blue-500/10 bg-blue-500/[0.02]">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-blue-600 text-white rounded-lg shadow-lg shadow-blue-600/20">
+                              <ShieldCheck size={16} />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('two_factor_title')}</h3>
+                              <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{t('two_factor_desc') || 'Extra protection for your vault'}</p>
+                            </div>
+                          </div>
+                          <div className="max-w-2xl">
+                            <TwoFactorSetup onClose={() => { }} onComplete={() => { }} />
+                          </div>
+                        </section>
+
+                        {/* Section 2: Proactive Defense & Disaster Recovery */}
+                        <section className="glass p-6 rounded-[2rem] border border-amber-500/10 bg-amber-500/[0.02]">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-amber-600 text-white rounded-lg shadow-lg shadow-amber-600/20">
+                              <AlertTriangle size={16} />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('incident_response')}</h3>
+                              <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{t('incident_response_desc') || 'Emergency access and panic mode'}</p>
+                            </div>
+                          </div>
+                          <EmergencyAccess />
+                        </section>
+
+                        {/* Section 3: Device Security & Access Control */}
+                        <section className="space-y-4">
+                          <div className="flex items-center gap-3 px-2">
+                            <div className="w-1 h-6 bg-emerald-600 rounded-full" />
+                            <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('security_architecture')}</h3>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Biometric Toggle Card */}
+                            <div className="glass p-5 rounded-[1.5rem] border border-white/5 flex items-center justify-between group hover:border-emerald-500/20 transition-all shadow-lg">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-lg group-hover:scale-110 transition-transform">
+                                  <Fingerprint size={18} />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('biometric_lock')}</h4>
+                                  <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1">{t('biometric_desc')}</p>
+                                </div>
+                              </div>
+                              {isBiometricAvailable ? (
+                                <button onClick={toggleBiometrics} className={`px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all ${isBioEnabled ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-zinc-900 text-zinc-600 border border-white/5'}`}>
+                                  {isBioEnabled ? t('status_enabled') : t('status_disabled')}
+                                </button>
+                              ) : (
+                                <span className="text-[8px] text-zinc-600 font-bold uppercase">{t('status_inactive')}</span>
+                              )}
+                            </div>
+
+                            {/* Auto Lock Timer Card */}
+                            <div className="glass p-5 rounded-[1.5rem] border border-white/5 space-y-3 shadow-lg">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg">
+                                  <Clock size={18} />
+                                </div>
+                                <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('auto_lock_timer')}</h4>
+                              </div>
+                              <div className="grid grid-cols-4 gap-2">
+                                {[60000, 300000, 900000, 3600000].map(ms => (
+                                  <button
+                                    key={ms}
+                                    onClick={() => handleAutoLockChange(ms)}
+                                    className={`py-2 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${autoLockDuration === ms ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'}`}
+                                  >
+                                    {ms === 60000 ? t('time_1m') : ms === 300000 ? t('time_5m') : ms === 900000 ? t('time_15m') : t('time_1h')}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Recovery Words Card */}
+                            <button onClick={() => setShowRecovery(true)} className="glass p-5 rounded-[1.5rem] border border-white/5 text-left hover:border-amber-500/20 transition-all flex items-center justify-between group shadow-lg">
+                              <div className="flex items-center gap-4">
+                                <div className="p-2 bg-amber-600/10 text-amber-500 rounded-lg group-hover:scale-110 transition-transform">
+                                  <Eye size={18} />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('recovery_words')}</h4>
+                                  <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1">{t('emergency_protocol')}</p>
+                                </div>
+                              </div>
+                              <ChevronRight size={16} className="text-zinc-700 group-hover:text-amber-500 transition-colors" />
+                            </button>
+
+                            {/* Master Key Card */}
+                            <button onClick={() => setShowChangeMasterKey(true)} className="glass p-5 rounded-[1.5rem] border border-white/5 text-left hover:border-blue-500/20 transition-all flex items-center justify-between group shadow-lg">
+                              <div className="flex items-center gap-4">
+                                <div className="p-2 bg-blue-600/10 text-blue-500 rounded-lg group-hover:scale-110 transition-transform">
+                                  <Key size={18} />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('change_master_key')}</h4>
+                                  <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1">{t('secure_key_update')}</p>
+                                </div>
+                              </div>
+                              <ChevronRight size={16} className="text-zinc-700 group-hover:text-blue-500 transition-colors" />
+                            </button>
+                          </div>
+                        </section>
+                      </motion.div>
                     )}
-                  </div>
+
+                    {settingsTab === 'data' && (
+                      <motion.div key="data" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-20">
+                        {/* Backup Settings Section */}
+                        <section className="glass p-5 rounded-[1.5rem] border border-emerald-500/10 bg-emerald-500/[0.02]">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-emerald-600 text-white rounded-lg shadow-lg shadow-emerald-600/20">
+                              <Database size={16} />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('backup_settings')}</h3>
+                              <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">{t('backup_settings_desc') || 'Automatic backup to local or cloud storage'}</p>
+                            </div>
+                          </div>
+                          <BackupSettings />
+                        </section>
+
+                        {/* Data Portability Section */}
+                        <section className="glass p-5 rounded-[1.5rem] border border-blue-500/10 bg-blue-500/[0.02]">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-blue-600 text-white rounded-lg shadow-lg shadow-blue-600/20">
+                              <Download size={16} />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('data_tab')}</h3>
+                              <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">{t('import_export_desc') || 'Import and export your vault data'}</p>
+                            </div>
+                          </div>
+                          <PortabilityWizard />
+                        </section>
+
+                        {/* Cleanup Duplicates Section */}
+                        <section className="glass p-5 rounded-[1.5rem] border border-amber-500/10 bg-amber-500/[0.02]">
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                              <div className="p-2 bg-amber-600 text-white rounded-lg shadow-lg shadow-amber-600/20">
+                                <Zap size={20} />
+                              </div>
+                              <div>
+                                <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('cleanup_duplicates')}</h3>
+                                <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">{t('cleanup_duplicates_desc')}</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={handleDeduplicate}
+                              disabled={isCleaning}
+                              className={`px-5 py-2.5 rounded-lg font-black text-[9px] uppercase tracking-[0.2em] transition-all active:scale-95 flex items-center gap-2 ${isCleaning
+                                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                                : 'bg-white text-black hover:bg-zinc-200 shadow-xl shadow-white/5'
+                                }`}
+                            >
+                              {isCleaning ? <Loader2 className="animate-spin" size={14} /> : <Zap size={14} />}
+                              {isCleaning ? (t('processing') || 'Processing...') : (t('initialize') || 'Başlat')}
+                            </button>
+                          </div>
+                        </section>
+
+                        {/* Reset Options Section */}
+                        <section className="space-y-4">
+                          <div className="flex items-center gap-3 px-2">
+                            <div className="w-1 h-6 bg-red-600 rounded-full" />
+                            <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('danger_zone')}</h3>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Reset Settings Card */}
+                            <div className="glass p-4 rounded-[1.5rem] border border-white/5 flex flex-col items-center text-center gap-3 group hover:border-amber-500/30 transition-all">
+                              <div className="p-2 bg-amber-500/10 text-amber-500 rounded-2xl group-hover:scale-110 transition-transform"><RotateCcw size={20} /></div>
+                              <div>
+                                <h5 className="text-[10px] font-black text-white uppercase tracking-widest text-center">{t('reset_settings')}</h5>
+                                <p className="text-[8px] text-zinc-500 font-bold uppercase leading-relaxed">{t('reset_settings_desc')}</p>
+                              </div>
+                              <button onClick={() => setShowResetConfirm({ type: 'settings', confirmText: '' })} className="mt-auto px-4 py-2 border border-zinc-800 hover:bg-white/5 text-zinc-400 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all">
+                                {t('initialize')}
+                              </button>
+                            </div>
+
+                            {/* Reset Vault Card */}
+                            <div className="glass p-4 rounded-[1.5rem] border border-white/5 flex flex flex-col items-center text-center gap-3 group hover:border-red-500/30 transition-all">
+                              <div className="p-2 bg-red-500/10 text-red-500 rounded-2xl group-hover:scale-110 transition-transform"><ShieldX size={20} /></div>
+                              <div>
+                                <h5 className="text-[10px] font-black text-white uppercase tracking-widest text-center">{t('reset_vault')}</h5>
+                                <p className="text-[8px] text-zinc-500 font-bold uppercase leading-relaxed">{t('reset_vault_desc')}</p>
+                              </div>
+                              <button onClick={() => setShowResetConfirm({ type: 'vault', confirmText: '' })} className="mt-auto px-4 py-2 border border-red-500/20 hover:bg-red-500/10 text-red-500 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all">
+                                {t('permanent_delete')}
+                              </button>
+                            </div>
+
+                            {/* Factory Reset Card */}
+                            <div className="glass p-4 rounded-[1.5rem] border border-white/5 flex flex flex-col items-center text-center gap-3 group hover:border-red-500 transition-all bg-red-500/[0.02]">
+                              <div className="p-2 bg-red-600 text-white rounded-2xl shadow-xl shadow-red-600/20 group-hover:scale-110 transition-transform"><Flame size={20} /></div>
+                              <div>
+                                <h5 className="text-[10px] font-black text-white uppercase tracking-widest text-center">{t('factory_reset')}</h5>
+                                <p className="text-[8px] text-zinc-500 font-bold uppercase leading-relaxed">{t('factory_reset_desc')}</p>
+                              </div>
+                              <button onClick={() => setShowResetConfirm({ type: 'factory', confirmText: '' })} className="mt-auto px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-[9px] font-black uppercase tracking-widest rounded-lg shadow-lg shadow-red-600/20 transition-all">
+                                {t('factory_reset')}
+                              </button>
+                            </div>
+                          </div>
+                        </section>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
-            </motion.div>
-          </AnimatePresence>
-        </section>
+
+              {
+                (activeTab === 'vault' || activeTab === 'favorites') && (
+                  <div className="space-y-8 pb-32">
+                    {currentFolderId && (
+                      <button
+                        onClick={() => setCurrentFolderId(null)}
+                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors mb-6 group"
+                      >
+                        <div className="p-2 bg-white/5 rounded-lg group-hover:bg-blue-600/20 group-hover:text-blue-500 transition-all">
+                          <ChevronLeft size={16} />
+                        </div>
+                        {t('back')}
+                      </button>
+                    )}
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8">
+                      {!isLoading && !currentFolderId && relevantFolders.map(folder => (
+                        <motion.div
+                          key={folder.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          whileHover={{ y: -5 }}
+                          onClick={() => setCurrentFolderId(folder.id)}
+                          className="glass p-6 rounded-[2.5rem] border border-main cursor-pointer hover:border-blue-500/30 transition-all group flex flex-col items-center text-center gap-4 shadow-xl"
+                        >
+                          <div className="w-16 h-16 bg-blue-600/10 text-blue-500 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner relative">
+                            <Folder size={32} />
+                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-[10px] font-black text-white border-2 border-[#050505]">
+                              {entries.filter(e => e.folderId === folder.id && !e.deletedAt && (activeTab === 'favorites' ? e.isFavorite : true)).length}
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="text-[11px] font-black uppercase tracking-widest text-white leading-tight">{folder.name}</h4>
+                            <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1 tracking-widest opacity-60">{t('collection')}</p>
+                          </div>
+                        </motion.div>
+                      ))}
+
+                      {isLoading ? Array(12).fill(0).map((_, i) => <SkeletonCard key={i} />) : processedEntries.slice(0, visibleCount).map(entry => (
+                        <PasswordCard key={entry.id} entry={entry} onEdit={() => handleEditEntry(entry)} onDelete={() => deleteEntry(entry.id)} onToggleFavorite={() => toggleFavorite(entry.id)} onDecrypt={() => decryptData(entry)} />
+                      ))}
+
+                      {processedEntries.length > visibleCount && (
+                        <div ref={observerTarget} className="col-span-full py-12 flex flex-col items-center gap-4">
+                          <Loader2 className="animate-spin text-zinc-700" size={28} />
+                          <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest">
+                            {processedEntries.length - visibleCount} {t('more_items') || 'daha fazla'}
+                          </p>
+                        </div>
+                      )}
+
+                      {!isLoading && processedEntries.length === 0 && relevantFolders.length === 0 && (
+                        <div className="col-span-full py-48 text-center opacity-30 font-black uppercase tracking-[1em] text-[10px] ml-[1em]">{t('no_assets')}</div>
+                      )}
+                    </div>
+                  </div>
+                )
+              }
+            </motion.div >
+          </AnimatePresence >
+        </section >
 
         <AnimatePresence>
           {showLicensing && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"><LicensingView onClose={() => setShowLicensing(false)} /></div>}
@@ -1239,8 +1328,8 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
           <LegalModal isOpen={showLegalModal} onClose={() => setShowLegalModal(false)} docType={legalDocType} />
           <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} />
         </AnimatePresence>
-      </main>
-    </div>
+      </main >
+    </div >
   );
 };
 

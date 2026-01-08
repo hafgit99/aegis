@@ -108,7 +108,7 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
         setError(t('invalid_code'));
       }
     } catch (err) {
-      setError("Verification error");
+      setError(t('verification_error') || "Verification error");
     } finally {
       setIsVerifying(false);
     }
@@ -122,55 +122,52 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
   };
 
   const handleDisable = () => {
-    if (confirm(lang === 'tr' ? '2FA\'yı devre dışı bırakmak istediğinizden emin misiniz?' : 'Are you sure you want to disable 2FA?')) {
+    if (confirm(t('disable_2fa_confirm'))) {
       localStorage.removeItem('aegis_2fa_config');
       onComplete();
     }
   };
 
   return (
-    <div className="glass border border-white/5 rounded-[3rem] p-12 w-full max-w-xl shadow-2xl relative overflow-hidden">
-      <div className="absolute top-8 right-8 z-20">
-        <button onClick={onClose} className="p-3 text-zinc-500 hover:text-white transition-all bg-white/5 rounded-2xl">
-          <X size={24} />
+    <div className="glass border border-white/5 rounded-[1.5rem] p-5 md:p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
+      <div className="absolute top-4 right-4 z-20">
+        <button onClick={onClose} className="p-2 text-zinc-500 hover:text-white transition-all bg-white/5 hover:bg-white/10 rounded-lg">
+          <X size={18} />
         </button>
       </div>
-
-      {/* QR kodu oluşturmak için gizli canvas - ARTIK GEREK YOK, qrcode kütüphanesi kullanılıyor */}
-      {/* <canvas ref={qrCanvasRef} style={{ display: 'none' }} /> */}
 
       <AnimatePresence mode="wait">
         {step === 'intro' && (
           <motion.div key="intro" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="text-center py-6">
-            <div className="w-24 h-24 bg-blue-600/10 rounded-[2rem] flex items-center justify-center mx-auto mb-10 border border-blue-500/20 shadow-2xl shadow-blue-600/10">
-              <Shield size={48} className="text-blue-500" />
+            <div className="w-16 h-16 bg-blue-600/10 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6">
+              <Shield size={32} className="text-blue-500" />
             </div>
-            <h2 className="text-3xl font-black text-white uppercase tracking-tight mb-4">{t('setup_2fa')}</h2>
-            <p className="text-sm text-zinc-400 leading-relaxed mb-12 max-w-xs mx-auto font-medium">
+            <h2 className="text-2xl font-black text-white uppercase tracking-tight mb-3">{t('setup_2fa')}</h2>
+            <p className="text-xs text-zinc-400 leading-relaxed max-w-sm mx-auto font-medium">
               {t('two_factor_desc')}
             </p>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3">
               <button
                 onClick={() => setStep('scan')}
-                className="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-blue-600/20"
+                className={`w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl transition-all flex items-center justify-center gap-2 uppercase tracking-[0.15em] text-[10px] shadow-lg shadow-blue-600/20 ${isAlreadyEnabled ? '' : 'order-1'}`}
               >
-                {isAlreadyEnabled ? (lang === 'tr' ? 'YENİDEN YAPILANDIR' : 'RECONFIGURE') : (lang === 'tr' ? 'BAŞLAT' : 'GET STARTED')} <ChevronRight size={18} />
+                {isAlreadyEnabled ? t('reconfigure') || 'Yeniden Yapılandır' : t('initialize') || 'Başlat'} <ChevronRight size={16} />
               </button>
 
               {isAlreadyEnabled && (
                 <button
-                  onClick={handleDisable}
-                  className="w-full py-4 bg-red-600/10 hover:bg-red-600/20 text-red-500 font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px] border border-red-500/20"
+                    onClick={handleDisable}
+                    className="w-full py-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-500 font-black rounded-lg transition-all uppercase tracking-[0.15em] text-[9px] border border-red-500/20"
                 >
-                  {lang === 'tr' ? '2FA\'YI DEVRE DIŞI BIRAK' : 'DISABLE 2FA'}
+                  {t('disable_btn') || 'Devre Dışı Bırak'}
                 </button>
               )}
 
               <button
                 onClick={onClose}
-                className="w-full py-4 bg-white/5 hover:bg-white/10 text-zinc-500 font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px]"
+                className="w-full py-2.5 bg-white/5 hover:bg-white/10 text-zinc-500 font-black rounded-lg transition-all uppercase tracking-[0.15em] text-[9px]"
               >
-                {lang === 'tr' ? 'İPTAL ET' : 'CANCEL'}
+                {t('abort') || 'İptal'}
               </button>
             </div>
           </motion.div>
@@ -178,74 +175,77 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
 
         {step === 'scan' && (
           <motion.div key="scan" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="text-center py-4">
-            <h3 className="text-2xl font-black text-white uppercase mb-8 tracking-tight">{t('scan_qr')}</h3>
-            <div className="bg-white p-6 rounded-[2.5rem] inline-block mb-10 shadow-2xl border-4 border-blue-600/10">
+            <h3 className="text-xl font-black text-white uppercase mb-6 tracking-tight">{t('scan_qr')}</h3>
+            <div className="bg-white p-4 rounded-xl inline-block mb-6 shadow-xl border-2 border-blue-600/10">
               {qrUrl ? (
-                <img src={qrUrl} alt="QR Code" className="w-64 h-64" />
+                <img src={qrUrl} alt="QR Code" className="w-56 h-56" />
               ) : (
-                <div className="w-64 h-64 flex items-center justify-center bg-zinc-100">
-                  <RefreshCw className="animate-spin text-zinc-300" size={32} />
+                <div className="w-56 h-56 flex items-center justify-center bg-zinc-100">
+                  <RefreshCw className="animate-spin text-zinc-400" size={28} />
                 </div>
               )}
             </div>
-            <div className="p-6 bg-black/40 rounded-2xl border border-white/5 mb-10 text-left">
-              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">{t('manual_secret')}</label>
-              <div className="flex items-center justify-between font-mono text-xs text-blue-400 break-all select-all">
+            <div className="p-3 bg-black/30 rounded-lg border border-white/5 mb-6 text-left">
+              <label className="text-[9px] text-zinc-500 uppercase tracking-widest mb-2 block">{t('manual_secret') || 'Manuel Anahtar'}</label>
+              <div className="flex items-center justify-between font-mono text-xs text-blue-400 break-all select-all bg-black/50 rounded-md px-3 py-2">
                 {secret}
-                <button onClick={() => { navigator.clipboard.writeText(secret); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="ml-4 p-2 text-zinc-500 hover:text-white bg-white/5 rounded-lg">
-                  {copied ? <Check size={18} /> : <Copy size={18} />}
+                <button
+                  onClick={() => { navigator.clipboard.writeText(secret); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  className="p-1.5 text-zinc-500 hover:text-white bg-white/5 hover:bg-white/10 rounded-md transition-all"
+                >
+                  {copied ? <Check size={14} /> : <Copy size={14} />}
                 </button>
               </div>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <button
                 onClick={() => setStep('intro')}
-                className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-zinc-500 font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px]"
+                className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-zinc-500 font-black rounded-lg transition-all uppercase tracking-[0.15em] text-[9px]"
               >
-                {lang === 'tr' ? 'GERİ' : 'BACK'}
+                {t('back') || (lang === 'tr' ? 'GERİ' : 'BACK')}
               </button>
               <button
                 onClick={() => setStep('verify')}
-                className="flex-[2] py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px] shadow-2xl"
+                className="flex-[2] py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-lg transition-all uppercase tracking-[0.15em] text-[10px] shadow-lg shadow-blue-600/20"
               >
-                {t('qr_scanned_next')}
+                {t('qr_scanned_next') || 'Devam Et'}
               </button>
             </div>
           </motion.div>
         )}
 
         {step === 'verify' && (
-          <motion.div key="verify" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-6">
-            <h3 className="text-2xl font-black text-white uppercase mb-6 tracking-tight">{t('verify_2fa')}</h3>
-            <p className="text-xs text-zinc-500 mb-12 font-bold uppercase tracking-widest">{t('enter_code')}</p>
-            <form onSubmit={handleVerify} className="space-y-8">
+          <motion.div key="verify" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-4">
+            <h3 className="text-xl font-black text-white uppercase mb-4 tracking-tight">{t('verify_2fa')}</h3>
+            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mb-8">{t('enter_code')}</p>
+            <form onSubmit={handleVerify} className="space-y-4">
               <input
                 autoFocus
                 type="text"
                 maxLength={6}
                 value={verifyCode}
                 onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ''))}
-                className="w-full px-6 py-7 bg-black/40 border border-white/5 rounded-[2rem] text-center text-5xl font-mono tracking-[0.4em] text-white focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-zinc-800"
+                className="w-full px-5 py-4 bg-black/30 border border-white/5 rounded-lg text-center text-4xl font-mono tracking-[0.3em] text-white focus:outline-none focus:border-blue-500/50 transition-all placeholder:text-zinc-700 uppercase tracking-widest"
                 placeholder="000000"
                 required
               />
-              {error && <div className="flex items-center justify-center gap-2 text-red-500 text-[10px] font-black uppercase tracking-widest">
+              {error && <div className="flex items-center justify-center gap-2 text-red-500 text-[9px] font-black uppercase tracking-widest">
                 <AlertCircle size={14} /> {error}
               </div>}
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={() => setStep('scan')}
-                  className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-zinc-500 font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px]"
+                  className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-zinc-500 font-black rounded-lg transition-all uppercase tracking-[0.15em] text-[9px]"
                 >
-                  {lang === 'tr' ? 'GERİ' : 'BACK'}
+                  {t('back') || 'GERİ'}
                 </button>
                 <button
                   type="submit"
                   disabled={isVerifying || verifyCode.length < 6}
-                  className="flex-[2] py-6 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-3 uppercase tracking-[0.2em] text-[10px] shadow-2xl"
+                  className="flex-[2] py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black rounded-lg transition-all uppercase tracking-[0.15em] text-[10px] shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
                 >
-                  {isVerifying ? <Loader2 className="animate-spin" size={24} /> : t('verify')}
+                  {isVerifying ? <Loader2 className="animate-spin" size={18} /> : t('verify') || 'Doğrula'}
                 </button>
               </div>
             </form>
@@ -254,44 +254,44 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
 
         {step === 'recovery' && (
           <motion.div key="recovery" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-4">
-            <h3 className="text-2xl font-black text-white uppercase mb-4 tracking-tight">{t('recovery_codes')}</h3>
-            <p className="text-xs text-zinc-500 mb-10 leading-relaxed font-bold uppercase tracking-widest px-4">{t('recovery_desc')}</p>
-            <div className="grid grid-cols-2 gap-4 mb-12">
+            <h3 className="text-xl font-black text-white uppercase mb-4 tracking-tight">{t('recovery_codes')}</h3>
+            <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mb-6 px-4">{t('recovery_desc')}</p>
+            <div className="grid grid-cols-4 gap-2 mb-8">
               {recoveryCodes.map((code, i) => (
-                <div key={i} className="p-4 bg-white/[0.03] border border-white/5 rounded-2xl text-zinc-300 font-mono text-xs select-all text-center tracking-widest">
+                <div key={i} className="p-2.5 bg-white/[0.02] border border-white/5 rounded-lg text-zinc-300 font-mono text-xs text-center select-all">
                   {code}
                 </div>
               ))}
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <button
                 onClick={copyCodes}
-                className="flex-1 py-5 bg-white/5 hover:bg-white/10 text-white font-black rounded-2xl transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[10px]"
+                className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 text-white font-black rounded-lg transition-all uppercase tracking-[0.15em] text-[9px] flex items-center justify-center gap-2"
               >
-                {copied ? <Check size={18} /> : <Copy size={18} />} {t('copy_all')}
+                {copied ? <Check size={14} /> : <Copy size={14} />} {t('copy_all') || 'Tümünü Kopyala'}
               </button>
               <button
                 onClick={() => setStep('success')}
-                className="flex-1 py-5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-[10px] shadow-2xl shadow-emerald-600/10"
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-lg transition-all uppercase tracking-[0.15em] text-[9px] shadow-lg shadow-emerald-600/20"
               >
-                {t('i_saved_them')}
+                {t('i_saved_them') || 'Kaydettim'}
               </button>
             </div>
           </motion.div>
         )}
 
         {step === 'success' && (
-          <motion.div key="success" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-10">
-            <div className="w-28 h-28 bg-emerald-500/20 text-emerald-500 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 shadow-[0_0_50px_rgba(16,185,129,0.2)]">
-              <CheckCircle2 size={56} />
+          <motion.div key="success" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-6">
+            <div className="w-20 h-20 bg-emerald-500/20 text-emerald-500 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 shadow-[0_0_50px_rgba(16,185,129,0.2)]">
+              <CheckCircle2 size={40} className="text-emerald-500" />
             </div>
-            <h3 className="text-3xl font-black text-white uppercase tracking-tight mb-4">{t('setup_complete')}</h3>
-            <p className="text-xs text-zinc-500 mb-12 uppercase tracking-[0.2em] font-bold">{t('vault_protected_2fa')}</p>
+            <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-4">{t('setup_complete')}</h3>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{t('vault_protected_2fa')}</p>
             <button
               onClick={() => { onComplete(); onComplete(); }}
-              className="w-full py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl transition-all uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-blue-600/20"
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl transition-all uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-blue-600/20"
             >
-              {t('finish')}
+              {t('finish') || 'Bitir'}
             </button>
           </motion.div>
         )}

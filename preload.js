@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+import { contextBridge, ipcRenderer } from 'electron';
 
 console.log('[Preload] Loading preload script...');
 
@@ -80,6 +80,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   secureMemory: {
     lockPages: () => ipcRenderer.invoke('secure-memory:lock-pages'),
     getStatus: () => ipcRenderer.invoke('secure-memory:get-status')
+  },
+
+  // Browser Extension Integration
+  extension: {
+    onSearch: (callback) => ipcRenderer.on('extension:search', callback),
+    onGetCreds: (callback) => ipcRenderer.on('extension:get-creds', callback),
+    sendResult: (id, data) => ipcRenderer.send(`extension:${id}`, data),
   }
 });
 

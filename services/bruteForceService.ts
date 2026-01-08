@@ -84,6 +84,17 @@ export class BruteForceService {
     return status.locked;
   }
 
+  static async clear(): Promise<void> {
+    const deviceId = await this.getDeviceId();
+
+    if ((window as any).electronAPI?.bruteforce) {
+      await (window as any).electronAPI.bruteforce.clear(deviceId);
+    } else {
+      localStorage.removeItem('aegis_failed_attempts');
+      localStorage.removeItem('aegis_lockout_until');
+    }
+  }
+
   // Private helpers for fallback localStorage logic
   private static getAttemptsSync(): number {
     return parseInt(localStorage.getItem('aegis_failed_attempts') || '0');

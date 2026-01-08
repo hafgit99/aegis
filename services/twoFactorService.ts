@@ -93,7 +93,7 @@ export class TwoFactorService {
     const cryptoKey = await window.crypto.subtle.importKey(
       'raw',
       key as any,
-      { name: 'HMAC', hash: 'SHA-1' } as any,
+      { name: 'HMAC', hash: 'SHA-256' } as any,
       false,
       ['sign']
     );

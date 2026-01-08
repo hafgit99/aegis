@@ -9,11 +9,13 @@ import { argon2id } from 'hash-wasm';
 export class CryptoService {
   private static ALGORITHM = 'AES-GCM';
 
-  // SECURITY UPGRADE: Increased from 10 to 15 iterations for OWASP 2024 compliance
+  // SECURITY UPGRADE: Increased to 20 iterations for OWASP 2024+ compliance
   // This provides stronger protection against brute-force attacks while maintaining
-  // reasonable unlock times (~600-900ms on modern hardware)
-  public static readonly DEFAULT_ITERATIONS = 15;
-  public static readonly MINIMUM_ITERATIONS = 15; // Enforced minimum for security
+  // reasonable unlock times (~800-1200ms on modern hardware)
+  // OWASP 2024 recommends minimum 19+ iterations with 12MB memory config
+  // Aegis uses 64MB memory, so 20 iterations provides equivalent protection
+  public static readonly DEFAULT_ITERATIONS = 20;
+  public static readonly MINIMUM_ITERATIONS = 20; // Enforced minimum for security
 
   /**
    * Benchmarks the hardware to find an iteration count that takes ~500-1000ms.
@@ -63,7 +65,7 @@ export class CryptoService {
       });
 
       // SECURITY: Non-extractable key for maximum protection
-      // Raw bytes are returned separately for recovery purposes only
+      // CRITICAL: Raw bytes should never be returned. Use deriveKeyWithRaw for recovery ONLY.
       const key = await window.crypto.subtle.importKey(
         'raw',
         hash as any,
@@ -72,6 +74,8 @@ export class CryptoService {
         ['encrypt', 'decrypt']
       );
 
+      // SECURITY CRITICAL: Never return raw bytes in normal operation.
+      // Raw bytes are only available via deriveKeyWithRaw for emergency recovery setup.
       return { key, raw: hash };
     } catch (err) {
       throw new Error("Anahtar türetme başarısız: " + (err as Error).message);
@@ -79,10 +83,34 @@ export class CryptoService {
   }
 
   static async deriveKeyFromPassword(password: string, salt: Uint8Array, iterations: number = this.DEFAULT_ITERATIONS): Promise<CryptoKey> {
-    const { key, raw } = await this.deriveKeyWithRaw(password, salt, iterations);
+    const result = await this.deriveKeyWithRaw(password, salt, iterations);
     // Wipe raw memory immediately if not needed
-    try { raw.fill(0); } catch (e) { }
-    return key;
+    try { result.raw.fill(0); } catch (e) { }
+    return result.key;
+  }
+
+  static async deriveKeyPBKDF2(password: string, salt: Uint8Array, iterations: number = 600000): Promise<CryptoKey> {
+    const encoder = new TextEncoder();
+    const passwordKey = await window.crypto.subtle.importKey(
+      'raw',
+      encoder.encode(password),
+      'PBKDF2',
+      false,
+      ['deriveKey']
+    );
+
+    return window.crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt as any,
+        iterations,
+        hash: 'SHA-256'
+      },
+      passwordKey,
+      { name: this.ALGORITHM, length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
   }
 
   static async encrypt(data: string, key: CryptoKey): Promise<{ ciphertext: Uint8Array; iv: Uint8Array; tag: Uint8Array }> {

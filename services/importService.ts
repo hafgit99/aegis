@@ -1,6 +1,7 @@
 import { db } from '../db';
 import { VaultEntry, Category, SensitiveData } from '../types';
 import { CryptoService } from './cryptoService';
+import Papa from 'papaparse';
 
 export interface ImportEntry extends Partial<VaultEntry> {
   title?: string;
@@ -27,9 +28,17 @@ export class ImportService {
         throw new Error("INVALID_FORMAT");
       }
 
-      const ciphertext = new Uint8Array(CryptoService.base64ToArrayBuffer(data.payload));
+      let ciphertext = new Uint8Array(CryptoService.base64ToArrayBuffer(data.payload));
       const iv = new Uint8Array(CryptoService.base64ToArrayBuffer(data.iv));
-      const tag = new Uint8Array(CryptoService.base64ToArrayBuffer(data.tag || ""));
+      let tag = new Uint8Array(CryptoService.base64ToArrayBuffer(data.tag || ""));
+
+      // Support for legacy backups where tag was appended to payload
+      if (tag.length === 0 && ciphertext.length > 16) {
+        const actualCiphertext = ciphertext.slice(0, ciphertext.length - 16);
+        const actualTag = ciphertext.slice(ciphertext.length - 16);
+        ciphertext = actualCiphertext;
+        tag = actualTag;
+      }
 
       const decryptedStr = await CryptoService.decrypt(ciphertext, masterKey, iv, tag);
 
@@ -41,41 +50,129 @@ export class ImportService {
       return bundle.entries || [];
     } catch (e: any) {
       if (e.message === "INVALID_FORMAT") throw e;
+      if (e.message === "AUTH_FAILED") throw e;
+      console.error("[Import] Backup decryption error:", e.message || e);
       throw new Error("AUTH_FAILED");
     }
   }
 
   /**
-   * Helper to parse CSV string content (internal)
+   * Decrypts an Aegis Backup using a password directly (for portable imports)
    */
-  private static parseCSVText(text: string): any[] {
-    const rows = text.split('\n').filter(r => r.trim());
-    if (rows.length < 2) return [];
+  static async decryptBackupWithPassword(file: File, password: string): Promise<any[]> {
+    try {
+      let text = await file.text();
+      text = text.replace(/^\uFEFF/, '').trim();
+      const data = JSON.parse(text);
 
-    const firstRow = rows[0];
-    const commaCount = (firstRow.match(/,/g) || []).length;
-    const semiCount = (firstRow.match(/;/g) || []).length;
+      // Relax format check: if it has payload and iv, it's likely a backup even if hint is missing
+      if (data.hint !== "AEGIS_VAULT_BACKUP" && data.hint !== "AEGIS_VAULT_CSV_BACKUP" && !(data.payload && data.iv)) {
+        throw new Error("INVALID_FORMAT");
+      }
+
+      const ciphertext = new Uint8Array(CryptoService.base64ToArrayBuffer(data.payload));
+      const iv = new Uint8Array(CryptoService.base64ToArrayBuffer(data.iv));
+      const tag = new Uint8Array(CryptoService.base64ToArrayBuffer(data.tag || ""));
+
+      let importKey: CryptoKey;
+
+      // If the backup has its own salt/iterations, use them!
+      if (data.salt && data.iterations) {
+        const saltBytes = new Uint8Array(CryptoService.base64ToArrayBuffer(data.salt));
+        importKey = await CryptoService.deriveKeyFromPassword(password, saltBytes, data.iterations);
+      } else {
+        // Legacy fallback: Use current vault parameters
+        try {
+          const currentMeta = JSON.parse(localStorage.getItem('aegis_vault_metadata') || '{}');
+          const salt = currentMeta.salt ? new Uint8Array(CryptoService.base64ToArrayBuffer(currentMeta.salt)) : new Uint8Array(16);
+          const iterations = currentMeta.iterations || 15;
+          importKey = await CryptoService.deriveKeyFromPassword(password, salt, iterations);
+        } catch {
+          throw new Error("AUTH_FAILED");
+        }
+      }
+
+      let ciphertextBytes = ciphertext;
+      let tagBytes = tag;
+
+      // Support for legacy backups where tag was appended to payload
+      if (tagBytes.length === 0 && ciphertextBytes.length > 16) {
+        tagBytes = ciphertextBytes.slice(ciphertextBytes.length - 16);
+        ciphertextBytes = ciphertextBytes.slice(0, ciphertextBytes.length - 16);
+      }
+
+      try {
+        const decryptedStr = await CryptoService.decrypt(ciphertextBytes, importKey, iv, tagBytes);
+
+        if (data.hint === "AEGIS_VAULT_CSV_BACKUP") {
+          return this.parseCSVText(decryptedStr);
+        }
+
+        const bundle = JSON.parse(decryptedStr);
+        return bundle.entries || [];
+      } catch (decryptErr: any) {
+        // SECONDARY FALLBACK: If standard salt fails for an OLD backup
+        if (!data.salt) {
+          console.log("[Import] Standard decryption failed, trying legacy fallbacks...");
+
+          // List of common configurations from previous versions
+          const fallbacks = [
+            { type: 'argon', salt: new Uint8Array(16), iterations: 20 },
+            { type: 'argon', salt: new Uint8Array(16), iterations: 19 },
+            { type: 'pbkdf2', salt: new Uint8Array(16), iterations: 600000 },
+            { type: 'pbkdf2', salt: new Uint8Array(16), iterations: 1000000 }
+          ];
+
+          for (const fb of fallbacks) {
+            try {
+              console.log(`[Import] Retrying with ${fb.type}, salt: zero, iterations: ${fb.iterations}...`);
+              let fbKey: CryptoKey;
+              if (fb.type === 'argon') {
+                fbKey = await CryptoService.deriveKeyFromPassword(password, fb.salt, fb.iterations);
+              } else {
+                fbKey = await CryptoService.deriveKeyPBKDF2(password, fb.salt, fb.iterations);
+              }
+              const decryptedStr = await CryptoService.decrypt(ciphertextBytes, fbKey, iv, tagBytes);
+              const bundle = JSON.parse(decryptedStr);
+              return bundle.entries || [];
+            } catch {
+              continue;
+            }
+          }
+        }
+        throw decryptErr;
+      }
+    } catch (e: any) {
+      console.error("[Import] Backup password-based decryption failed:", e.message || e);
+      throw new Error("AUTH_FAILED");
+    }
+  }
+
+  private static parseCSVText(text: string): any[] {
+    const firstLine = text.split('\n')[0] || '';
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const semiCount = (firstLine.match(/;/g) || []).length;
     const delimiter = semiCount > commaCount ? ';' : ',';
 
-    const headerRow = this.parseCSVRow(firstRow, delimiter);
-    const cols = headerRow.map(c => c.toLowerCase().trim());
-    const results: any[] = [];
+    const parseResult = Papa.parse(text, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: delimiter,
+      transform: (value: string) => value.trim()
+    });
 
-    for (let i = 1; i < rows.length; i++) {
-      const row = this.parseCSVRow(rows[i], delimiter);
-      if (row.length === 0) continue;
-
-      const rawData: any = {};
-      cols.forEach((col, idx) => {
-        if (row[idx] !== undefined) {
-          rawData[col] = row[idx];
-        }
-      });
-
-      results.push(this.mapToAegisEntry(rawData));
+    if (parseResult.errors && parseResult.errors.length > 0) {
+      const criticalErrors = parseResult.errors.filter(e => e.row !== undefined);
+      if (criticalErrors.length > 0) {
+        console.warn('[CSV Import] Parse errors detected:', criticalErrors);
+      }
     }
 
-    return results;
+    if (!parseResult.data || parseResult.data.length === 0) {
+      return [];
+    }
+
+    return parseResult.data.map((rawData: any) => this.mapToAegisEntry(rawData));
   }
 
   /**
@@ -119,8 +216,8 @@ export class ImportService {
 
     // Genişletilmiş ve önceliklendirilmiş anahtar listesi
     const keys = {
-      title: ['title', 'name', 'label', 'foldername', 'displayname', 'baslik', 'ad', 'isim', 'siteadi', 'kayitadi', 'subject', 'organization_name'],
-      username: ['username', 'user', 'email', 'login_username', 'loginusername', 'loginuser', 'loginemail', 'emailaddress', 'kullaniciadi', 'eposta', 'uyeadi', 'mail', 'account'],
+      title: ['title', 'name', 'label', 'account', 'foldername', 'displayname', 'baslik', 'ad', 'isim', 'siteadi', 'kayitadi', 'subject', 'organization_name'],
+      username: ['username', 'user', 'email', 'login', 'id', 'identifier', 'kimlik', 'kullanici', 'login_username', 'loginusername', 'loginuser', 'loginemail', 'emailaddress', 'kullaniciadi', 'eposta', 'uyeadi', 'mail', 'mailadresi', 'account_id', 'login_name', 'loginname', 'login_id', 'account_name'],
       password: ['password', 'pass', 'secret', 'login_password', 'loginpassword', 'key', 'value', 'credential', 'sifre', 'parola', 'parolam', 'code'],
       notes: ['notes', 'note', 'comment', 'description', 'content', 'extra', 'notlar', 'aciklama', 'detay', 'remarks', 'body'],
       url: ['url', 'uri', 'website', 'login_uri', 'loginuri', 'link', 'site', 'location', 'adres', 'baglanti', 'websitesi', 'linki', 'hostname'],
@@ -168,8 +265,29 @@ export class ImportService {
       else title = 'Imported Entry';
     }
 
-    // Kullanıcı Adı Fallback
-    const finalUsername = username || (url ? (url.split('/')[2] || url) : '');
+    // Kullanıcı Adı Fallback (Geliştirilmiş)
+    let finalUsername = username;
+
+    // Eğer username boşsa, diğer alanlardan deneme
+    if (!finalUsername || finalUsername.trim() === '') {
+      const altUser = deepSearch(raw, ['email', 'mail', 'eposta', 'login', 'user', 'id']);
+      if (altUser) {
+        finalUsername = String(altUser).trim();
+      }
+    }
+
+    // Hala boşsa URL'den domain kullan
+    if (!finalUsername || finalUsername.trim() === '') {
+      if (url) {
+        finalUsername = url.split('/')[2] || url;
+      }
+    }
+
+    // Son boş kontrol
+    finalUsername = finalUsername || '';
+
+    // Debug log
+    console.log('[Import] Entry mapped - Title:', title, 'Username:', finalUsername, 'URL:', url);
 
     // Kategori Tespiti
     let category = raw.category || Category.LOGIN;
@@ -240,75 +358,46 @@ export class ImportService {
     }
   }
 
-  /**
-   * CSV dosyasını akıllı eşleme ile parse eder
-   */
   static async parseCSV(file: File): Promise<ImportEntry[]> {
     const text = await file.text();
     const cleanText = text.replace(/^\uFEFF/, '').trim();
-    const rows = cleanText.split('\n').filter(r => r.trim());
-    if (rows.length < 2) return [];
-
-    // Ayırıcı Tespiti (Virgül mü Noktalı Virgül mü?)
-    const firstRow = rows[0];
-    const commaCount = (firstRow.match(/,/g) || []).length;
-    const semiCount = (firstRow.match(/;/g) || []).length;
-    const delimiter = semiCount > commaCount ? ';' : ',';
-
-    const headerRow = this.parseCSVRow(firstRow, delimiter);
-    const cols = headerRow.map(c => c.toLowerCase().trim());
-    const results: ImportEntry[] = [];
-
-    for (let i = 1; i < rows.length; i++) {
-      const row = this.parseCSVRow(rows[i], delimiter);
-      if (row.length === 0) continue;
-
-      const rawData: any = {};
-      cols.forEach((col, idx) => {
-        if (row[idx] !== undefined) {
-          rawData[col] = row[idx];
-        }
-      });
-
-      results.push(this.mapToAegisEntry(rawData));
-    }
-
-    return results;
+    
+    return this.parseCSVText(cleanText);
   }
 
-  private static parseCSVRow(row: string, delimiter: string = ','): string[] {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
+  static deduplicateIncoming(incoming: ImportEntry[]): ImportEntry[] {
+    const normalize = (s: string) => (s || '').toLowerCase().trim();
+    const uniqueIncoming: ImportEntry[] = [];
+    const seenIncoming = new Set<string>();
 
-    for (let i = 0; i < row.length; i++) {
-      const char = row[i];
-      const nextChar = row[i + 1];
-
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === delimiter && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += char;
+    for (const item of incoming) {
+      const key = `${normalize(item.title || '')}|${normalize(item.username || '')}`;
+      if (!seenIncoming.has(key)) {
+        seenIncoming.add(key);
+        uniqueIncoming.push(item);
       }
     }
 
-    result.push(current.trim());
-    return result;
+    return uniqueIncoming;
   }
 
-  static async findConflicts(incoming: ImportEntry[]): Promise<ImportConflict[]> {
+  static async findConflicts(incoming: ImportEntry[], existingEntries: VaultEntry[] = []): Promise<ImportConflict[]> {
     const conflicts: ImportConflict[] = [];
-    for (const item of incoming) {
+    const normalize = (s: string) => (s || '').toLowerCase().trim();
+
+    const uniqueIncoming = this.deduplicateIncoming(incoming);
+
+    for (const item of uniqueIncoming) {
       if (!item.title) continue;
-      const match = await db.vault.where('title').equalsIgnoreCase(item.title).first();
+      const itemTitle = normalize(item.title);
+      const itemUser = normalize(item.username || '');
+
+      const match = existingEntries.find(existing => {
+        const existingTitle = normalize(existing.title || '');
+        const existingUser = normalize(existing.username || '');
+        return existingTitle === itemTitle && existingUser === itemUser;
+      });
+
       if (match) {
         conflicts.push({ existing: match, incoming: item });
       }

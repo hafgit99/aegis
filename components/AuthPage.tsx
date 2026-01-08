@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, Cpu, CheckCircle2, Shield, Fingerprint, Info, X, Key, RotateCcw, Loader2, AlertCircle, Clock } from 'lucide-react';
+import { ChevronRight, Cpu, CheckCircle2, Shield, Fingerprint, Info, X, Key, RotateCcw, Loader2, AlertCircle, Clock, Eye, EyeOff } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext.tsx';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { RecoveryService } from '../services/recoveryService.ts';
@@ -28,6 +28,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [status, setStatus] = useState<AuthState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [recoveryWords, setRecoveryWords] = useState<string[]>(Array(24).fill(''));
@@ -60,6 +62,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
       setFailedAttempts(status.attempts);
     };
     initBruteForce();
+
+    return () => {
+      setLockoutTimer(0);
+      setFailedAttempts(0);
+    };
   }, []);
 
   useEffect(() => {
@@ -414,15 +421,24 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
                     <label className="text-[10px] font-black text-dim uppercase tracking-widest ml-2">
                       {t('master_password')}
                     </label>
-                    <input
-                      type="password"
-                      value={password}
-                      disabled={lockoutTimer > 0}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-6 py-5 bg-input-bg border border-main rounded-2xl text-main outline-none focus:ring-2 focus:ring-blue-500/40 font-mono text-base transition-all placeholder:text-zinc-800 disabled:opacity-50"
-                      placeholder="••••••••••••"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        disabled={lockoutTimer > 0}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full px-6 py-5 pr-12 bg-input-bg border border-main rounded-2xl text-main outline-none focus:ring-2 focus:ring-blue-500/40 font-mono text-base transition-all placeholder:text-zinc-800 disabled:opacity-50"
+                        placeholder="•••••••••••"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-main transition-colors"
+                      >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
                     {!isInitialized && password.length > 0 && (
                       <>
                         {/* Password Strength Indicator */}
@@ -488,14 +504,23 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
                       <label className="text-[10px] font-black text-dim uppercase tracking-widest ml-2">
                         {t('confirm_password')}
                       </label>
-                      <input
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full px-6 py-5 bg-input-bg border border-main rounded-2xl text-main outline-none focus:ring-2 focus:ring-blue-500/40 font-mono text-base transition-all placeholder:text-zinc-800"
-                        placeholder="••••••••••••"
-                        required
-                      />
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full px-6 py-5 pr-12 bg-input-bg border border-main rounded-2xl text-main outline-none focus:ring-2 focus:ring-blue-500/40 font-mono text-base transition-all placeholder:text-zinc-800"
+                          placeholder="•••••••••••"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-main transition-colors"
+                        >
+                          {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

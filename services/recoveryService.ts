@@ -119,10 +119,18 @@ export function validateRecoveryWords(words: string[]): { valid: boolean; errors
 
 // Generate recovery PIN (optional 4-6 digit PIN)
 export function generateRecoveryPIN(): string {
+  // SECURITY: Use rejection sampling for uniform distribution (prevents modulo bias)
   const array = new Uint32Array(1);
   window.crypto.getRandomValues(array);
-  const pin = (array[0] % 1000000).toString().padStart(6, '0');
-  return pin;
+  
+  // Rejection sampling: Only accept values that produce valid 6-digit PINs (000000-999999)
+  // This ensures uniform distribution without modulo bias
+  while (true) {
+    const value = array[0];
+    if (value < 1000000) {
+      return value.toString().padStart(6, '0');
+    }
+  }
 }
 
 // Hash recovery PIN for secure storage with Argon2id (GPU-resistant)
@@ -195,6 +203,16 @@ async function decryptRecoveryMetadata(
 }
 
 export class RecoveryService {
+  private static constantTimeCompare(a: string, b: string): boolean {
+    if (a.length !== b.length) return false;
+
+    let result = 0;
+    for (let i = 0; i < a.length; i++) {
+      result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    }
+    return result === 0;
+  }
+
   static generateWords(): string[] {
     const array = new Uint32Array(RECOVERY_WORDS_COUNT);
     window.crypto.getRandomValues(array);
@@ -420,15 +438,16 @@ export class RecoveryService {
         return isValid;
       }
 
-      // Argon2id verification (version 3+) - Modern, GPU-resistant
-      if (stored.algorithm === 'ARGON2ID-SHA256' && stored.salt && stored.hash) {
-        const salt = new Uint8Array(CryptoService.base64ToArrayBuffer(stored.salt));
+        // Argon2id verification (version 3+) - Modern, GPU-resistant
+        if (stored.algorithm === 'ARGON2ID-SHA256' && stored.salt && stored.hash) {
+          const salt = new Uint8Array(CryptoService.base64ToArrayBuffer(stored.salt));
 
-        // Derive using Argon2id with same parameters
-        const { raw: hashBytes } = await CryptoService.deriveKeyWithRaw(pin, salt, 3);
-        const providedHash = CryptoService.arrayBufferToBase64(hashBytes);
+          // Derive using Argon2id with same parameters
+          const { raw: hashBytes } = await CryptoService.deriveKeyWithRaw(pin, salt, 3);
+          const providedHash = CryptoService.arrayBufferToBase64(hashBytes);
 
-        const isValid = providedHash === stored.hash;
+          // SECURITY: Constant-time comparison to prevent timing attacks
+          const isValid = this.constantTimeCompare(providedHash, stored.hash);
 
         if (isValid) {
           // Update metadata with encrypted support

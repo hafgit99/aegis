@@ -22,6 +22,7 @@ interface VaultContextType {
     setup: (password: string) => Promise<void>;
     resetVault: () => Promise<void>;
     lock: () => Promise<void>;
+    deduplicateVault: () => Promise<{ deletedCount: number }>;
     isInitialized: boolean;
     isLoading: boolean;
 }
@@ -35,11 +36,19 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const { masterKey, setKey, logout, setDeriving, setVerifying2FA, setTempMasterKey } = useAuth();
 
     const handleLock = useCallback(async () => {
-        // Önce RAM üzerindeki verileri temizle (Hızlı UI geçişi için)
+        // Önce verileri temizle (UI için anlık güncelleme)
         setEntries([]);
         setFolders([]);
+
         // AuthContext üzerindeki logout'u çağır (Key'leri temizler)
         await logout();
+
+        // Brute Force durumu temizle
+        try {
+            await BruteForceService.clear();
+        } catch (e) {
+            console.error("Brute Force clear error:", e);
+        }
     }, [logout]);
 
     const loadEntries = useCallback(async () => {
@@ -162,6 +171,13 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await loadEntries();
     };
 
+    const deduplicateVault = useCallback(async () => {
+        if (!masterKey) throw new Error("Vault locked");
+        const result = await VaultService.deduplicateVault(masterKey);
+        await loadEntries();
+        return result;
+    }, [masterKey, loadEntries]);
+
     return (
         <VaultContext.Provider value={{
             entries,
@@ -178,6 +194,7 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setup,
             resetVault,
             lock: handleLock,
+            deduplicateVault,
             isLoading,
             isInitialized: VaultService.isInitialized()
         }}>

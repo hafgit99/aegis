@@ -212,7 +212,13 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
             {entry.title}
           </h3>
           <p className="text-[11px] text-dim truncate font-bold uppercase tracking-[0.15em] opacity-40 group-hover:opacity-80 transition-opacity">
-            {entry.username || (entry.category === Category.FILE ? t('cat_file') : '---')}
+            {entry.username || (
+              entry.category === Category.LOGIN ? t('cat_login') :
+                entry.category === Category.CARD ? t('cat_card') :
+                  entry.category === Category.NOTE ? t('cat_note') :
+                    entry.category === Category.FILE ? t('cat_file') :
+                      entry.category === Category.CRYPTO ? t('cat_crypto') : '---'
+            )}
           </p>
         </div>
 
@@ -235,6 +241,13 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
                   <Download size={16} className={isDownloading ? "animate-bounce text-blue-500" : ""} />
                 </button>
               )}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleCopy('username'); }}
+                className={`transition-all hover:scale-110 active:scale-90 ${copiedField === 'username' ? 'text-blue-400' : 'text-zinc-500 hover:text-main'}`}
+                title={t('copy_username')}
+              >
+                {copiedField === 'username' ? <Check size={16} /> : <Copy size={16} className="opacity-50" />}
+              </button>
               <button onClick={toggleReveal} className="text-zinc-500 hover:text-main transition-all hover:scale-110 active:scale-90">
                 {isRevealed ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -365,14 +378,45 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
                     <button onClick={() => setIsRevealed(false)} className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 text-[10px] font-black text-white uppercase tracking-[0.3em] rounded-xl transition-all">{t('abort')}</button>
                   </div>
                 ) : (
-                  <>
-                    <div className="mb-4 p-3 bg-white/5 rounded-2xl border border-white/10 w-full overflow-hidden">
-                      <span className="text-xs font-mono text-blue-400 tracking-[0.2em] break-all select-all">
-                        {sensitiveData.password || '••••••••'}
-                      </span>
+                  <div className="w-full max-w-[85%] space-y-3">
+                    {/* Username Section */}
+                    <div className="relative group/field">
+                      <label className="text-[8px] text-zinc-500 font-black uppercase tracking-[0.2em] mb-1 block pl-2">{t('username')}</label>
+                      <div className="flex items-center gap-2 p-3 bg-white/[0.03] rounded-2xl border border-white/10 group-hover/field:border-blue-500/30 transition-all">
+                        <span className="text-[11px] font-bold text-zinc-300 truncate flex-1 uppercase tracking-wider">
+                          {entry.username || '---'}
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCopy('username'); }}
+                          className="p-1.5 hover:bg-white/10 rounded-lg text-zinc-500 hover:text-blue-400 transition-all"
+                        >
+                          {copiedField === 'username' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                        </button>
+                      </div>
                     </div>
-                    <button onClick={() => setIsRevealed(false)} className="px-6 py-2 bg-white/10 hover:bg-white/20 text-[10px] font-black text-white uppercase tracking-[0.3em] rounded-xl transition-all">{t('abort')}</button>
-                  </>
+
+                    {/* Password Section */}
+                    <div className="relative group/field">
+                      <label className="text-[8px] text-zinc-500 font-black uppercase tracking-[0.2em] mb-1 block pl-2">{t('password')}</label>
+                      <div className="flex items-center gap-2 p-3 bg-white/[0.03] rounded-2xl border border-white/10 group-hover/field:border-emerald-500/30 transition-all">
+                        <span className="text-[11px] font-mono text-emerald-400 flex-1 truncate select-all">
+                          {sensitiveData.password || '••••••••'}
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleCopy('password'); }}
+                          className="p-1.5 hover:bg-white/10 rounded-lg text-zinc-500 hover:text-emerald-400 transition-all"
+                        >
+                          {copiedField === 'password' ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <button onClick={(e) => { e.stopPropagation(); setIsRevealed(false); }} className="w-full py-3 bg-white/5 hover:bg-white/10 text-[9px] font-black text-white uppercase tracking-[0.3em] rounded-xl transition-all border border-white/5 active:scale-95">
+                        {t('abort')}
+                      </button>
+                    </div>
+                  </div>
                 )}
               </motion.div>
             )

@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { VaultEntry, SensitiveData } from '../types.ts';
 import { analyzeStrength } from '../utils/passwordStrength.ts';
+import { OfflineBreachService } from '../services/offlineBreachService';
 
 export interface AuditIssue {
   entry: VaultEntry;
@@ -24,6 +25,10 @@ export interface AuditStats {
   atRisk: number;
   secureCount: number;
   breachMatches: number;
+  breachDatabaseStats?: {
+    patternCount: number;
+    initialized: boolean;
+  };
 }
 
 const commonPatterns = ['123456', 'password', 'qwerty', '12345678', 'admin', 'welcome'];
@@ -71,7 +76,10 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
 
   const runAudit = useCallback(async () => {
     if (entries.length === 0) return;
-    
+
+    // Initialize offline breach database
+    await OfflineBreachService.initialize();
+
     setIsScanning(true);
     await new Promise(r => setTimeout(r, 2000));
 
@@ -79,15 +87,18 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
     const plainPasswords: Record<string, VaultEntry[]> = {};
     let atRiskIds = new Set<string>();
     let breachMatches = 0;
-    
+
     const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
     const now = Date.now();
+
+    console.log(`[SecurityAudit] Starting audit for ${entries.length} entries...`);
 
     for (const entry of entries) {
       try {
         const sensitive = await decryptFn(entry);
         const pass = sensitive.password || '';
-        
+
+        // 1. Strength analysis
         const strength = analyzeStrength(pass);
         if (strength.bits < 60) {
           foundIssues.push({
@@ -99,8 +110,24 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
           atRiskIds.add(entry.id);
         }
 
+        // 2. Offline breach check (NEW - using local database)
+        const breachResult = await OfflineBreachService.checkPassword(pass);
+        if (breachResult.isBreached) {
+          foundIssues.push({
+            entry,
+            type: 'breached',
+            severity: breachResult.strength < 40 ? 'critical' : 'warning',
+            messageKey: 'audit_msg_breached'
+          });
+          atRiskIds.add(entry.id);
+          breachMatches++;
+
+          console.log(`[SecurityAudit] Breached password found for entry: ${entry.title}`);
+        }
+
+        // 3. Pattern matching (supplement to breach check)
         const isCommon = commonPatterns.some(p => pass.toLowerCase().includes(p));
-        if (isCommon) {
+        if (isCommon && !breachResult.isBreached) {
           foundIssues.push({
             entry,
             type: 'breached',
@@ -111,11 +138,13 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
           breachMatches++;
         }
 
+        // 4. Duplicate password check
         if (pass) {
           if (!plainPasswords[pass]) plainPasswords[pass] = [];
           plainPasswords[pass].push(entry);
         }
 
+        // 5. Old password check (6+ months)
         if (now - entry.updatedAt > SIX_MONTHS_MS) {
           foundIssues.push({
             entry,
@@ -147,14 +176,23 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
     const riskFactor = entries.length > 0 ? (atRiskIds.size / entries.length) * 100 : 0;
     const finalScore = Math.max(0, 100 - Math.round(riskFactor));
 
+    // Get breach database statistics
+    const breachStats = OfflineBreachService.getStats();
+
     const newStats = {
       score: finalScore,
       total: entries.length,
       unique: Object.keys(plainPasswords).length,
       atRisk: atRiskIds.size,
       secureCount: entries.length - atRiskIds.size,
-      breachMatches
+      breachMatches,
+      breachDatabaseStats: {
+        patternCount: breachStats.patternCount,
+        initialized: breachStats.initialized
+      }
     };
+
+    console.log(`[SecurityAudit] Audit complete: score=${finalScore}, breached=${breachMatches}, atRisk=${atRiskIds.size}`);
 
     setStats(newStats);
     setIssues(foundIssues);

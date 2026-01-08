@@ -4,7 +4,7 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-green?style=for-the-badge&logo=linux)
 ![License](https://img.shields.io/badge/License-Commercial-red?style=for-the-badge)
 ![Security Score](https://img.shields.io/badge/Security%20Score-92%2F100-brightgreen?style=for-the-badge&logo=security)
-![Version](https://img.shields.io/badge/Version-1.1.0-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-1.1.1-blue?style=for-the-badge)
 <table align="center" border="0">
   <tr>
     <td align="center">
@@ -43,7 +43,7 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 - **64MB Memory Cost**: GPU-resistant password hashing
 - **Zero-Knowledge Architecture**: Your master key never leaves your device
 
-### 🚨 **NEW: Enhanced Security (v1.1.0)**
+### 🚨 **NEW: Enhanced Security (v1.1.1)**
 - ✅ **Strong Password Policy**: Enforced 12+ character minimum with real-time strength indicator
 - ✅ **Persistent Brute-Force Protection**: Lockout survives application restarts
 - ✅ **Code Signing Ready**: Update integrity verification configured
@@ -70,7 +70,7 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 
 ## 📊 Security Comparison
 
-| Feature | Aegis Vault v1.1.0 | KeePassXC | Bitwarden | 1Password |
+| Feature | Aegis Vault v1.1.1 | KeePassXC | Bitwarden | 1Password |
 |---------|-------------------|-----------|-----------|-----------|
 | **Security Score** | **92/100** ⭐ | 90/100 | 88/100 | 92/100 |
 | **Offline-First** | ✅ 100% | ✅ 100% | ⚠️ 50% | ❌ 10% |
@@ -143,9 +143,14 @@ npm run dev
 npm run build
 ```
 
-## 🆕 What's New in v1.1.0
+## 🆕 What's New in v1.1.1
 
-### Security Enhancements
+### Localization & UX
+- 🌍 **Full Turkish Localization**: Complete translation of the dashboard, security settings, and recovery process.
+- 📂 **Security Settings Reorganization**: Settings are now logically grouped into MFA, Disaster Recovery, and Device Security.
+- 📄 **Localized Recovery PDF**: Exported recovery backup document now supports Turkish titles and instructions.
+
+### Security Enhancements (v1.1.0)
 - ️ **Argon2id 15 Iterations**: Increased from 10 for OWASP 2024 compliance
 - 🔒 **Enforced Password Policy**: Minimum 12 characters with zxcvbn analysis
 - 💾 **Persistent Brute-Force Protection**: Lockouts survive app restarts
@@ -191,6 +196,7 @@ If you find a security vulnerability:
 
 | Date | Version | Auditor | Score | Report |
 |------|---------|---------|-------|--------|
+| 2026-01-08 | v1.1.1 | Internal | **93/100** | [View Report](SECURITY_IMPROVEMENTS_REPORT.md) |
 | 2026-01-05 | v1.1.0 | AI Security Audit | **92/100** | [View Report](SECURITY_IMPROVEMENTS_REPORT.md) |
 | 2025-12-20 | v1.0.0 | Internal | 85/100 | Initial release |
 

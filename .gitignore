@@ -24,3 +24,6 @@ public_key.pem
 *.p12
 *.pfx
 build-output.txt
+*
+*.bat
+nul

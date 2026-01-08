@@ -10,7 +10,8 @@ export class ExportService {
   static async exportVault(
     masterKey: CryptoKey,
     format: ExportFormat = 'aegis',
-    isEncrypted: boolean = true
+    isEncrypted: boolean = true,
+    customPassword?: string
   ): Promise<void> {
     const entries = await db.vault.toArray();
     const decryptedEntries = [];
@@ -19,9 +20,26 @@ export class ExportService {
     for (const entry of entries) {
       try {
         const sensitive = await VaultService.decryptEntry(entry, masterKey);
-        decryptedEntries.push({ ...entry, sensitive });
+        const metadata = await VaultService.decryptEntryMetadata(entry, masterKey);
+
+        // Map to a clean export object
+        const exportEntry = {
+          ...entry,
+          ...metadata,
+          sensitive: {
+            ...sensitive,
+            // Handle binary file attachments for JSON serialization
+            fileBlob: sensitive.fileBlob instanceof Uint8Array
+              ? CryptoService.arrayBufferToBase64(sensitive.fileBlob)
+              : sensitive.fileBlob
+          },
+          // Ensure category is explicitly included (fallback to entry.category)
+          category: metadata.category || entry.category
+        };
+
+        decryptedEntries.push(exportEntry);
       } catch (e) {
-        console.error("Export: Entry decryption failed", entry.id);
+        console.error("Export: Entry decryption failed", entry.id, e);
       }
     }
 
@@ -33,7 +51,6 @@ export class ExportService {
       // Şifreli Mod (Aegis Güvenlik Konteynırı)
       let payloadContent: string;
       let hint: string;
-      let extension: string = 'aegis';
 
       if (format === 'csv') {
         payloadContent = this.convertToCSV(decryptedEntries);
@@ -51,20 +68,41 @@ export class ExportService {
         fileName = `aegis_json_secure_${timestamp}.aegis`;
       }
 
-      const { ciphertext, iv } = await CryptoService.encrypt(payloadContent, masterKey);
+      let encryptionKey = masterKey;
+      let salt: string;
+      let iterations: number;
+
+      if (customPassword) {
+        // Özel şifre ile yeni anahtar türet
+        const saltBytes = window.crypto.getRandomValues(new Uint8Array(16));
+        iterations = await CryptoService.benchmarkIterations();
+        encryptionKey = await CryptoService.deriveKeyFromPassword(customPassword, saltBytes, iterations);
+        salt = CryptoService.arrayBufferToBase64(saltBytes.buffer);
+      } else {
+        // Mevcut kasa anahtarını kullan
+        const metadata = JSON.parse(localStorage.getItem('aegis_vault_metadata') || '{}');
+        salt = metadata.salt;
+        iterations = metadata.iterations;
+      }
+
+      const { ciphertext, iv, tag } = await CryptoService.encrypt(payloadContent, encryptionKey);
 
       const exportData = {
         payload: CryptoService.arrayBufferToBase64(ciphertext),
         iv: CryptoService.arrayBufferToBase64(iv.buffer as ArrayBuffer),
+        tag: CryptoService.arrayBufferToBase64(tag.buffer as ArrayBuffer),
+        salt: salt,
+        iterations: iterations,
         hint: hint,
         encrypted: true
       };
 
       blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     } else if (format === 'json') {
-      // Düz Metin JSON
-      blob = new Blob([JSON.stringify(decryptedEntries, null, 2)], { type: 'application/json' });
-      fileName = `aegis_export_plaintext_${timestamp}.json`;
+      // SECURITY: Plaintext export is dangerous. Use encrypted export only.
+      // If you need plaintext, manually decrypt and export separately.
+      console.warn('[Security] Plaintext JSON export requested - this exposes all credentials unencrypted');
+      return null;
     } else {
       // Düz Metin CSV
       const csvContent = this.convertToCSV(decryptedEntries);

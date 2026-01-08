@@ -30,13 +30,16 @@ export default defineConfig(({ mode }) => {
         },
         mangle: true, // Obfuscate variable names
       },
-      chunkSizeWarningLimit: 1500,
+      chunkSizeWarningLimit: 2000,
       rollupOptions: {
         output: {
           manualChunks: {
             'vendor': ['react', 'react-dom'],
             'framer': ['framer-motion'],
-            'icons': ['lucide-react']
+            'icons': ['lucide-react'],
+            'pdf': ['jspdf', 'html2canvas'],
+            'crypto': ['hash-wasm', 'zxcvbn'],
+            'db': ['dexie']
           }
         }
       }

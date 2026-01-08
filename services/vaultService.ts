@@ -323,53 +323,135 @@ export class VaultService {
     // Perform encryptions in parallel for better speed
     const encryptedEntries = await Promise.all(items.map(async (plainEntry) => {
       try {
-        const sensitiveJson = JSON.stringify(plainEntry.sensitive);
+        // --- 1. TITLE & USERNAME RECOVERY ---
+        let displayTitle = plainEntry.title;
+        let displayUsername = plainEntry.username || (plainEntry.sensitive as any)?.username || (plainEntry.sensitive as any)?.email || (plainEntry.sensitive as any)?.user || (plainEntry.sensitive as any)?.login || (plainEntry.sensitive as any)?.id || (plainEntry.sensitive as any)?.login_name || (plainEntry.sensitive as any)?.loginuser || (plainEntry.sensitive as any)?.loginemail;
+
+        // If title is missing, try to get it from sensitive data or notes as a last resort
+        if (!displayTitle) {
+          displayTitle = (plainEntry.sensitive as any)?.title || (plainEntry.sensitive as any)?.name;
+        }
+
+        // If plaintext fields are still missing (older backup), try to decrypt encrypted counterparts
+        if (!displayTitle && plainEntry.encryptedTitle && plainEntry.titleIv && plainEntry.titleTag) {
+          try {
+            if (electronVault) {
+              displayTitle = await electronVault.decrypt(plainEntry.encryptedTitle, plainEntry.titleIv, plainEntry.titleTag);
+            } else {
+              displayTitle = await CryptoService.decrypt(plainEntry.encryptedTitle, masterKey, plainEntry.titleIv, plainEntry.titleTag);
+            }
+          } catch (e) {
+            console.warn(`Bulk Import: Failed to decrypt legacy title for ${plainEntry.id}, using fallback.`);
+          }
+        }
+
+        if (!displayUsername && plainEntry.encryptedUsername && plainEntry.usernameIv && plainEntry.usernameTag) {
+          try {
+            if (electronVault) {
+              displayUsername = await electronVault.decrypt(plainEntry.encryptedUsername, plainEntry.usernameIv, plainEntry.usernameTag);
+            } else {
+              displayUsername = await CryptoService.decrypt(plainEntry.encryptedUsername, masterKey, plainEntry.usernameIv, plainEntry.usernameTag);
+            }
+          } catch (e) {
+            console.warn(`Bulk Import: Failed to decrypt legacy username for ${plainEntry.id}.`);
+          }
+        }
+
+        // Additional username fallbacks from sensitive data
+        if (!displayUsername || displayUsername.trim() === '') {
+          const sensitive = plainEntry.sensitive as any;
+          if (sensitive) {
+            displayUsername = sensitive.email || sensitive.user || sensitive.login || sensitive.id || sensitive.login_username || sensitive.loginuser || sensitive.loginemail || '';
+          }
+        }
+
+        // Final UI fallbacks
+        displayTitle = displayTitle || (plainEntry.category === Category.FILE ? `Secure-Asset-${crypto.randomUUID().slice(0, 8)}` : 'Unnamed Entry');
+        displayUsername = displayUsername || '';
+
+        // Debug log
+        console.log('[BulkImport] Entry processed - ID:', plainEntry.id, 'Title:', displayTitle, 'Username:', displayUsername);
+
+        // --- 2. ATTACHMENT HANDLING ---
+        const sensitiveCopy = { ...plainEntry.sensitive };
+        let encryptedFile: Uint8Array | undefined;
+        let fileIv: Uint8Array | undefined;
+        let fileTag: Uint8Array | undefined;
+
+        let fileData = sensitiveCopy.fileBlob || (plainEntry as any).fileBlob;
+
+        // Convert Base64 (from export JSON) back to binary
+        if (typeof fileData === 'string' && fileData.length > 0) {
+          try {
+            fileData = new Uint8Array(CryptoService.base64ToArrayBuffer(fileData));
+          } catch (e) {
+            console.error("Bulk Import: Base64 decode failed for attachment", e);
+          }
+        }
+
+        // Re-encrypt for the current vault
+        if (fileData instanceof Uint8Array && fileData.length > 0) {
+          if (electronVault) {
+            const fileResult = await electronVault.encryptBinary(fileData);
+            encryptedFile = new Uint8Array(fileResult.ciphertext);
+            fileIv = new Uint8Array(fileResult.iv);
+            fileTag = new Uint8Array(fileResult.tag);
+          } else {
+            const fileResult = await CryptoService.encryptBinary(fileData, masterKey);
+            encryptedFile = fileResult.ciphertext;
+            fileIv = fileResult.iv;
+            fileTag = fileResult.tag;
+          }
+          // Remove binary from metadata payload to save space
+          delete sensitiveCopy.fileBlob;
+        }
+
+        // --- 3. CORE CONTENT ENCRYPTION ---
+        const sensitiveJson = JSON.stringify(sensitiveCopy);
         let ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array;
         let titleCiphertext: Uint8Array, titleIv: Uint8Array, titleTag: Uint8Array;
         let usernameCiphertext: Uint8Array, usernameIv: Uint8Array, usernameTag: Uint8Array;
 
-        const displayTitle = plainEntry.title || (plainEntry.category === Category.FILE ? `Secure-Asset-${crypto.randomUUID().slice(0, 8)}` : 'Unnamed Entry');
-        const displayUsername = plainEntry.username || '';
-
         if (electronVault) {
-          const sensitiveResult = await electronVault.encrypt(sensitiveJson);
-          ciphertext = new Uint8Array(sensitiveResult.ciphertext);
-          iv = new Uint8Array(sensitiveResult.iv);
-          tag = new Uint8Array(sensitiveResult.tag);
+          const resSensitive = await electronVault.encrypt(sensitiveJson);
+          ciphertext = new Uint8Array(resSensitive.ciphertext);
+          iv = new Uint8Array(resSensitive.iv);
+          tag = new Uint8Array(resSensitive.tag);
 
-          const titleResult = await electronVault.encrypt(displayTitle);
-          titleCiphertext = new Uint8Array(titleResult.ciphertext);
-          titleIv = new Uint8Array(titleResult.iv);
-          titleTag = new Uint8Array(titleResult.tag);
+          const resTitle = await electronVault.encrypt(displayTitle);
+          titleCiphertext = new Uint8Array(resTitle.ciphertext);
+          titleIv = new Uint8Array(resTitle.iv);
+          titleTag = new Uint8Array(resTitle.tag);
 
-          const usernameResult = await electronVault.encrypt(displayUsername);
-          usernameCiphertext = new Uint8Array(usernameResult.ciphertext);
-          usernameIv = new Uint8Array(usernameResult.iv);
-          usernameTag = new Uint8Array(usernameResult.tag);
+          const resUser = await electronVault.encrypt(displayUsername);
+          usernameCiphertext = new Uint8Array(resUser.ciphertext);
+          usernameIv = new Uint8Array(resUser.iv);
+          usernameTag = new Uint8Array(resUser.tag);
         } else {
-          const sensitiveResult = await CryptoService.encrypt(sensitiveJson, masterKey);
-          ciphertext = sensitiveResult.ciphertext;
-          iv = sensitiveResult.iv;
-          tag = sensitiveResult.tag;
+          const resSensitive = await CryptoService.encrypt(sensitiveJson, masterKey);
+          ciphertext = resSensitive.ciphertext;
+          iv = resSensitive.iv;
+          tag = resSensitive.tag;
 
-          const titleResult = await CryptoService.encrypt(displayTitle, masterKey);
-          titleCiphertext = titleResult.ciphertext;
-          titleIv = titleResult.iv;
-          titleTag = titleResult.tag;
+          const resTitle = await CryptoService.encrypt(displayTitle, masterKey);
+          titleCiphertext = resTitle.ciphertext;
+          titleIv = resTitle.iv;
+          titleTag = resTitle.tag;
 
-          const usernameResult = await CryptoService.encrypt(displayUsername, masterKey);
-          usernameCiphertext = usernameResult.ciphertext;
-          usernameIv = usernameResult.iv;
-          usernameTag = usernameResult.tag;
+          const resUser = await CryptoService.encrypt(displayUsername, masterKey);
+          usernameCiphertext = resUser.ciphertext;
+          usernameIv = resUser.iv;
+          usernameTag = resUser.tag;
         }
 
-        // Encrypt Metadata
+        // --- 4. METADATA & CATEGORY ---
+        const category = plainEntry.category || Category.LOGIN;
         const metadataPayload = JSON.stringify({
-          category: plainEntry.category || Category.LOGIN,
+          category: category,
           folderId: plainEntry.folderId,
           updatedAt: Date.now(),
           isFavorite: plainEntry.isFavorite,
-          fileSize: plainEntry.fileSize
+          fileSize: plainEntry.fileSize || (fileData instanceof Uint8Array ? fileData.length : 0)
         });
 
         let encryptedMetadata: Uint8Array, metadataIv: Uint8Array, metadataTag: Uint8Array;
@@ -385,7 +467,7 @@ export class VaultService {
           metadataTag = res.tag;
         }
 
-        const securityScore = this.calculateStrength(plainEntry.sensitive.password || '');
+        const securityScore = this.calculateStrength(plainEntry.sensitive?.password || '');
 
         return {
           id: plainEntry.id || crypto.randomUUID(),
@@ -400,19 +482,22 @@ export class VaultService {
           metadataIv,
           metadataTag,
 
-          category: Category.LOGIN,
-          updatedAt: 0,
-          isFavorite: false,
-          folderId: undefined,
+          category: category, // FIXED: Use actual category
+          updatedAt: Date.now(),
+          isFavorite: plainEntry.isFavorite || false,
+          folderId: plainEntry.folderId,
 
           securityScore,
-          fileSize: plainEntry.fileSize,
+          fileSize: plainEntry.fileSize || (fileData instanceof Uint8Array ? fileData.length : 0),
           encryptedData: ciphertext,
           iv: iv,
-          tag: tag
+          tag: tag,
+          encryptedFile, // ADDED: file support
+          fileIv,
+          fileTag
         } as VaultEntry;
       } catch (e) {
-        console.error("Bulk Import: Failed to process entry", e);
+        console.error("Bulk Import: Critical processing error for entry", plainEntry.id, e);
         return null;
       }
     }));
@@ -503,7 +588,11 @@ export class VaultService {
         };
       }
 
-      return { title: decryptedTitle, username: decryptedUsername, ...extendedMeta };
+      return {
+        ...extendedMeta,
+        title: decryptedTitle,
+        username: decryptedUsername
+      };
     } catch (e) {
       console.error("Metadata Decryption Error:", e);
       return { title: '[Decryption Error]', username: '[Decryption Error]' };
@@ -585,6 +674,49 @@ export class VaultService {
         entryId: id,
         timestamp: Date.now()
       });
+    }
+  }
+  static async deduplicateVault(masterKey: CryptoKey): Promise<{ deletedCount: number }> {
+    try {
+      const allEntries = await db.vault.toArray();
+      const entryMap = new Map<string, VaultEntry>();
+      const toDelete: string[] = [];
+
+      for (const entry of allEntries) {
+        try {
+          const meta = await this.decryptEntryMetadata(entry, masterKey);
+          const key = `${(meta.title || '').toLowerCase().trim()}|${(meta.username || '').toLowerCase().trim()}`;
+
+          const existing = entryMap.get(key);
+          if (existing) {
+            const existingMeta = await this.decryptEntryMetadata(existing, masterKey);
+            if ((meta.updatedAt || 0) > (existingMeta.updatedAt || 0)) {
+              toDelete.push(existing.id);
+              entryMap.set(key, entry);
+            } else {
+              toDelete.push(entry.id);
+            }
+          } else {
+            entryMap.set(key, entry);
+          }
+        } catch (e) {
+          console.error("Deduplication error", e);
+        }
+      }
+
+      if (toDelete.length > 0) {
+        console.log(`[Deduplication] ${toDelete.length} duplicate siliniyor...`);
+        await db.vault.bulkDelete(toDelete);
+        if ((window as any).electronAPI?.audit) {
+          await (window as any).electronAPI.audit.logEvent('VAULT_CLEANUP', { deletedCount: toDelete.length, timestamp: Date.now() });
+        }
+        console.log(`[Deduplication] ${toDelete.length} duplicate başarıyla silindi!`);
+      }
+
+      return { deletedCount: toDelete.length };
+    } catch (e) {
+      console.error("Deduplication failed", e);
+      throw e;
     }
   }
 

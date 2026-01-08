@@ -1,6 +1,6 @@
 {
   "name": "aegis-vault",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "module",
   "description": "Premium, Offline-First, Zero-Knowledge Password Manager - Security Hardened Edition",
   "main": "main.js",
@@ -12,11 +12,15 @@
     "build": "node build/convert-icon1-to-ico.cjs && npx vite build && npx electron-builder build --win"
   },
   "dependencies": {
+    "@types/papaparse": "^5.5.2",
     "@types/qrcode": "^1.5.6",
     "dexie": "^4.0.0",
     "framer-motion": "^11.0.0",
     "hash-wasm": "^4.11.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
     "lucide-react": "^0.400.0",
+    "papaparse": "^5.5.3",
     "qrcode": "^1.5.4",
     "react": "19.0.0",
     "react-dom": "19.0.0",
@@ -24,6 +28,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
+    "@types/html2canvas": "^0.5.35",
     "@vitejs/plugin-react": "^5.1.2",
     "autoprefixer": "^10.4.23",
     "electron": "^31.0.0",
@@ -41,12 +46,13 @@
     "copyright": "Copyright © 2024 Aegis Security",
     "electronDist": "node_modules/electron/dist",
     "directories": {
-      "output": "C:\\Users\\hrn21\\aegis-build",
+      "output": "C:\\Users\\hrn21\\Desktop\\aegis-vault-build-release",
       "buildResources": "build"
     },
     "files": [
       "dist/**/*",
       "main.js",
+      "preload.cjs",
       "preload.js",
       "package.json",
       "node_modules/**/*",
@@ -88,7 +94,9 @@
       "forceCodeSigning": false,
       "certificateFile": null,
       "certificatePassword": null,
-      "signingHashAlgorithms": ["sha256"],
+      "signingHashAlgorithms": [
+        "sha256"
+      ],
       "rfc3161TimeStampServer": "http://timestamp.digicert.com"
     },
     "publish": {

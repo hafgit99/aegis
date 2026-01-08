@@ -92,3 +92,131 @@ export interface SensitiveData {
   cryptoDetails?: CryptoDetails;
   customFields?: CustomField[];
 }
+
+// ==================== BREACH CHECK TYPES ====================
+
+export interface BreachCheckResult {
+  isBreached: boolean;
+  strength: number;
+  patterns: string[];
+  breachCount?: number;
+}
+
+export interface BreachDatabaseEntry {
+  hash: string; // SHA-1 hash
+  count: number;
+}
+
+// ==================== BACKUP SYSTEM TYPES ====================
+
+export interface BackupFile {
+  id: string;
+  timestamp: number;
+  version: string;
+  encryptedData: Uint8Array;
+  iv: Uint8Array;
+  tag: Uint8Array;
+  checksum: string;
+  size: number;
+  isCloud: boolean;
+  cloudProvider?: 'dropbox' | 'google' | 'onedrive' | 'custom';
+  cloudPath?: string;
+}
+
+export interface BackupMetadata {
+  id: string;
+  timestamp: number;
+  version: string;
+  size: number;
+  location: 'local' | 'cloud';
+  cloudProvider?: string;
+  verified: boolean;
+}
+
+export interface BackupVerification {
+  isValid: boolean;
+  checksumMatch: boolean;
+  encryptionValid: boolean;
+  metadataConsistent: boolean;
+}
+
+export type CloudProvider = 'dropbox' | 'google' | 'onedrive' | 'custom';
+
+export interface CloudConfig {
+  provider: CloudProvider;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}
+
+export interface BackupSchedule {
+  enabled: boolean;
+  frequency: 'manual' | 'daily' | 'weekly' | 'monthly';
+  lastBackup?: number;
+  nextBackup?: number;
+  maxBackups: number;
+  cloudEnabled?: boolean;
+  cloudProvider?: CloudProvider;
+}
+
+// ==================== INCIDENT RESPONSE TYPES ====================
+
+export interface AnomalyAlert {
+  id: string;
+  type: 'time' | 'device' | 'location' | 'frequency' | 'behavioral';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  timestamp: number;
+  details: {
+    [key: string]: any;
+  };
+}
+
+export interface TrustedContact {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  relation: string;
+  publicEncryptedKey: string;
+  createdAt: number;
+  verified: boolean;
+}
+
+export interface EmergencyAccessGrant {
+  id: string;
+  contactId: string;
+  reason: string;
+  grantedAt: number;
+  expiresAt: number;
+  duration: number;
+  accessLogs: EmergencyAccessLog[];
+}
+
+export interface EmergencyAccessLog {
+  timestamp: number;
+  action: 'granted' | 'accessed' | 'revoked' | 'expired';
+  ipAddress?: string;
+  deviceId?: string;
+}
+
+export interface IncidentReport {
+  id: string;
+  incidentType: IncidentType;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  evidence: string[];
+  timestamp: number;
+  status: 'open' | 'investigating' | 'resolved' | 'closed';
+  reportedBy?: string;
+  resolvedAt?: number;
+}
+
+export type IncidentType = 
+  | 'unauthorized_access'
+  | 'data_breach'
+  | 'brute_force_attempt'
+  | 'anomaly_detected'
+  | 'emergency_access_used'
+  | 'backup_failure'
+  | 'system_tampering'
+  | 'other';
