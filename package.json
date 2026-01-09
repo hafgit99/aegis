@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "vite",
     "start": "npx electron .",
-    "build": "node build/convert-icon1-to-ico.cjs && npx vite build && npx electron-builder build --win"
+    "build": "npx vite build && npx electron-builder build --win",
+    "postbuild": "powershell -Command \"$out = 'dist_electron'; if (Test-Path $out) { Remove-Item -Path (Join-Path $out 'SHA256SUMS.txt') -ErrorAction SilentlyContinue; Get-ChildItem -Path $out -Filter '*.zip' | ForEach-Object { $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash; \\\"$hash  $($_.Name)\\\" | Out-File (Join-Path $out 'SHA256SUMS.txt') -Append -Encoding utf8; Write-Host \\\"[Security] Checksum created for $($_.Name)\\\" } }\"",
+    "rebuild-native": "electron-rebuild -f -w aegis_security"
   },
   "dependencies": {
     "@types/papaparse": "^5.5.2",
@@ -33,7 +35,10 @@
     "autoprefixer": "^10.4.23",
     "electron": "^31.0.0",
     "electron-builder": "^24.13.3",
+    "electron-icon-builder": "^2.0.1",
+    "electron-rebuild": "^3.2.9",
     "keytar": "^7.9.0",
+    "node-addon-api": "^8.0.0",
     "postcss": "^8.5.6",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.1.18",
@@ -44,10 +49,9 @@
     "appId": "com.aegis.vault",
     "productName": "Aegis Vault",
     "copyright": "Copyright © 2024 Aegis Security",
-    "electronDist": "node_modules/electron/dist",
     "directories": {
-      "output": "C:\\Users\\hrn21\\Desktop\\aegis-vault-build-release",
-      "buildResources": "build"
+      "output": "dist_electron",
+      "buildResources": "build/icons"
     },
     "files": [
       "dist/**/*",
@@ -55,40 +59,14 @@
       "preload.cjs",
       "preload.js",
       "package.json",
-      "node_modules/**/*",
-      "!dist_electron/**/*",
-      "!node_modules/.cache",
-      "!node_modules/electron/dist/locales/*",
-      "!node_modules/**/test",
-      "!node_modules/**/tests",
-      "!node_modules/**/*.map",
-      "!node_modules/**/*.ts",
-      "!node_modules/**/*.md",
-      "!node_modules/**/.github",
-      "!node_modules/**/.eslintrc*",
-      "!node_modules/**/.prettierrc*",
-      "!*.log",
-      "!.git"
-    ],
-    "asarUnpack": [
-      "resources/locales/**/*"
+      "node_modules/**/*"
     ],
     "win": {
       "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
+        "portable",
+        "zip"
       ],
-      "icon": "build/icon.ico",
+      "icon": "build/icons/icons/icon.ico",
       "publisherName": "Aegis Security",
       "verifyUpdateCodeSignature": true,
       "forceCodeSigning": false,
@@ -97,7 +75,8 @@
       "signingHashAlgorithms": [
         "sha256"
       ],
-      "rfc3161TimeStampServer": "http://timestamp.digicert.com"
+      "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "publish": {
       "provider": "github",
@@ -111,17 +90,14 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "runAfterFinish": true,
       "shortcutName": "Aegis Vault",
       "license": "license.txt",
-      "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico",
-      "uninstallDisplayName": "Aegis Vault - Uninstall",
-      "deleteAppDataOnUninstall": false
-    },
-    "afterPack": "./build/afterPack.cjs",
-    "extraMetadata": {
-      "main": "main.js"
+      "installerIcon": "build/icons/icons/icon.ico",
+      "uninstallerIcon": "build/icons/icons/icon.ico",
+      "uninstallDisplayName": "Aegis Vault",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "packElevateHelper": false
     }
   }
 }

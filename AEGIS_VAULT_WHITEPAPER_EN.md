@@ -17,8 +17,8 @@ The application is 100% functional without requiring an internet connection. The
 All sensitive data (passwords, notes, credit cards, crypto wallet keys) is encrypted using the industry-standard **AES-256-GCM** algorithm.
 - **GCM (Galois/Counter Mode):** Provides not only confidentiality but also integrity checks (Authentication Tag) to verify that data has not been tampered with.
 
-### 3.2 Key Derivation
-The user's master password is not used directly as a cryptographic key. Instead, it is derived using the **PBKDF2** algorithm, which is resistant to brute-force attacks. A unique "Salt" value is used for each vault.
+### 3.2 Key Derivation (Argon2id)
+The user's master password is not used directly as a cryptographic key. Instead, it is derived using the **Argon2id** algorithm (OWASP 2024 standard), which is highly resistant to brute-force and GPU-based cracking attempts. Aegis Vault maximizes key derivation strength by using high iterations (15+) and a memory cost of 64MB, optimizing security for modern hardware.
 
 ### 3.3 Hardware Identity and Device Binding
 Aegis optionally uses a device ID derived from processor and motherboard serial numbers to ensure the vault can only be opened on the authorized device. This feature makes it difficult for the vault to be opened even if the master password is known if copied to another computer.

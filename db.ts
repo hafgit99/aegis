@@ -9,7 +9,10 @@ export const db = new Dexie('AegisVaultDB') as Dexie & {
 
 // Version 3: Changed encryption data from Base64 strings to binary (Uint8Array)
 // This reduces storage size by 33% and improves performance
-db.version(3).stores({
-  vault: 'id, title, username, category, folderId, updatedAt',
-  folders: 'id, parentId, updatedAt'
+// Version 4: Full Record Encryption (Metadata included)
+// Everything except the ID is moved into the encrypted binary blob
+// Version 5: Added 'title' index to support conflict detection during import
+db.version(5).stores({
+  vault: 'id, title, category, updatedAt, isFavorite, folderId',
+  folders: 'id, parentId'
 });

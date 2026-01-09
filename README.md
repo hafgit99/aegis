@@ -57,8 +57,78 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 - **2FA Support**: TOTP-based two-factor authentication
 - **Recovery System**: BIP39 24-word recovery phrase with Argon2id protection
 
-## 🚀 Key Capabilities
+## 🛡️ Download Verification
 
+After downloading Aegis Vault, verify file integrity using SHA256 checksum:
+
+### Windows
+```powershell
+# Download Aegis Vault from official release page
+# Then verify the hash for EXE or ZIP
+certutil -hashfile "Aegis Vault-1.1.1-x64.exe" SHA256
+```
+
+The output should match:
+```
+EXE (Portable Installer): 9e7bf76edba1aa1f0ce214b1a51a0594c31786b2363c6614193eb7d7da6644a9
+ZIP (Portable Archive):   8FBCE7C80F96D3F2B6DEF5ACAB05DAA29D155C8DAFE5C554A443AFDEA47A35F3
+```
+
+**Why verify?** Hash verification ensures:
+- ✅ The file hasn't been corrupted during download
+- ✅ No one has tampered with the file
+- ✅ You have the exact version released
+
+## 🚀 Installation
+
+### Method 1: Portable Installer (EXE) - Recommended for Beginners
+1. **Download**: `Aegis Vault-1.1.1-x64.exe`
+2. **Double-click**: Run the executable
+3. **Extract**: The installer will extract all files to a folder
+4. **Run**: Open `Aegis Vault.exe` from the extracted folder
+5. **Create Shortcut**: Right-click → Send to → Desktop (optional)
+
+**Advantages**:
+- ✅ No system installation required
+- ✅ Run from any location (including USB)
+- ✅ No admin privileges needed
+- ✅ Easy to uninstall (just delete folder)
+
+### Method 2: Portable Archive (ZIP)
+1. **Download**: `Aegis Vault-1.1.1-x64.zip`
+2. **Extract**: Right-click → "Extract All"
+3. **Run**: Open `Aegis Vault.exe` from the extracted folder
+
+**Advantages**:
+- ✅ Smaller download size
+- ✅ No extraction step needed after download
+- ✅ Same portability as EXE
+
+## 💡 First-Time Setup
+
+### 1. Create Master Password
+- Click "Create New Vault"
+- Enter a **strong password** (minimum 12 characters)
+- The system will analyze password strength automatically
+- **Tip**: Use a passphrase like "correct-horse-battery-staple" for security
+
+### 2. Save Recovery Phrase
+After vault creation, you'll see a **24-word recovery phrase**:
+```
+word1 word2 word3 ... word24
+```
+
+⚠️ **CRITICAL**: Write this down on paper and store it securely!
+- Without this phrase, you **cannot recover** your vault if you forget the master password
+- Never store it digitally (email, cloud, screenshots)
+- Keep multiple copies in different secure locations
+
+### 3. Optional Security Enhancements
+- **Enable Biometrics**: Windows Hello / TouchID (Windows)
+- **Enable 2FA**: TOTP-based two-factor authentication
+- **Configure Auto-Lock**: Set inactivity timeout (recommended: 5-15 minutes)
+
+## 🚀 Key Capabilities
 - **Portable Mode**: Run directly from a USB stick without installation
 - **3D Card View**: Visualize your credit cards with a flip animation to see CVC and details securely
 - **Secure File Storage**: Store sensitive files and documents encrypted alongside your passwords
@@ -69,7 +139,6 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 - **Import/Export**: Secure vault backup with AES-256-GCM encryption
 
 ## 📊 Security Comparison
-
 | Feature | Aegis Vault v1.1.1 | KeePassXC | Bitwarden | 1Password |
 |---------|-------------------|-----------|-----------|-----------|
 | **Security Score** | **92/100** ⭐ | 90/100 | 88/100 | 92/100 |
@@ -81,7 +150,6 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 | **Open Source** | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No |
 
 ## 🔬 Technical Specifications
-
 - **Encryption Algorithm**: AES-256-GCM (Authenticated Encryption)
 - **Key Derivation**: Argon2id with 15 iterations, 64MB RAM, 4 threads
 - **Password Policy**: Minimum 12 characters, zxcvbn strength analysis
@@ -97,14 +165,22 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 ## 📦 Installation
 
 ### Quick Start
-
 1. **Download** the latest release from the [Release Page](https://github.com/hafgit99/aegis/releases)
 2. **Run** the executable (Windows: `.exe`,)
 3. **Create** your master password (minimum 12 characters)
 4. **Start** securing your passwords!
 
-### System Requirements
+### 🛡️ Verify Download (Hash Verification)
+To ensure the integrity and authenticity of the downloaded file, you can verify its SHA256 checksum:
 
+1. Open PowerShell or Command Prompt.
+2. Run the following command (replace filename if necessary):
+   ```powershell
+   certutil -hashfile "Aegis Vault-1.1.1-x64.exe" SHA256
+   ```
+3. Compare the output with the hash provided in the `SHA256SUMS.txt` file available in the release assets. If they match, your download is secure and untampered.
+
+### System Requirements
 - **Windows**: 10/11 (64-bit)
 - **macOS**: 10.13+ (High Sierra or later)
 - **Linux**: Ubuntu 18.04+, Fedora 30+, or equivalent
@@ -112,7 +188,6 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 - **Disk**: 200MB free space
 
 ### First-Time Setup
-
 1. Launch Aegis Vault
 2. Accept the EULA agreement
 3. Create a **strong master password** (12+ characters)
@@ -127,7 +202,6 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 Since Aegis Vault is a security tool, some antivirus software might flag it as a false positive. This is common for standalone encryption apps. The source code is available for review!
 
 ### Building from Source
-
 ```bash
 # Clone the repository
 git clone https://github.com/hafgit99/aegis.git
@@ -150,7 +224,7 @@ npm run build
 - 📂 **Security Settings Reorganization**: Settings are now logically grouped into MFA, Disaster Recovery, and Device Security.
 - 📄 **Localized Recovery PDF**: Exported recovery backup document now supports Turkish titles and instructions.
 
-### Security Enhancements (v1.1.0)
+### Security Enhancements (v1.1.1)
 - ️ **Argon2id 15 Iterations**: Increased from 10 for OWASP 2024 compliance
 - 🔒 **Enforced Password Policy**: Minimum 12 characters with zxcvbn analysis
 - 💾 **Persistent Brute-Force Protection**: Lockouts survive app restarts
@@ -163,6 +237,8 @@ npm run build
 - Backward compatible with v1.0.0 vaults
 
 ### Bug Fixes
+- **Import Conflict Detection**: Fixed critical IndexedDB index error when importing to v4+ encrypted vaults.
+- **Memory-Based Search**: Implemented real-time duplicate detection across encrypted records.
 - Fixed brute-force bypass via app restart
 - Improved password validation UX
 - Enhanced audit log encryption
@@ -181,11 +257,7 @@ This software is **Open Source** under consideration for MIT License.
 
 For licensing inquiries, please contact: sales@hetech-me.space
 
-
-
-
 ### Security Contributions
-
 If you find a security vulnerability:
 1. **DO NOT** open a public issue
 2. Email: sales@hetech-me.space with subject "SECURITY"
@@ -193,15 +265,13 @@ If you find a security vulnerability:
 4. We'll respond within 48 hours
 
 ## 🔒 Security Audit History
-
 | Date | Version | Auditor | Score | Report |
 |------|---------|---------|-------|--------|
 | 2026-01-08 | v1.1.1 | Internal | **93/100** | [View Report](SECURITY_IMPROVEMENTS_REPORT.md) |
-| 2026-01-05 | v1.1.0 | AI Security Audit | **92/100** | [View Report](SECURITY_IMPROVEMENTS_REPORT.md) |
+| 2026-01-05 | v1.1.1 | AI Security Audit | **92/100** | [View Report](SECURITY_IMPROVEMENTS_REPORT.md) |
 | 2025-12-20 | v1.0.0 | Internal | 85/100 | Initial release |
 
 ## 🏆 Acknowledgments
-
 - **OWASP** for security guidelines
 - **EFF** for wordlist standards (BIP39)
 - **hash-wasm** for Argon2id implementation
@@ -209,14 +279,12 @@ If you find a security vulnerability:
 - **Electron** community for the framework
 
 ## 📞 Support & Contact
-
 - **GitHub Issues**: [Bug Reports & Feature Requests](https://github.com/hafgit99/aegis/issues/new?template=bug_report.md)
 - **Email**: sales@hetech-me.space
 - **Security**: sales@hetech-me.space (PGP key available on request)
 - **Twitter/X**: Coming soon
 
 ## ⭐ Star History
-
 If you find Aegis Vault useful, please consider giving it a star on GitHub!
 
 [![Star History Chart](https://api.star-history.com/svg?repos=hafgit99/aegis&type=Date)](https://star-history.com/#hafgit99/aegis&Date)

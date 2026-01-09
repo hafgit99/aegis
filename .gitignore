@@ -11,19 +11,21 @@ release
 .idea
 .vscode
 *.tsbuildinfo
+.builder-cache
+build/config.gypi
+build/Release
+build/Debug
+nul
 
-# Documentation - Ignore all except README
+# Documentation
 *.md
 !README.md
 !*_WHITEPAPER_*.md
 
-# Critical Security Files
+# Security
 private_key.pem
 public_key.pem
 *.key
 *.p12
 *.pfx
 build-output.txt
-*
-*.bat
-nul

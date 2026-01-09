@@ -361,7 +361,7 @@ export class ImportService {
   static async parseCSV(file: File): Promise<ImportEntry[]> {
     const text = await file.text();
     const cleanText = text.replace(/^\uFEFF/, '').trim();
-    
+
     return this.parseCSVText(cleanText);
   }
 
@@ -392,11 +392,21 @@ export class ImportService {
       const itemTitle = normalize(item.title);
       const itemUser = normalize(item.username || '');
 
-      const match = existingEntries.find(existing => {
-        const existingTitle = normalize(existing.title || '');
-        const existingUser = normalize(existing.username || '');
-        return existingTitle === itemTitle && existingUser === itemUser;
-      });
+      let match: VaultEntry | undefined;
+
+      // Perform memory-based conflict detection if existing entries are provided
+      // This is necessary for v4+ encrypted records which don't have titles in the DB index
+      if (existingEntries && existingEntries.length > 0) {
+        match = existingEntries.find(existing => {
+          const existingTitle = normalize(existing.title || '');
+          const existingUser = normalize(existing.username || '');
+          return existingTitle === itemTitle && existingUser === itemUser;
+        });
+      } else {
+        // Fallback to DB check for legacy entries or when memory list is not available
+        // Note: db.vault must have 'title' indexed in db.ts for this to work without crashing
+        match = await db.vault.where('title').equalsIgnoreCase(item.title).first();
+      }
 
       if (match) {
         conflicts.push({ existing: match, incoming: item });

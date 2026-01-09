@@ -17,8 +17,8 @@ Uygulama, internet bağlantısı gerektirmeksizin %100 işlevseldir. Veritabanı
 Tüm hassas veriler (parolalar, notlar, kredi kartları, kripto cüzdan anahtarları), endüstri standardı olan **AES-256-GCM** algoritması ile şifrelenir.
 - **GCM (Galois/Counter Mode):** Sadece gizlilik sağlamakla kalmaz, aynı zamanda verinin değiştirilip değiştirilmediğini doğrulayan bütünlük kontrolü (Authentication Tag) sunar.
 
-### 3.2 Anahtar Türetme (Key Derivation)
-Kullanıcının ana şifresi, doğrudan kriptografik anahtar olarak kullanılmaz. Bunun yerine, kaba kuvvet (brute-force) saldırılarına karşı dirençli **PBKDF2** algoritması kullanılarak türetilir. Her kasa için benzersiz bir "Salt" değeri kullanılır.
+### 3.2 Anahtar Türetme (Key Derivation - Argon2id)
+Kullanıcının ana şifresi, doğrudan kriptografik anahtar olarak kullanılmaz. Bunun yerine, kaba kuvvet (brute-force) saldırılarına ve GPU tabanlı kırma denemelerine karşı dirençli **Argon2id** (OWASP 2024 standartı) algoritması kullanılarak türetilir. Aegis Vault, donanım kaynaklarını optimize eden yüksek iterasyon (15+) ve bellek maliyeti (64MB) kullanarak anahtar türetme direncini maksimize eder.
 
 ### 3.3 Donanım Kimliği ve Cihaz Bağımlılığı
 Aegis, kasanın sadece yetkili cihazda açılmasını zorunlu kılmak için işlemci ve anakart seri numaralarından türetilen bir cihaz kimliği kullanır. Bu özellik, kasanın başka bir bilgisayara kopyalanması durumunda ana şifre bilinse bile açılmasını zorlaştırır.

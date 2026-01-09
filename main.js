@@ -6,7 +6,9 @@ import fs from 'fs';
 import os from 'os';
 import net from 'net';
 import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
 
+const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -60,6 +62,21 @@ const MAX_AUDIT_BUFFER = 100;
 
 let mainWindow;
 let deviceKey = null; // Cached device key for session
+let nativeSecurity = null;
+
+// SECURITY: Attempt to load native security addon (VirtualLock/mlock)
+try {
+  // Use path.join to find the build/Release/aegis_security.node
+  const addonPath = path.join(__dirname, 'build', 'Release', 'aegis_security.node');
+  if (fs.existsSync(addonPath)) {
+    nativeSecurity = require(addonPath);
+    console.log('[Security] Native security addon loaded successfully');
+  } else {
+    console.warn('[Security] Native security addon not found. Memory page locking will be simulated.');
+  }
+} catch (e) {
+  console.warn('[Security] Failed to load native security addon:', e.message);
+}
 
 function getDeviceId() {
   try {
@@ -798,17 +815,25 @@ ipcMain.handle('credentials:clear-biometric-secret', async (event) => {
   }
 });
 
-// --- Secure Memory Protection Handlers ---
-ipcMain.handle('secure-memory:lock-pages', async () => {
-  // NOTE: True VirtualLock/mlock requires native C++ node-addon.
-  // We provide success here if high-level sanitization is active.
+ipcMain.handle('secure-memory:lock-pages', async (event, buffer) => {
+  if (nativeSecurity && buffer) {
+    try {
+      // buffer should be a TypedArray (Uint8Array)
+      return nativeSecurity.lockMemory(buffer);
+    } catch (e) {
+      console.error('[Security] Native VirtualLock failed:', e.message);
+      return false;
+    }
+  }
+  // Fallback: Success if high-level sanitization is active
   return true;
 });
 
 ipcMain.handle('secure-memory:get-status', async () => {
   return {
-    locked: true, // Reported as true because we use Buffer auto-fill and manual scrubbing
-    supported: true,
+    locked: !!nativeSecurity,
+    supported: !!nativeSecurity,
+    native: !!nativeSecurity,
     platform: process.platform
   };
 });
