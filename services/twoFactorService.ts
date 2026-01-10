@@ -76,9 +76,9 @@ export class TwoFactorService {
     const key = this.base32Decode(secret);
     const counter = Math.floor(Date.now() / 30000);
 
-    // Check current, previous, and next window for clock drift tolerance
-    // -1 to +1 covers ±30 seconds tolerance
-    for (let i = -1; i <= 1; i++) {
+    // Check current, previous, and next windows for clock drift tolerance
+    // -2 to +2 covers ±60 seconds tolerance
+    for (let i = -2; i <= 2; i++) {
       const calculated = await this.generateTOTP(key, counter + i);
       if (calculated === token) return true;
     }
@@ -88,12 +88,16 @@ export class TwoFactorService {
   private static async generateTOTP(key: Uint8Array, counter: number): Promise<string> {
     const counterBuffer = new ArrayBuffer(8);
     const counterView = new DataView(counterBuffer);
-    counterView.setUint32(4, counter, false); // Set lower 32 bits
+
+    // TOTP requires an 8-byte big-endian counter
+    // Given the current time, the counter fits in the lower 32 bits
+    counterView.setUint32(4, counter, false);
+    counterView.setUint32(0, 0, false); // Upper 32 bits set to 0
 
     const cryptoKey = await window.crypto.subtle.importKey(
       'raw',
       key as any,
-      { name: 'HMAC', hash: 'SHA-256' } as any,
+      { name: 'HMAC', hash: 'SHA-1' } as any, // Standard TOTP uses SHA-1
       false,
       ['sign']
     );

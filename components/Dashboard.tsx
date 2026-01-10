@@ -15,7 +15,9 @@ import ImageBrandIcon from './ImageBrandIcon.tsx';
 import EntryForm from './EntryForm.tsx';
 import SecurityAudit from './SecurityAudit.tsx';
 import TwoFactorSetup from './TwoFactorSetup.tsx';
+import EmergencyAccess from './EmergencyAccess.tsx';
 import PortabilityWizard from './PortabilityWizard.tsx';
+import BackupSettings from './BackupSettings.tsx';
 import PasswordGenerator from './PasswordGenerator.tsx';
 import PasswordCard from './PasswordCard.tsx';
 import SkeletonCard from './SkeletonCard.tsx';
@@ -23,8 +25,6 @@ import LicensingView from './LicensingView.tsx';
 import ChangeMasterKeyModal from './ChangeMasterKeyModal.tsx';
 import LegalModal from './LegalModal.tsx';
 import UserGuideModal from './UserGuideModal.tsx';
-import { BackupSettings } from './BackupSettings.tsx';
-import { EmergencyAccess } from './EmergencyAccess.tsx';
 import { useLanguage } from '../contexts/LanguageContext.tsx';
 import { useVault } from '../hooks/useVault.ts';
 import { useAuth } from '../contexts/AuthContext.tsx';
@@ -48,7 +48,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [error, setError] = useState<string>('');
   const [stage, setStage] = useState<'setup' | 'verify' | 'complete'>('setup');
   const [pinProtection, setPinProtection] = useState(false);
-  const [userWords, setUserWords] = useState<string[]>(['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+
 
   const handleGenerate = async () => {
     if (!masterKey) return;
@@ -61,7 +61,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         setWords(result.words);
         setPin(result.pin || '');
         setChecksum(result.checksum);
-        setStage('verify');
+        setStage('verify'); // Kelimelerin göründüğü aşama
       });
     } catch (err: any) {
       setError(err.message || t('failed_to_generate_key'));
@@ -86,16 +86,7 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     }
   };
 
-  const handleVerifyWords = async () => {
-    const validation = RecoveryService.validateRecoveryWords(userWords);
-    if (!validation.valid) {
-      setError(validation.errors.join('; '));
-      return;
-    }
 
-    setError('');
-    setStage('complete');
-  };
 
   const handleExportRecovery = () => {
     try {
@@ -127,57 +118,65 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   <meta charset="UTF-8">
   <title>Aegis Vault - ${t('recovery_words')}</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-    .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-    h1 { text-align: center; color: #333; margin-bottom: 10px; }
-    .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; }
-    .warning { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin: 20px 0; color: #856404; }
-    .words-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin: 30px 0; }
-    .word-item { background: #f8f9fa; padding: 15px; border: 1px solid #dee2e6; border-radius: 5px; font-family: monospace; text-align: center; }
-    .word-number { color: #666; font-size: 12px; margin-bottom: 5px; }
-    .word-text { font-size: 18px; font-weight: bold; color: #333; }
-    .checksum-box { background: #e3f2fd; border: 1px solid #2196f3; padding: 15px; border-radius: 5px; margin: 20px 0; }
-    .checksum-label { color: #1976d2; font-weight: bold; margin-bottom: 5px; }
-    .checksum-value { font-family: monospace; color: #333; word-break: break-all; }
-    .footer { text-align: center; color: #999; margin-top: 30px; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 40px; background: #fff; color: #000; }
+    .container { max-width: 800px; margin: 0 auto; border: 2px solid #000; padding: 40px; border-radius: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; pb: 20px; mb: 30px; }
+    h1 { margin: 0; font-size: 28px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; }
+    .meta { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #666; }
+    .warning-box { background: #000; color: #fff; padding: 20px; border-radius: 12px; margin: 30px 0; font-size: 14px; line-height: 1.5; }
+    .words-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 30px 0; }
+    .word-cell { border: 1px solid #ccc; padding: 12px; border-radius: 8px; font-family: monospace; display: flex; gap: 10px; }
+    .word-num { color: #888; width: 20px; text-align: right; border-right: 1px solid #eee; pr: 5px; }
+    .word-text { font-weight: bold; }
+    .checksum { background: #f5f5f5; padding: 20px; border-radius: 12px; font-family: monospace; font-size: 12px; margin-top: 30px; }
+    .footer { margin-top: 50px; text-align: center; font-size: 9px; color: #999; text-transform: uppercase; letter-spacing: 2px; }
+    @media print { .print-btn { display: none; } }
+    .print-btn { background: #2563eb; color: #fff; border: none; padding: 12px 24px; border-radius: 12px; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🔐 Aegis Vault - ${t('recovery_words')}</h1>
-    <div class="subtitle">Aegis Vault Password Manager - Recovery Words Backup</div>
-    <div class="date-time">${t('created')}: ${date} ${time}</div>
+    <button class="print-btn" onclick="window.print()">${t('export_pdf')} (CTRL+P)</button>
+    <div class="header">
+      <div>
+        <h1>AEGIS VAULT</h1>
+        <div class="meta">Secure Recovery Document</div>
+      </div>
+      <div class="meta">${date} ${time}</div>
+    </div>
     
-    <div class="warning">
-      <strong>⚠️ ${t('important')}:</strong> ${t('recovery_words_pdf_warning')}
+    <div class="warning-box">
+      <strong>${t('important')}:</strong> ${t('recovery_words_pdf_warning')}
     </div>
 
-    <h2 style="color: #333; text-align: center;">${t('recovery_words_16_words')}</h2>
     <div class="words-grid">
-      ${words.map((word, i) => `<div class="word-item"><div class="word-number">${i + 1}.</div><div class="word-text">${word}</div></div>`).join('')}
+      ${words.map((word, i) => `
+        <div class="word-cell">
+          <span class="word-num">${i + 1}</span>
+          <span class="word-text">${word}</span>
+        </div>
+      `).join('')}
     </div>
 
-    <div class="checksum-box">
-      <div class="checksum-label">${t('checksum')}:</div>
-      <div class="checksum-value">${checksum}</div>
+    <div class="checksum">
+      <strong>CHECKSUM / INTEGRITY:</strong><br/>
+      ${checksum}
     </div>
 
     <div class="footer">
-      <p>Aegis Vault ${t('recovery_backup')}</p>
+      Aegis Vault Security Protocol v4.0 • Zero-Knowledge Encryption
     </div>
   </div>
-
-  <script>window.onload = () => window.print();</script>
+  <script>window.onload = () => { setTimeout(() => window.print(), 500); };</script>
 </body>
 </html>
       `;
 
-      // Create blob and download
       const blob = new Blob([htmlContent], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `aegis-recovery-words-${new Date().toISOString().split('T')[0]}.html`;
+      link.download = `AEGIS-RECOVERY-${new Date().getTime()}.html`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -317,11 +316,19 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             )}
           </div>
 
+
+
+          <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl mb-6 text-center">
+            <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest leading-relaxed">
+              {t('recovery_success_desc')}
+            </p>
+          </div>
+
           <button
-            onClick={handleVerifyWords}
+            onClick={() => setStage('complete')}
             className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-blue-600/20"
           >
-            {t('recovery_verify_words')}
+            {t('i_saved_them') || "I have saved them"}
           </button>
         </div>
       )}
@@ -565,70 +572,93 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
 
   const processedEntries = useMemo(() => {
     // 1. Temel Filtreleme (Trash vs Active)
-    let list = [...entries].filter(e => activeTab === 'trash' ? e.deletedAt !== undefined : e.deletedAt === undefined);
+    let list = entries.filter(e => activeTab === 'trash' ? e.deletedAt !== undefined : e.deletedAt === undefined);
 
-    // Duplicate'leri gizle (Tüm görünüm türlerinde) - Daha agresif temizlik
+    // 2. Normalizasyon Yardımcısı
+    const norm = (s: string) => (s || '').toLowerCase().trim()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, "") // Aksanları kaldır
+      .replace(/[\u200B-\u200D\uFEFF]/g, ''); // Görünmez karakterleri kaldır
+
+    // 3. AGRESİF DEDUPLİKASYON (Görünüm tabanlı)
+    // Başlık, kullanıcı adı ve kategori birebir aynıysa kullanıcı bunları aynı kart olarak görür.
     const seen = new Map<string, VaultEntry>();
     for (const entry of list) {
-      // Görünmez karakterleri temizle ve normalize et
-      const cleanTitle = (entry.title || '').toLowerCase().trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
-      const cleanUser = (entry.username || '').toLowerCase().trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
+      const key = `${norm(entry.title)}|${norm(entry.username)}|${entry.category}`;
+      const existing = seen.get(key);
 
-      // Eğer başlık ve kullanıcı adı aynıysa, en son güncellenen kaydı tut
-      const key = `${cleanTitle}|${cleanUser}`;
-
-      if (seen.has(key)) {
-        const existing = seen.get(key)!;
-        // Eğer şimdiki kayıt daha yeniyse, eskisini ez
-        if ((entry.updatedAt || 0) > (existing.updatedAt || 0)) {
-          seen.set(key, entry);
-        }
-      } else {
+      // En güncel olanı tut, ya da favori olanı tercih et
+      if (!existing ||
+        (entry.isFavorite && !existing.isFavorite) ||
+        ((entry.updatedAt || 0) > (existing.updatedAt || 0) && entry.isFavorite === existing.isFavorite)) {
         seen.set(key, entry);
       }
     }
-    list = Array.from(seen.values());
+    const uniqueList = Array.from(seen.values());
 
-    // 2. Arama varsa Global Arama Yap (Klasörleri yoksay)
+    // 4. GELİŞMİŞ ARAMA MANTIĞI (Skorlama Tabanlı)
     if (deferredQuery) {
-      const q = deferredQuery.toLowerCase();
-      list = list.filter(e =>
-        (e.title || '').toLowerCase().includes(q) ||
-        (e.username || '').toLowerCase().includes(q)
-      );
+      const q = norm(deferredQuery);
+      const keywords = q.split(/\s+/).filter(k => k.length > 0);
+
+      return uniqueList
+        .map(entry => {
+          const title = norm(entry.title);
+          const user = norm(entry.username);
+          let score = 0;
+
+          // Tam eşleşme (En yüksek puan)
+          if (title === q) score += 1000;
+          if (user === q) score += 500;
+
+          // Başlangıç eşleşmesi
+          if (title.startsWith(q)) score += 200;
+          if (user.startsWith(q)) score += 100;
+
+          // İçerme eşleşmesi
+          if (title.includes(q)) score += 50;
+          if (user.includes(q)) score += 25;
+
+          // Anahtar kelime bazlı eşleşme (Tüm kelimeler bir şekilde geçmeli)
+          const matchCount = keywords.filter(kw => title.includes(kw) || user.includes(kw)).length;
+          const allKeywordsMatch = matchCount === keywords.length;
+
+          if (matchCount > 0) score += (matchCount * 10);
+
+          return { entry, score, match: allKeywordsMatch || score > 0 };
+        })
+        .filter(item => item.match && item.score > 0)
+        .sort((a, b) => b.score - a.score || (b.entry.updatedAt || 0) - (a.entry.updatedAt || 0))
+        .map(item => item.entry);
     }
 
-    // 3. Arama Yoksa: Standart Görünüm Filtreleri
+    // 5. STANDART GÖRÜNÜM FİLTRELERİ (Arama yoksa)
+    let filtered = [...uniqueList];
 
     // Favori Filtresi
     if (activeTab === 'favorites') {
-      list = list.filter(e => e.isFavorite);
+      filtered = filtered.filter(e => e.isFavorite);
     }
 
-    // Kategori Filtresi (Vault sekmesinde)
+    // Kategori Filtresi
     if (activeTab === 'vault' && activeCat !== 'All') {
-      list = list.filter(e => e.category === activeCat);
+      filtered = filtered.filter(e => e.category === activeCat);
     }
 
-    // Klasör Filtresi
+    // Klasör Filtresi (Arama yokken klasörleme aktif)
     if (currentFolderId) {
-      list = list.filter(e => e.folderId === currentFolderId);
+      filtered = filtered.filter(e => e.folderId === currentFolderId);
     } else if (activeTab === 'vault' || activeTab === 'favorites') {
-      // Ana kök dizin (klasörü olmayanlar)
-      // Ancak arama yapılıyorsa klasör yapısını yoksay (Kullanıcı aradığı şeyi her yerde bulsun)
-      if (!deferredQuery) {
-        list = list.filter(e => !e.folderId);
-      }
+      filtered = filtered.filter(e => !e.folderId);
     }
 
-    // Sıralama
-    list.sort((a, b) => {
+    // Klasik Sıralama
+    filtered.sort((a, b) => {
       if (sortOrder === 'title_asc') return (a.title || '').localeCompare(b.title || '');
       if (sortOrder === 'title_desc') return (b.title || '').localeCompare(a.title || '');
       return (b.updatedAt || 0) - (a.updatedAt || 0);
     });
 
-    return list;
+    return filtered;
   }, [entries, activeTab, activeCat, currentFolderId, deferredQuery, sortOrder]);
 
   const [visibleCount, setVisibleCount] = useState(24);
@@ -881,49 +911,6 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                 </>
               )}
 
-              {activeTab === 'favorites' && (
-                <>
-                  <div className="mb-8">
-                    <h2 className="text-xl font-black text-main uppercase tracking-tighter mb-2">{t('favorites')}</h2>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{t('found_items').replace('{count}', processedEntries.length.toString())}</p>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8 pb-32">
-                    {processedEntries.map(entry => (
-                      <PasswordCard
-                        key={entry.id}
-                        entry={entry}
-                        onEdit={() => handleEditEntry(entry)}
-                        onDelete={() => deleteEntry(entry.id)}
-                        onToggleFavorite={() => toggleFavorite(entry.id)}
-                        onDecrypt={() => decryptData(entry)}
-                      />
-                    ))}
-                    <div ref={observerTarget} className="h-10 w-full" />
-                  </div>
-                </>
-              )}
-
-              {activeTab === 'vault' && (
-                <>
-                  <div className="mb-8">
-                    <h2 className="text-xl font-black text-main uppercase tracking-tighter mb-2">{activeCat === 'All' ? t('all_items') : t(`cat_${activeCat.toLowerCase()}` as any)}</h2>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{t('found_items').replace('{count}', processedEntries.length.toString())}</p>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8 pb-32">
-                    {processedEntries.slice(0, visibleCount).map(entry => (
-                      <PasswordCard
-                        key={entry.id}
-                        entry={entry}
-                        onEdit={() => handleEditEntry(entry)}
-                        onDelete={() => deleteEntry(entry.id)}
-                        onToggleFavorite={() => toggleFavorite(entry.id)}
-                        onDecrypt={() => decryptData(entry)}
-                      />
-                    ))}
-                    <div ref={observerTarget} className="h-10 w-full" />
-                  </div>
-                </>
-              )}
 
               {activeTab === 'settings' && (
                 <div className="max-w-4xl mx-auto space-y-4 pb-20">
@@ -1030,7 +1017,8 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                               <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{t('incident_response_desc') || 'Emergency access and panic mode'}</p>
                             </div>
                           </div>
-                          <EmergencyAccess />
+                          {/* EmergencyAccess component */}
+                          <EmergencyAccess onPanic={triggerPanic} />
                         </section>
 
                         {/* Section 3: Device Security & Access Control */}
@@ -1226,6 +1214,18 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
               {
                 (activeTab === 'vault' || activeTab === 'favorites') && (
                   <div className="space-y-8 pb-32">
+                    <div className="mb-8">
+                      <h2 className="text-xl font-black text-main uppercase tracking-tighter mb-2">
+                        {searchQuery ? t('search_results') || 'Arama Sonuçları' :
+                          activeTab === 'favorites' ? t('favorites') :
+                            (activeCat === 'All' ? t('all_items') : t(`cat_${activeCat.toLowerCase()}` as any))}
+                      </h2>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
+                        {searchQuery
+                          ? (t('search_found_count') || '{count} eşleşme bulundu').replace('{count}', processedEntries.length.toString())
+                          : t('found_items').replace('{count}', processedEntries.length.toString())}
+                      </p>
+                    </div>
                     {currentFolderId && (
                       <button
                         onClick={() => setCurrentFolderId(null)}

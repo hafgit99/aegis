@@ -122,7 +122,7 @@ export function generateRecoveryPIN(): string {
   // SECURITY: Use rejection sampling for uniform distribution (prevents modulo bias)
   const array = new Uint32Array(1);
   window.crypto.getRandomValues(array);
-  
+
   // Rejection sampling: Only accept values that produce valid 6-digit PINs (000000-999999)
   // This ensures uniform distribution without modulo bias
   while (true) {
@@ -438,16 +438,16 @@ export class RecoveryService {
         return isValid;
       }
 
-        // Argon2id verification (version 3+) - Modern, GPU-resistant
-        if (stored.algorithm === 'ARGON2ID-SHA256' && stored.salt && stored.hash) {
-          const salt = new Uint8Array(CryptoService.base64ToArrayBuffer(stored.salt));
+      // Argon2id verification (version 3+) - Modern, GPU-resistant
+      if (stored.algorithm === 'ARGON2ID-SHA256' && stored.salt && stored.hash) {
+        const salt = new Uint8Array(CryptoService.base64ToArrayBuffer(stored.salt));
 
-          // Derive using Argon2id with same parameters
-          const { raw: hashBytes } = await CryptoService.deriveKeyWithRaw(pin, salt, 3);
-          const providedHash = CryptoService.arrayBufferToBase64(hashBytes);
+        // Derive using Argon2id with same parameters
+        const { raw: hashBytes } = await CryptoService.deriveKeyWithRaw(pin, salt, 3);
+        const providedHash = CryptoService.arrayBufferToBase64(hashBytes);
 
-          // SECURITY: Constant-time comparison to prevent timing attacks
-          const isValid = this.constantTimeCompare(providedHash, stored.hash);
+        // SECURITY: Constant-time comparison to prevent timing attacks
+        const isValid = this.constantTimeCompare(providedHash, stored.hash);
 
         if (isValid) {
           // Update metadata with encrypted support
@@ -589,9 +589,10 @@ export class RecoveryService {
   // Export recovery data as encrypted JSON
   static exportRecoveryAsJSON(): string {
     const backup = localStorage.getItem(RECOVERY_STORAGE_KEY);
-    const metadata = localStorage.getItem(RECOVERY_METADATA_KEY);
+    const metadataEncrypted = localStorage.getItem(RECOVERY_METADATA_KEY + '_encrypted');
+    const metadataPlain = localStorage.getItem(RECOVERY_METADATA_KEY);
 
-    if (!backup || !metadata) {
+    if (!backup || (!metadataEncrypted && !metadataPlain)) {
       throw new Error("RECOVERY_NOT_SETUP");
     }
 
@@ -599,6 +600,8 @@ export class RecoveryService {
       version: "4.0",
       exportedAt: new Date().toISOString(),
       backup: JSON.parse(backup),
+      // metadata placeholder to satisfy legacy structure if needed
+      metadata: metadataEncrypted ? JSON.parse(metadataEncrypted) : JSON.parse(metadataPlain!),
       // DO NOT export words or PIN - only encrypted backup
       _notice: "This backup contains encrypted recovery data. Keep it safe and offline."
     };

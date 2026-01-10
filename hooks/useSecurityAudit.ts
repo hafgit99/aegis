@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { VaultEntry, SensitiveData } from '../types.ts';
 import { analyzeStrength } from '../utils/passwordStrength.ts';
-import { OfflineBreachService } from '../services/offlineBreachService';
+// import { OfflineBreachService } from '../services/offlineBreachService';
 
 export interface AuditIssue {
   entry: VaultEntry;
@@ -77,8 +77,8 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
   const runAudit = useCallback(async () => {
     if (entries.length === 0) return;
 
-    // Initialize offline breach database
-    await OfflineBreachService.initialize();
+    // Offline breach database missing
+    // await OfflineBreachService.initialize();
 
     setIsScanning(true);
     await new Promise(r => setTimeout(r, 2000));
@@ -110,7 +110,8 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
           atRiskIds.add(entry.id);
         }
 
-        // 2. Offline breach check (NEW - using local database)
+        // 2. Offline breach check (REMOVED - missing service)
+        /*
         const breachResult = await OfflineBreachService.checkPassword(pass);
         if (breachResult.isBreached) {
           foundIssues.push({
@@ -121,13 +122,12 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
           });
           atRiskIds.add(entry.id);
           breachMatches++;
-
-          console.log(`[SecurityAudit] Breached password found for entry: ${entry.title}`);
         }
+        */
 
-        // 3. Pattern matching (supplement to breach check)
+        // 3. Pattern matching
         const isCommon = commonPatterns.some(p => pass.toLowerCase().includes(p));
-        if (isCommon && !breachResult.isBreached) {
+        if (isCommon) {
           foundIssues.push({
             entry,
             type: 'breached',
@@ -177,7 +177,7 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
     const finalScore = Math.max(0, 100 - Math.round(riskFactor));
 
     // Get breach database statistics
-    const breachStats = OfflineBreachService.getStats();
+    // const breachStats = OfflineBreachService.getStats();
 
     const newStats = {
       score: finalScore,
@@ -187,8 +187,8 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
       secureCount: entries.length - atRiskIds.size,
       breachMatches,
       breachDatabaseStats: {
-        patternCount: breachStats.patternCount,
-        initialized: breachStats.initialized
+        patternCount: 0,
+        initialized: false
       }
     };
 

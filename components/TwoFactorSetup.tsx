@@ -121,18 +121,35 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleClose = () => {
+    onClose();
+    setStep('intro');
+  };
+
+  const handleComplete = () => {
+    setIsAlreadyEnabled(true);
+    onComplete();
+    setStep('intro');
+  };
+
   const handleDisable = () => {
     if (confirm(t('disable_2fa_confirm'))) {
       localStorage.removeItem('aegis_2fa_config');
+      setIsAlreadyEnabled(false);
+      // onComplete tetiklendiğinde modal kapanır (Usage 2) veya embedded ise (Usage 1) intro ekranı güncellenir
       onComplete();
     }
   };
 
   return (
-    <div className="glass border border-white/5 rounded-[1.5rem] p-5 md:p-6 w-full max-w-md shadow-2xl relative overflow-hidden">
-      <div className="absolute top-4 right-4 z-20">
-        <button onClick={onClose} className="p-2 text-zinc-500 hover:text-white transition-all bg-white/5 hover:bg-white/10 rounded-lg">
-          <X size={18} />
+    <div className="glass p-12 rounded-[3.5rem] border border-blue-500/20 max-w-xl w-full relative overflow-visible shadow-2xl">
+      <div className="absolute top-8 right-8 z-[150]">
+        <button
+          onClick={handleClose}
+          className="p-3 text-zinc-500 hover:text-white hover:bg-white/10 rounded-2xl transition-all cursor-pointer pointer-events-auto"
+          title={t('close')}
+        >
+          <X size={24} />
         </button>
       </div>
 
@@ -156,15 +173,15 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
 
               {isAlreadyEnabled && (
                 <button
-                    onClick={handleDisable}
-                    className="w-full py-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-500 font-black rounded-lg transition-all uppercase tracking-[0.15em] text-[9px] border border-red-500/20"
+                  onClick={handleDisable}
+                  className="w-full py-2.5 bg-red-600/10 hover:bg-red-600/20 text-red-500 font-black rounded-lg transition-all uppercase tracking-[0.15em] text-[9px] border border-red-500/20"
                 >
                   {t('disable_btn') || 'Devre Dışı Bırak'}
                 </button>
               )}
 
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="w-full py-2.5 bg-white/5 hover:bg-white/10 text-zinc-500 font-black rounded-lg transition-all uppercase tracking-[0.15em] text-[9px]"
               >
                 {t('abort') || 'İptal'}
@@ -288,8 +305,8 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
             <h3 className="text-2xl font-black text-white uppercase tracking-tight mb-4">{t('setup_complete')}</h3>
             <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{t('vault_protected_2fa')}</p>
             <button
-              onClick={() => { onComplete(); onComplete(); }}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl transition-all uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-blue-600/20"
+              onClick={handleComplete}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl transition-all uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-blue-600/20 cursor-pointer relative z-50 pointer-events-auto"
             >
               {t('finish') || 'Bitir'}
             </button>

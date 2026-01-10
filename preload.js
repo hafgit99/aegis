@@ -87,6 +87,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onSearch: (callback) => ipcRenderer.on('extension:search', callback),
     onGetCreds: (callback) => ipcRenderer.on('extension:get-creds', callback),
     sendResult: (id, data) => ipcRenderer.send(`extension:${id}`, data),
+  },
+
+  // Backup System
+  backup: {
+    saveLocalBackup: (backup) => ipcRenderer.invoke('backup:saveLocalBackup', backup),
+    listLocalBackups: () => ipcRenderer.invoke('backup:listLocalBackups'),
+    deleteBackup: (id, location) => ipcRenderer.invoke('backup:deleteBackup', id, location),
+    schedule: (config) => ipcRenderer.invoke('backup:schedule', config),
+    clearAllBackups: () => ipcRenderer.invoke('backup:clearAllBackups'),
+    selectDirectory: () => ipcRenderer.invoke('backup:select-directory'),
+    getDefaultPath: () => ipcRenderer.invoke('backup:get-default-path')
   }
 });
 

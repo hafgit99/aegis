@@ -11,9 +11,10 @@ export class ExportService {
     masterKey: CryptoKey,
     format: ExportFormat = 'aegis',
     isEncrypted: boolean = true,
-    customPassword?: string
+    customPassword?: string,
+    filteredEntries?: VaultEntry[]
   ): Promise<void> {
-    const entries = await db.vault.toArray();
+    const entries = filteredEntries || await db.vault.toArray();
     const decryptedEntries = [];
 
     // Tüm verileri dışa aktarım için deşifre et

@@ -105,29 +105,29 @@ function getDeviceKey() {
     // Check if persistent device key exists
     if (fs.existsSync(auditLogKeyPath)) {
       const keyData = JSON.parse(fs.readFileSync(auditLogKeyPath, 'utf8'));
-      
+
       // SECURITY: Check key age and rotate if older than 90 days
       const keyAge = Date.now() - keyData.createdAt;
       const MAX_KEY_AGE = 90 * 24 * 60 * 60 * 1000; // 90 days in milliseconds
-      
+
       if (keyAge > MAX_KEY_AGE && keyData.rotatedAt) {
         console.log('[Security] Rotating audit log encryption key - key age > 90 days');
-        
+
         // Generate new key
         const deviceId = getDeviceId();
         const newSeed = crypto.randomBytes(32).toString('hex');
         const combinedData = deviceId + newSeed;
         deviceKey = crypto.createHash('sha256').update(combinedData).digest();
-        
+
         // Update with rotation timestamp
         keyData.seed = newSeed;
         keyData.rotatedAt = Date.now();
         fs.writeFileSync(auditLogKeyPath, JSON.stringify(keyData), 'utf8');
-        
+
         // SECURITY: Re-encrypt existing audit logs with new key
         console.log('[Security] Audit log key rotated, existing logs will be re-encrypted on next flush');
       }
-      
+
       // Re-derive from device serial + stored seed
       const deviceId = getDeviceId();
       const combinedData = deviceId + keyData.seed;
@@ -141,10 +141,10 @@ function getDeviceKey() {
       deviceKey = crypto.createHash('sha256').update(combinedData).digest();
 
       // Persist seed with rotation metadata
-      fs.writeFileSync(auditLogKeyPath, JSON.stringify({ 
-        seed, 
+      fs.writeFileSync(auditLogKeyPath, JSON.stringify({
+        seed,
         createdAt: Date.now(),
-        rotatedAt: null 
+        rotatedAt: null
       }), 'utf8');
       return deviceKey;
     }
@@ -540,6 +540,7 @@ let verifierBlob = null; // Master Verifier stays in Main process RAM (SECURE)
 
 // --- Brute Force Protection (Server-side, tamper-proof with persistence) ---
 const bruteForceFilePath = path.join(app.getPath('userData'), '.bruteforce-state.json');
+const backupMetaPath = path.join(app.getPath('userData'), '.backup-metadata.json');
 const bruteForceTracker = new Map(); // In-memory cache
 const BRUTE_FORCE_RULES = [
   { threshold: 3, lockout: 30 * 1000 },       // 3 hata -> 30 sn
@@ -916,91 +917,8 @@ app.on('window-all-closed', () => {
   app.quit();
 });
 
-// ==================== BACKUP SCHEDULER IPC HANDLERS ====================
+// Backup scheduling handled by renderer
 
-let backupSchedule = null;
-let backupInterval = null;
-
-ipcMain.handle('backup:schedule', async (event, config) => {
-  console.log('[BackupScheduler] Schedule backup:', config);
-
-  try {
-    if (backupInterval) {
-      clearInterval(backupInterval);
-      backupInterval = null;
-    }
-
-    if (!config.enabled || config.frequency === 'manual') {
-      console.log('[BackupScheduler] Backup disabled or manual mode');
-      event.reply('backup:scheduled', { success: true, nextBackup: null });
-      return;
-    }
-
-    const now = Date.now();
-    let nextBackupTime = now;
-    switch (config.frequency) {
-      case 'daily':
-        nextBackupTime = now + (24 * 60 * 60 * 1000);
-        break;
-      case 'weekly':
-        nextBackupTime = now + (7 * 24 * 60 * 60 * 1000);
-        break;
-      case 'monthly':
-        nextBackupTime = now + (30 * 24 * 60 * 60 * 1000);
-        break;
-    }
-
-    backupSchedule = {
-      enabled: config.enabled,
-      frequency: config.frequency,
-      lastBackup: config.lastBackup,
-      nextBackup: nextBackupTime,
-      maxBackups: config.maxBackups || 7,
-      cloudEnabled: config.cloudEnabled || false,
-      cloudProvider: config.cloudProvider || null
-    };
-
-    console.log(`[BackupScheduler] Next backup scheduled: ${new Date(nextBackupTime).toLocaleString()}`);
-
-    event.reply('backup:scheduled', {
-      success: true,
-      nextBackupInMs: nextBackupTime - now
-    });
-  } catch (e) {
-    console.error('[BackupScheduler] Schedule backup failed:', e);
-    event.reply('backup:scheduled', { success: false, error: e.message });
-  }
-});
-
-ipcMain.handle('backup:cancel', async (event) => {
-  console.log('[BackupScheduler] Cancel backup schedule');
-
-  try {
-    if (backupInterval) {
-      clearInterval(backupInterval);
-      backupInterval = null;
-    }
-
-    backupSchedule = null;
-
-    console.log('[BackupScheduler] Backup schedule cancelled');
-    event.reply('backup:cancelled', { success: true });
-  } catch (e) {
-    console.error('[BackupScheduler] Cancel backup failed:', e);
-    event.reply('backup:cancelled', { success: false, error: e.message });
-  }
-});
-
-ipcMain.on('backup:trigger', async (event) => {
-  console.log('[BackupScheduler] Manual backup trigger received');
-
-  try {
-    event.reply('backup:triggered', { success: true, timestamp: Date.now() });
-  } catch (e) {
-    console.error('[BackupScheduler] Manual backup trigger failed:', e);
-    event.reply('backup:triggered', { success: false, error: e.message });
-  }
-});
 
 // ==================== BACKUP IPC HANDLERS ====================
 
@@ -1008,8 +926,7 @@ ipcMain.handle('backup:saveLocalBackup', async (event, backup) => {
   console.log('[Backup] Saving local backup:', backup.id);
 
   try {
-    const appDataPath = app.getPath('appData');
-    const backupDir = path.join(appDataPath, 'Backups');
+    const backupDir = path.join(app.getPath('documents'), 'Aegis Vault Backups');
     const backupPath = path.join(backupDir, `AegisBackup_${backup.id}.aegis`);
 
     // Create Backups directory if it doesn't exist
@@ -1018,14 +935,13 @@ ipcMain.handle('backup:saveLocalBackup', async (event, backup) => {
     }
 
     // Write backup file
-    const backupBuffer = Buffer.from(backup.encryptedData);
-    fs.writeFileSync(backupPath, backupBuffer);
+    fs.writeFileSync(backupPath, backup.encryptedData);
 
     console.log('[Backup] Local backup saved:', backupPath);
-    event.reply('backup:saved', { success: true, path: backupPath });
+    return { success: true, path: backupPath };
   } catch (e) {
     console.error('[Backup] Save local backup failed:', e);
-    event.reply('backup:saved', { success: false, error: e.message });
+    return { success: false, error: e.message };
   }
 });
 
@@ -1033,158 +949,81 @@ ipcMain.handle('backup:listLocalBackups', async (event) => {
   console.log('[Backup] Listing local backups...');
 
   try {
-    const appDataPath = app.getPath('appData');
-    const backupDir = path.join(appDataPath, 'Backups');
+    const backupDir = path.join(app.getPath('documents'), 'Aegis Vault Backups');
 
     if (!fs.existsSync(backupDir)) {
       console.log('[Backup] No backups directory');
-      event.reply('backup:listed', { backups: [] });
-      return;
+      return { backups: [] };
     }
 
     // Read all backup files
     const files = fs.readdirSync(backupDir).filter(f => f.endsWith('.aegis'));
-
     console.log(`[Backup] Found ${files.length} local backup files`);
 
-    // Read backup metadata from localStorage
-    const metadataStr = localStorage.getItem('aegis_backup_metadata');
-    const metadata = metadataStr ? JSON.parse(metadataStr) : [];
-
-    // Filter local backups from metadata
-    const localBackups = metadata.filter(m => m.location === 'local');
-
-    console.log(`[Backup] Returning ${localBackups.length} local backup entries`);
-    event.reply('backup:listed', { backups: localBackups });
+    // Note: Metadata is managed by renderer's localStorage for simplicity now,
+    // but the files are physically here.
+    return { files };
   } catch (e) {
     console.error('[Backup] List local backups failed:', e);
-    event.reply('backup:listed', { backups: [] });
+    return { backups: [] };
   }
 });
 
-ipcMain.handle('backup:deleteBackup', async (event, backupId, location, cloudProvider) => {
+ipcMain.handle('backup:deleteBackup', async (event, backupId, location) => {
   console.log(`[Backup] Deleting backup: ${backupId} (${location})`);
 
   try {
     if (location === 'local') {
-      const appDataPath = app.getPath('appData');
-      const backupDir = path.join(appDataPath, 'Backups');
+      const backupDir = path.join(app.getPath('documents'), 'Aegis Vault Backups');
       const backupPath = path.join(backupDir, `AegisBackup_${backupId}.aegis`);
 
       if (fs.existsSync(backupPath)) {
         fs.unlinkSync(backupPath);
         console.log('[Backup] Local backup deleted:', backupPath);
       }
-    } else if (location === 'cloud') {
-      console.log('[Backup] Cloud backup deletion (to be implemented)');
     }
-
-    event.reply('backup:deleted', { success: true });
+    return { success: true };
   } catch (e) {
     console.error('[Backup] Delete backup failed:', e);
-    event.reply('backup:deleted', { success: false, error: e.message });
+    return { success: false, error: e.message };
   }
 });
 
-ipcMain.handle('backup:restoreBackup', async (event, backupId, location, cloudProvider) => {
+ipcMain.handle('backup:restoreBackup', async (event, backupId, location) => {
   console.log(`[Backup] Restoring backup: ${backupId} (${location})`);
 
   try {
     if (location === 'local') {
-      const appDataPath = app.getPath('appData');
-      const backupDir = path.join(appDataPath, 'Backups');
+      const backupDir = path.join(app.getPath('documents'), 'Aegis Vault Backups');
       const backupPath = path.join(backupDir, `AegisBackup_${backupId}.aegis`);
 
       if (!fs.existsSync(backupPath)) {
         throw new Error('Backup file not found');
       }
 
-      // Read backup file
-      const backupData = fs.readFileSync(backupPath);
-
-      console.log('[Backup] Local backup read, sending to renderer');
-      event.reply('backup:restoreData', {
-        success: true,
-        backupId,
-        data: backupData
-      });
-    } else if (location === 'cloud') {
-      console.log('[Backup] Cloud backup restore (to be implemented)');
-      event.reply('backup:restoreData', {
-        success: false,
-        message: 'Cloud backup restore not implemented yet'
-      });
+      const backupData = fs.readFileSync(backupPath, 'utf8');
+      return { success: true, data: backupData };
     }
+    return { success: false, message: 'Not implemented' };
   } catch (e) {
     console.error('[Backup] Restore backup failed:', e);
-    event.reply('backup:restoreData', {
-      success: false,
-      message: e.message
-    });
+    return { success: false, message: e.message };
   }
 });
 
 ipcMain.handle('backup:verifyBackup', async (event, backupId) => {
-  console.log(`[Backup] Verifying backup: ${backupId}`);
-
   try {
-    const appDataPath = app.getPath('appData');
-    const backupDir = path.join(appDataPath, 'Backups');
+    const backupDir = path.join(app.getPath('documents'), 'Aegis Vault Backups');
     const backupPath = path.join(backupDir, `AegisBackup_${backupId}.aegis`);
 
     if (!fs.existsSync(backupPath)) {
-      return {
-        isValid: false,
-        checksumMatch: false,
-        encryptionValid: false,
-        metadataConsistent: false
-      };
+      return { isValid: false };
     }
 
-    // Read backup file
-    const backupData = fs.readFileSync(backupPath);
-
-    // Get metadata
-    const metadataStr = localStorage.getItem('aegis_backup_metadata');
-    const metadata = metadataStr ? JSON.parse(metadataStr) : [];
-    const backupMetadata = metadata.find(m => m.id === backupId);
-
-    if (!backupMetadata) {
-      return {
-        isValid: false,
-        checksumMatch: false,
-        encryptionValid: false,
-        metadataConsistent: false
-      };
-    }
-
-    // Verify checksum
-    const calculatedChecksum = await calculateChecksum(backupData.toString());
-    const checksumMatch = calculatedChecksum === backupMetadata.checksum;
-
-    // Basic encryption validation (file exists and is readable)
-    const encryptionValid = backupData.length > 0;
-
-    // Verify metadata consistency
-    const metadataConsistent = backupMetadata.verified !== undefined;
-
-    const verification = {
-      isValid: checksumMatch && encryptionValid && metadataConsistent,
-      checksumMatch,
-      encryptionValid,
-      metadataConsistent
-    };
-
-    console.log('[Backup] Backup verification:', verification);
-    return verification;
+    const backupData = fs.readFileSync(backupPath, 'utf8');
+    return { isValid: backupData.length > 0 };
   } catch (e) {
-    console.error('[Backup] Verify backup failed:', e);
-    return {
-      isValid: false,
-      checksumMatch: false,
-      encryptionValid: false,
-      metadataConsistent: false
-    };
+    return { isValid: false };
   }
 });
 
@@ -1192,32 +1031,20 @@ ipcMain.handle('backup:clearAllBackups', async (event) => {
   console.log('[Backup] Clearing all backups...');
 
   try {
-    // Clear metadata
-    localStorage.removeItem('aegis_backup_metadata');
-
-    // Delete all local backup files
-    const appDataPath = app.getPath('appData');
-    const backupDir = path.join(appDataPath, 'Backups');
+    const backupDir = path.join(app.getPath('documents'), 'Aegis Vault Backups');
 
     if (fs.existsSync(backupDir)) {
       const files = fs.readdirSync(backupDir).filter(f => f.endsWith('.aegis'));
       for (const file of files) {
         fs.unlinkSync(path.join(backupDir, file));
       }
-
-      // Try to delete directory if empty
-      try {
-        fs.rmdirSync(backupDir);
-      } catch (e) {
-        console.log('[Backup] Backup directory not empty, keeping it');
-      }
     }
 
     console.log('[Backup] All backups cleared');
-    event.reply('backup:cleared', { success: true });
+    return { success: true };
   } catch (e) {
     console.error('[Backup] Clear all backups failed:', e);
-    event.reply('backup:cleared', { success: false, error: e.message });
+    return { success: false, error: e.message };
   }
 });
 
@@ -1272,118 +1099,8 @@ async function calculateChecksum(data) {
   return hash.digest('hex');
 }
 
-// ==================== BACKUP HELPER FUNCTIONS ====================
-
-async function performScheduledBackup(config) {
-  console.log('[BackupScheduler] Performing scheduled backup...');
-
-  try {
-    if (!config.enabled) {
-      console.log('[BackupScheduler] Backup disabled, skipping');
-      return;
-    }
-
-    const { backup } = require('./services/backupService');
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      const backupResult = await backup.createLocalBackup(null);
-
-      if (backupResult) {
-        console.log('[BackupScheduler] Scheduled backup completed');
-        const newNextBackupTime = Date.now() + getNextBackupInterval(config.frequency);
-        config.lastBackup = backupResult.timestamp;
-        config.nextBackup = newNextBackupTime;
-
-        await backup.saveBackupConfig(config);
-
-        backupSchedule = config;
-
-        const timeUntilNext = newNextBackupTime - Date.now();
-        console.log(`[BackupScheduler] Next backup in: ${Math.floor(timeUntilNext / 1000 / 60)} minutes`);
-      }
-    }
-  } catch (e) {
-    console.error('[BackupScheduler] Scheduled backup failed:', e);
-  }
-}
-
-function getNextBackupInterval(frequency) {
-  const msInDay = 24 * 60 * 60 * 1000;
-  const msInWeek = 7 * msInDay;
-
-  switch (frequency) {
-    case 'daily':
-      return msInDay;
-    case 'weekly':
-      return msInWeek;
-    case 'monthly':
-      return 30 * msInDay;
-    default:
-      return msInDay;
-  }
-}
-
-function cleanupOldBackups(config) {
-  console.log('[BackupScheduler] Cleaning up old backups...');
-
-  try {
-    const metadataStr = localStorage.getItem('aegis_backup_metadata');
-    const metadata = metadataStr ? JSON.parse(metadataStr) : [];
-
-    if (metadata.length > config.maxBackups) {
-      const sorted = metadata.sort((a, b) => a.timestamp - b.timestamp);
-      const toDelete = sorted.slice(config.maxBackups);
-
-      for (const backup of toDelete) {
-        try {
-          const { backup } = require('./services/backupService');
-          backup.deleteBackup(backup.id);
-          console.log(`[BackupScheduler] Deleted old backup: ${backup.id}`);
-        } catch (e) {
-          console.error(`[BackupScheduler] Failed to delete backup ${backup.id}:`, e);
-        }
-      }
-    }
-  } catch (e) {
-    console.error('[BackupScheduler] Cleanup failed:', e);
-  }
-}
-
-function setupBackupScheduler(config) {
-  console.log('[BackupScheduler] Setting up backup scheduler...');
-
-  if (backupInterval) {
-    clearInterval(backupInterval);
-    backupInterval = null;
-  }
-
-  if (!config.enabled || config.frequency === 'manual') {
-    console.log('[BackupScheduler] Backup disabled or manual mode');
-    backupSchedule = config;
-    return;
-  }
-
-  const intervalMs = getNextBackupInterval(config.frequency);
-
-  backupInterval = setInterval(() => {
-    performScheduledBackup(config);
-    cleanupOldBackups(config);
-  }, intervalMs);
-
-  console.log(`[BackupScheduler] Backup scheduler set to run every ${intervalMs / 1000 / 60} minutes`);
-  backupSchedule = config;
-}
-
-function stopBackupScheduler() {
-  console.log('[BackupScheduler] Stopping backup scheduler...');
-
-  if (backupInterval) {
-    clearInterval(backupInterval);
-    backupInterval = null;
-  }
-
-  if (backupSchedule) {
-    backupSchedule.enabled = false;
-  }
-}
-
+// Scheduling handled by renderer for now to avoid ESM require issues and localStorage bugs
+ipcMain.handle('backup:schedule', async (event, config) => {
+  console.log('[Backup] Config updated:', config);
+  return { success: true };
+});

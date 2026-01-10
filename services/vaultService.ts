@@ -676,15 +676,27 @@ export class VaultService {
       const entryMap = new Map<string, VaultEntry>();
       const toDelete: string[] = [];
 
+      // Normalizasyon Yardımcısı
+      const norm = (s: string) => (s || '').toLowerCase().trim()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\u200B-\u200D\uFEFF]/g, '');
+
       for (const entry of allEntries) {
         try {
           const meta = await this.decryptEntryMetadata(entry, masterKey);
-          const key = `${(meta.title || '').toLowerCase().trim()}|${(meta.username || '').toLowerCase().trim()}`;
+          // Başlık, Kullanıcı Adı ve Kategori bazlı anahtar
+          const key = `${norm(meta.title)}|${norm(meta.username)}|${meta.category}`;
 
           const existing = entryMap.get(key);
           if (existing) {
+            // Decrypt existing meta to compare updatedAt
             const existingMeta = await this.decryptEntryMetadata(existing, masterKey);
-            if ((meta.updatedAt || 0) > (existingMeta.updatedAt || 0)) {
+
+            // Hangisi daha yeniyse onu tut (Favori olanı koru)
+            const keepNew = (meta.isFavorite && !existingMeta.isFavorite) ||
+              ((meta.updatedAt || 0) > (existingMeta.updatedAt || 0) && meta.isFavorite === existingMeta.isFavorite);
+
+            if (keepNew) {
               toDelete.push(existing.id);
               entryMap.set(key, entry);
             } else {
@@ -699,12 +711,9 @@ export class VaultService {
       }
 
       if (toDelete.length > 0) {
-        console.log(`[Deduplication] ${toDelete.length} duplicate siliniyor...`);
+        console.log(`[Deduplication] ${toDelete.length} duplicates found. cleaning up...`);
         await db.vault.bulkDelete(toDelete);
-        if ((window as any).electronAPI?.audit) {
-          await (window as any).electronAPI.audit.logEvent('VAULT_CLEANUP', { deletedCount: toDelete.length, timestamp: Date.now() });
-        }
-        console.log(`[Deduplication] ${toDelete.length} duplicate başarıyla silindi!`);
+        console.log(`[Deduplication] Cleaned ${toDelete.length} entries.`);
       }
 
       return { deletedCount: toDelete.length };
