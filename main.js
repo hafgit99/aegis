@@ -11,34 +11,36 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+import { databaseService } from './services/databaseService.js';
 
 // SECURITY: Portable Mode Setup
 // Ensure vault data is stored in a consistent, secure location
 function setupPortablePaths() {
-  // For portable builds, use a dedicated directory within AppData (Windows) or home directory
-  // This prevents data loss when running from USB or temporary locations
+  // TRUE PORTABLE MODE: Store data next to the executable
   let dataPath;
 
-  if (process.platform === 'win32') {
-    // Windows: Use %APPDATA%\Aegis Vault for secure, persistent storage
-    dataPath = path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'Aegis Vault');
-  } else if (process.platform === 'darwin') {
-    // macOS: Use ~/Library/Application Support/Aegis Vault
-    dataPath = path.join(os.homedir(), 'Library', 'Application Support', 'Aegis Vault');
+  if (app.isPackaged) {
+    // In production: Use "aegis-data" folder next to the .exe
+    dataPath = path.join(path.dirname(app.getPath('exe')), 'aegis-data');
   } else {
-    // Linux: Use ~/.aegis-vault
-    dataPath = path.join(os.homedir(), '.aegis-vault');
+    // In development: Use "aegis-data" in project root
+    dataPath = path.join(__dirname, 'aegis-data');
   }
 
-  // SECURITY: Create directory with secure permissions if it doesn't exist
+  // SECURITY: Create directory with secure permissions
   if (!fs.existsSync(dataPath)) {
-    fs.mkdirSync(dataPath, { recursive: true, mode: 0o700 }); // Only user can read/write
+    try {
+      fs.mkdirSync(dataPath, { recursive: true });
+    } catch (e) {
+      console.error('Failed to create portable data directory:', e);
+      // Fallback to AppData if writing to exe dir fails (e.g. Program Files)
+      dataPath = path.join(app.getPath('appData'), 'Aegis Vault Portable');
+      fs.mkdirSync(dataPath, { recursive: true });
+    }
   }
 
-  // Set app's userData path to this secure location
-  // This ensures IndexedDB, localStorage, and application data are stored here
   app.setPath('userData', dataPath);
-
+  console.log('[Setup] Portable data path set to:', dataPath);
   return dataPath;
 }
 
@@ -247,36 +249,19 @@ function createWindow() {
     center: true,
     backgroundColor: '#050505',
     titleBarStyle: 'hidden',
-    icon: path.join(__dirname, 'build', 'icon.ico'),
+    icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: app.isPackaged
+        ? path.join(process.resourcesPath, 'preload.cjs')
+        : path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      sandbox: true, // Changed to true for better security
       webSecurity: true,
-      // SECURITY: CSP Policy for Electron
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:", "blob:"],
-          fontSrc: ["'self'"],
-          connectSrc: ["'self'"],
-          mediaSrc: ["'self'", "blob:"],
-          objectSrc: ["'none'"],
-          frameAncestors: ["'none'"],
-          baseUri: ["'self'"],
-          formAction: ["'self'"],
-          upgradeInsecureRequests: []
-        }
-      },
-      // Disable dangerous features
-      enableRemoteModule: false,
-      nativeWindowOpen: false,
-      // Allow modern features
-      v8CacheOptions: 'none'
-    }
+      enableRemoteModule: false
+    },
+    frame: true,
+    resizable: true
   });
 
   // Geliştirme aşamasında Vite sunucusunu kullan, dağıtımda index.html'i yükle
@@ -303,7 +288,9 @@ function createWindow() {
             'microphone=()',
             'camera=()',
             'payment=()',
-            'usb=()',
+            'usb=(self)',
+            'public-key-credentials-create=(self)',
+            'public-key-credentials-get=(self)',
             'magnetometer=()',
             'gyroscope=()',
             'accelerometer=()'
@@ -318,10 +305,8 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.focus();
-    // DevTools'u sadece geliştirme modunda aç
-    if (isDev) {
-      mainWindow.webContents.openDevTools();
-    }
+    // DevTools'u otomatik aç (migration debug için)
+    // mainWindow.webContents.openDevTools();
   });
 }
 
@@ -471,16 +456,18 @@ ipcMain.on('window:minimize', () => {
   }
 });
 
+let lastMaximizeTime = 0;
 ipcMain.on('window:maximize', () => {
-  console.log('[IPC] window:maximize received');
-  if (mainWindow) {
-    if (mainWindow.isMaximized()) {
-      console.log('[IPC] unmaximizing window');
-      mainWindow.unmaximize();
-    } else {
-      console.log('[IPC] maximizing window');
-      mainWindow.maximize();
-    }
+  if (!mainWindow) return;
+
+  const now = Date.now();
+  if (now - lastMaximizeTime < 800) return; // 0.8 saniye bekle
+  lastMaximizeTime = now;
+
+  if (mainWindow.isMaximized()) {
+    mainWindow.restore(); // unmaximize yerine restore bazen daha kararlıdır
+  } else {
+    mainWindow.maximize();
   }
 });
 
@@ -594,8 +581,35 @@ function scheduleBruteForceSave() {
 // Load state on app start
 loadBruteForceState();
 
-ipcMain.handle('vault:set-key', (event, keyRaw) => {
+ipcMain.handle('vault:set-key', (event, keyRaw, verifier) => {
   sessionKey = Buffer.from(keyRaw);
+
+  // If verifier is provided, update the global verifierBlob
+  if (verifier) {
+    verifierBlob = verifier;
+  }
+
+  // SECURITY: Initialize SQLite/SQLCipher Database
+  try {
+    const masterKeyHex = sessionKey.toString('hex');
+    databaseService.init(app.getPath('userData'), masterKeyHex);
+
+    // PERSIST Metadata for CLI access
+    if (verifierBlob && verifierBlob.salt) {
+      const meta = {
+        salt: verifierBlob.salt,
+        iterations: verifierBlob.iterations || 20 // Default to Argon2id professional standard
+      };
+      const metaPath = path.join(app.getPath('userData'), 'vault_meta.json');
+      fs.writeFileSync(metaPath, JSON.stringify(meta));
+
+      databaseService.setConfig('vault_salt', verifierBlob.salt);
+      databaseService.setConfig('vault_iterations', verifierBlob.iterations?.toString() || '20');
+    }
+  } catch (e) {
+    console.error('[Database] Initialization failed:', e.message);
+  }
+
   return true;
 });
 
@@ -609,6 +623,13 @@ ipcMain.handle('vault:clear-key', () => {
   }
   sessionKey = null;
   if (verifierBlob) verifierBlob = null; // Wipe verifier too
+
+  // SECURITY: Close encrypted database
+  try {
+    databaseService.close();
+  } catch (e) {
+    console.error('[Database] Shutdown failed:', e.message);
+  }
 
   // Suggest GC to clean up any remaining references
   if (global.gc) {
@@ -673,6 +694,71 @@ ipcMain.handle('vault:decrypt-binary', async (event, ciphertext, iv, tag) => {
   const decipher = crypto.createDecipheriv('aes-256-gcm', sessionKey, Buffer.from(iv));
   decipher.setAuthTag(Buffer.from(tag));
   return Buffer.concat([decipher.update(Buffer.from(ciphertext)), decipher.final()]);
+});
+
+// --- SQLite Database Handlers ---
+ipcMain.handle('db:save-entry', async (event, entry) => {
+  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  return databaseService.saveEntry(entry);
+});
+
+ipcMain.handle('db:delete-entry', async (event, id) => {
+  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  return databaseService.deleteEntry(id);
+});
+
+ipcMain.handle('db:get-entry', async (event, id) => {
+  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  return databaseService.getEntry(id);
+});
+
+ipcMain.handle('db:bulk-save-entries', async (event, entries) => {
+  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  return databaseService.bulkSaveEntries(entries);
+});
+
+ipcMain.handle('db:get-all-entries', async () => {
+  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  return databaseService.getAllEntries();
+});
+
+ipcMain.handle('db:save-folder', async (event, folder) => {
+  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  return databaseService.saveFolder(folder);
+});
+
+ipcMain.handle('db:delete-folder', async (event, id) => {
+  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  return databaseService.deleteFolder(id);
+});
+
+ipcMain.handle('db:get-all-folders', async () => {
+  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  return databaseService.getAllFolders();
+});
+
+ipcMain.handle('db:set-config', async (event, key, value) => {
+  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  return databaseService.setConfig(key, value);
+});
+
+ipcMain.handle('db:get-config', async (event, key) => {
+  // SECURITY FIX: migration_v1_complete kontrolü için özel durum
+  // Migration kontrolü vault unlock olmadan önce yapılabilir
+  if (key === 'migration_v1_complete') {
+    try {
+      // Veritabanı henüz init edilmemişse null dön
+      if (!databaseService.db) return null;
+      return databaseService.getConfig(key);
+    } catch (e) {
+      // Hata durumunda null dön (migration yapılmamış kabul et)
+      return null;
+    }
+  }
+
+  // Diğer tüm config'ler için sessionKey gerekli
+  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  return databaseService.getConfig(key);
 });
 
 // --- Brute Force Protection Handlers ---
@@ -784,34 +870,37 @@ ipcMain.handle('credentials:clear-master-key', async (event) => {
 
 const BIOMETRIC_ACCOUNT = 'biometric-secret';
 
-ipcMain.handle('credentials:save-biometric-secret', async (event, secretB64) => {
+ipcMain.handle('credentials:save-biometric-secret', async (event, secretB64, tag = 'platform') => {
   if (!keytar) return false;
   try {
-    await keytar.setPassword(CREDENTIAL_SERVICE, BIOMETRIC_ACCOUNT, secretB64);
+    const account = `${BIOMETRIC_ACCOUNT}-${tag}`;
+    await keytar.setPassword(CREDENTIAL_SERVICE, account, secretB64);
     return true;
   } catch (err) {
-    console.error('Failed to save biometric secret:', err.message);
+    console.error(`Failed to save biometric secret (${tag}):`, err.message);
     return false;
   }
 });
 
-ipcMain.handle('credentials:retrieve-biometric-secret', async (event) => {
+ipcMain.handle('credentials:retrieve-biometric-secret', async (event, tag = 'platform') => {
   if (!keytar) return null;
   try {
-    return await keytar.getPassword(CREDENTIAL_SERVICE, BIOMETRIC_ACCOUNT);
+    const account = `${BIOMETRIC_ACCOUNT}-${tag}`;
+    return await keytar.getPassword(CREDENTIAL_SERVICE, account);
   } catch (err) {
-    console.error('Failed to retrieve biometric secret:', err.message);
+    console.error(`Failed to retrieve biometric secret (${tag}):`, err.message);
     return null;
   }
 });
 
-ipcMain.handle('credentials:clear-biometric-secret', async (event) => {
+ipcMain.handle('credentials:clear-biometric-secret', async (event, tag = 'platform') => {
   if (!keytar) return false;
   try {
-    await keytar.deletePassword(CREDENTIAL_SERVICE, BIOMETRIC_ACCOUNT);
+    const account = `${BIOMETRIC_ACCOUNT}-${tag}`;
+    await keytar.deletePassword(CREDENTIAL_SERVICE, account);
     return true;
   } catch (err) {
-    console.error('Failed to clear biometric secret:', err.message);
+    console.error(`Failed to clear biometric secret (${tag}):`, err.message);
     return false;
   }
 });

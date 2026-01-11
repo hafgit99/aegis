@@ -250,7 +250,13 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
 - Customizable timeout duration
 - Prevents unauthorized access
 
-6. Panic Mode
+6. Security Key (YubiKey/WebAuthn)
+- Use hardware security keys like YubiKey via USB or NFC
+- Cross-platform protection (FIDO2/WebAuthn)
+- Strongest prevention against unauthorized physical access
+- Can be enabled alongside biometric unlock
+
+7. Panic Mode
 - Emergency lock hotkey (F12 or Ctrl+Shift+X)
 - Immediately locks vault and hides window
 - Perfect for unexpected situations`,
@@ -285,7 +291,13 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
 - Özelleştirilebilir zaman aşımı süresi
 - Yetkisiz erişimi engeller
 
-6. Panik Modu
+6. Güvenlik Anahtarı (YubiKey/WebAuthn)
+- USB veya NFC üzerinden YubiKey gibi fiziksel anahtarlar kullanın
+- Çapraz platform koruması (FIDO2/WebAuthn)
+- Yetkisiz fiziksel erişime karşı en güçlü önlem
+- Biyometrik kilit ile birlikte veya alternatif olarak kullanılabilir
+
+7. Panik Modu
 - Acil durum kilit hotkey'i (F12 veya Ctrl+Shift+X)
 - Kasayı hemen kilitler ve pencereyi gizler
 - Beklenmeyen durumlar için mükemmel`
@@ -619,6 +631,154 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
 - Dosyanın geçerli bir dışa aktarma olduğunu doğrulayın
 - Ana Şifre'nin doğru olduğundan emin olun
 - Mevcut disk alanını kontrol edin`
+    },
+    {
+      id: 'database-engine',
+      title: 'Database Engine',
+      titleTr: 'Veritabanı Motoru',
+      description: 'SQLCipher - Professional Grade Storage',
+      descriptionTr: 'SQLCipher - Profesyonel Sınıf Depolama',
+      icon: <Settings size={24} className="text-zinc-400" />,
+      details: `Modern Architecture Security (v1.1.0+):
+
+1. SQLCipher Technology
+- Full database encryption (AES-256)
+- Not just data, but schemas and metadata are encrypted
+- Military-grade SQLite extension for professionals
+
+2. Performance
+- Instant search even with thousands of entries
+- Optimized memory usage for large file attachments
+- Faster unlock times with Argon2id iteration tuning
+
+3. Data Persistence
+- Secure storage in %APPDATA%/Aegis Vault (Windows)
+- Automatic migration from legacy IndexedDB storage
+- Single file (vault.db) structure for easy backups`,
+      detailsTr: `Modern Mimari Güvenliği (v1.1.0+):
+
+1. SQLCipher Teknolojisi
+- TAM veritabanı şifrelemesi (AES-256)
+- Sadece veriler değil, tablo yapıları ve metadata da şifrelidir
+- Profesyoneller için askeri sınıf SQLite uzantısı
+
+2. Performans
+- Binlerce giriş olsa bile anlık arama
+- Büyük dosya ekleri için optimize edilmiş bellek kullanımı
+- Argon2id anahtar türetme ile optimize edilmiş açılış süreleri
+
+3. Veri Kalıcılığı
+- %APPDATA%/Aegis Vault altında güvenli saklama (Windows)
+- Eski IndexedDB tarayıcı depolamasından otomatik göç (migration)
+- Kolay yedekleme için tek dosya (vault.db) yapısı`
+    },
+    {
+      id: 'cli-access',
+      title: 'CLI Access (Command Line Interface)',
+      titleTr: 'CLI (Komut Satırı Arayüzü) Erişimi',
+      description: 'Access your vault securely via Terminal',
+      descriptionTr: 'Kasanıza Terminal üzerinden güvenli erişim',
+      icon: <Smartphone size={24} className="text-emerald-500" />,
+      details: `Command Line Interface - Terminal Access:
+
+1. Getting Started
+- Open PowerShell or Command Prompt in the Aegis Vault folder
+- Use 'cli.bat' (Windows) for easy access
+- Built application uses the packaged Electron runtime
+
+2. Available Commands
+
+   cli.bat list
+   ─────────────────────────────────
+   Lists all entries in your vault
+   Shows: Short ID (8 chars) | Category | Favorite status
+   Example output:
+   a1b2c3d4 | Login    | ⭐
+   e5f6g7h8 | Card     |
+
+   cli.bat get <id>
+   ─────────────────────────────────
+   Shows full details of a specific entry
+   Use the short ID from 'list' command
+   Example: cli.bat get a1b2c3d4
+   Output: Title, Username, Password, URL
+
+   cli.bat help
+   ─────────────────────────────────
+   Shows all available commands and usage examples
+
+3. Authentication Flow
+- Enter your Master Password when prompted
+- If 2FA is enabled, enter your 6-digit code
+- All authentication uses secure GUI input (Windows)
+
+4. Security Features
+- Uses same Argon2id key derivation as desktop app
+- Reads salt from encrypted vault metadata
+- No passwords stored in command history
+- Safe for automation and scripting
+
+5. Example Session
+   > .\\cli.bat list
+   🔑 Master Password: [GUI Prompt]
+   🔓 Vault unlocking...
+   ✅ Success! 433 entries found.
+
+   > .\\cli.bat get a1b2c3d4
+   📄 Entry Details:
+   Title:    Google Account
+   Username: user@gmail.com
+   Password: ********`,
+      detailsTr: `Komut Satırı Arayüzü - Terminal Erişimi:
+
+1. Başlarken
+- Aegis Vault klasöründe PowerShell veya Komut İstemi açın
+- Kolay erişim için 'cli.bat' (Windows) kullanın
+- Derlenmiş uygulama paketlenmiş Electron çalışma zamanını kullanır
+
+2. Kullanılabilir Komutlar
+
+   cli.bat list
+   ─────────────────────────────────
+   Kasanızdaki tüm kayıtları listeler
+   Gösterir: Kısa ID (8 karakter) | Kategori | Favori durumu
+   Örnek çıktı:
+   a1b2c3d4 | Login    | ⭐
+   e5f6g7h8 | Card     |
+
+   cli.bat get <id>
+   ─────────────────────────────────
+   Belirli bir kaydın tüm ayrıntılarını gösterir
+   'list' komutundan aldığınız kısa ID'yi kullanın
+   Örnek: cli.bat get a1b2c3d4
+   Çıktı: Başlık, Kullanıcı Adı, Şifre, URL
+
+   cli.bat help
+   ─────────────────────────────────
+   Tüm kullanılabilir komutları ve kullanım örneklerini gösterir
+
+3. Kimlik Doğrulama Akışı
+- İstendiğinde Ana Şifrenizi girin
+- 2FA etkinse 6 haneli kodunuzu girin
+- Tüm kimlik doğrulama güvenli GUI girişi kullanır (Windows)
+
+4. Güvenlik Özellikleri
+- Masaüstü uygulamasıyla aynı Argon2id anahtar türetimini kullanır
+- Şifreli kasa meta verilerinden tuzu okur
+- Komut geçmişinde şifre saklanmaz
+- Otomasyon ve betikleme için güvenlidir
+
+5. Örnek Oturum
+   > .\\cli.bat list
+   🔑 Ana Şifre: [GUI Penceresi]
+   🔓 Kasa açılıyor...
+   ✅ Başarılı! 433 kayıt bulundu.
+
+   > .\\cli.bat get a1b2c3d4
+   📄 Kayıt Detayları:
+   Başlık:    Google Hesabı
+   Kullanıcı: kullanici@gmail.com
+   Şifre:     ********`
     }
   ];
 
