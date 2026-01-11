@@ -319,7 +319,13 @@ app.whenReady().then(async () => {
   console.log('User data path:', userDataPath);
 
   createWindow();
-  setupExtensionServer();
+
+  // SECURITY: Named Pipe Server DISABLED
+  // The pipe server has been disabled to eliminate a potential attack surface.
+  // Any process on the system could connect to the Named Pipe and potentially
+  // access vault data if the vault was unlocked. Since browser extension
+  // functionality is not used, this security risk has been removed entirely.
+  // To re-enable, uncomment: setupExtensionServer();
 });
 
 // SECURITY: Named Pipe Server for Browser Extension
