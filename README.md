@@ -249,7 +249,6 @@ To ensure the integrity and authenticity of the downloaded file, you can verify 
 ### System Requirements
 - **Windows**: 10/11 (64-bit)
 - **macOS**: 10.13+ (High Sierra or later)
-- **Linux**: Ubuntu 18.04+, Fedora 30+, or equivalent
 - **RAM**: Minimum 2GB (4GB recommended)
 - **Disk**: 200MB free space
 
