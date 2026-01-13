@@ -1258,6 +1258,13 @@ export const translations = {
     entries_categorized: "Kategorilere göre dağılım",
     import_preview_desc: "İçe aktarmadan önce dosyanızdaki kayıtları inceleyin.",
     export_filter_desc: "Sadece seçili kategoriler dışa aktarılacaktır.",
-    overwrite_all: "Hepsini Üzerine Yaz"
+    overwrite_all: "Hepsini Üzerine Yaz",
+    advanced_hardware_security: "Gelişmiş Donanım Güvenliği",
+    memory_locking: "Bellek Sayfası Kilitleme",
+    memory_locking_desc: "Hassas verilerin RAM'den diske (Sanal Bellek/Swap) sızmasını fiziksel olarak engeller.",
+    hardware_binding: "Donanım Bağlama (Machine Bound)",
+    hardware_binding_desc: "Kasa anahtarınızı bu bilgisayarın fiziksel donanım kimliği ile birleştirir.",
+    native_obfuscation: "Kod Karartma (Obfuscation)",
+    native_obfuscation_desc: "Uygulama kaynak kodunu tersine mühendisliğe karşı korur."
   }
 };

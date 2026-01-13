@@ -542,7 +542,12 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
       }
     });
     BiometricService.isSupported().then(setIsBiometricAvailable);
-  }, [loadEntries, masterKey]);
+
+    // Trial expiry check - Show licensing modal after login if expired
+    if (isExpired && !isPro) {
+      setTimeout(() => setShowLicensing(true), 1200);
+    }
+  }, [loadEntries, masterKey, isExpired, isPro]);
 
   const toggleBiometrics = async () => {
     if (!masterKey) return;

@@ -19,7 +19,12 @@ export class LicensingService {
   }
 
   static getRemainingTrialDays(): number {
-    const installDate = parseInt(localStorage.getItem(this.INSTALL_KEY) || Date.now().toString());
+    let installDateStr = localStorage.getItem(this.INSTALL_KEY);
+    if (!installDateStr) {
+      installDateStr = Date.now().toString();
+      localStorage.setItem(this.INSTALL_KEY, installDateStr);
+    }
+    const installDate = parseInt(installDateStr);
     const elapsed = Date.now() - installDate;
     const remaining = this.TRIAL_DAYS - (elapsed / (1000 * 60 * 60 * 24));
     return Math.max(0, Math.ceil(remaining));

@@ -66,7 +66,7 @@
     "copyright": "Copyright © 2024 Aegis Security",
     "directories": {
       "output": "dist_out",
-      "buildResources": "build"
+      "buildResources": "assets/build-resources/icons"
     },
     "files": [
       "dist/**/*",
@@ -98,7 +98,7 @@
         "portable",
         "zip"
       ],
-      "icon": "build/icons/icon.ico",
+      "icon": "assets/build-resources/icons/app_icon.ico",
       "publisherName": "Aegis Security",
       "verifyUpdateCodeSignature": true,
       "forceCodeSigning": false,
@@ -124,8 +124,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Aegis Vault",
       "license": "license.txt",
-      "installerIcon": "build/icons/icon.ico",
-      "uninstallerIcon": "build/icons/icon.ico",
+      "installerIcon": "assets/build-resources/icons/app_icon.ico",
+      "uninstallerIcon": "assets/build-resources/icons/app_icon.ico",
       "uninstallDisplayName": "Aegis Vault",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,

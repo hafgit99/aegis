@@ -1,7 +1,10 @@
 node_modules
 dist
 dist_electron
+dist_electron_obfuscated
+dist_out
 aegis-build
+aegis-data
 release
 *.log
 *.pem
@@ -15,6 +18,10 @@ release
 build/config.gypi
 build/Release
 build/Debug
+build/*.vcxproj
+build/*.sln
+build/*.filters
+build/*.user
 nul
 
 # Documentation
