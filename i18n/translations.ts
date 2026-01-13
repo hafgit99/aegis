@@ -677,7 +677,15 @@ export const translations = {
     hardware_binding: "Hardware Binding (Machine Bound)",
     hardware_binding_desc: "Combines your vault key with this computer's physical hardware identity.",
     native_obfuscation: "Code Obfuscation",
-    native_obfuscation_desc: "Protects application source code against reverse engineering."
+    native_obfuscation_desc: "Protects application source code against reverse engineering.",
+    cloud_bridge_title: "Cloud Bridge (E2EE Sync)",
+    cloud_bridge_desc: "Sync your vault across devices using your own cloud storage.",
+    sync_now: "Sync Now",
+    pull_from_cloud: "Pull from Cloud",
+    webdav_config: "WebDAV Configuration",
+    google_drive_connected: "Google Drive Connected",
+    cloud_sync_success: "Cloud synchronization successful!",
+    cloud_sync_error: "Sync failed. Check your connection/credentials."
   },
   tr: {
     app_name: "Aegis Vault",
@@ -1265,6 +1273,14 @@ export const translations = {
     hardware_binding: "Donanım Bağlama (Machine Bound)",
     hardware_binding_desc: "Kasa anahtarınızı bu bilgisayarın fiziksel donanım kimliği ile birleştirir.",
     native_obfuscation: "Kod Karartma (Obfuscation)",
-    native_obfuscation_desc: "Uygulama kaynak kodunu tersine mühendisliğe karşı korur."
+    native_obfuscation_desc: "Uygulama kaynak kodunu tersine mühendisliğe karşı korur.",
+    cloud_bridge_title: "Cloud Bridge (E2EE Senkronizasyon)",
+    cloud_bridge_desc: "Kasanızı kendi bulut depolama alanınızı kullanarak cihazlar arasında eşitleyin.",
+    sync_now: "Şimdi Eşitle",
+    pull_from_cloud: "Buluttan Çek",
+    webdav_config: "WebDAV Yapılandırması",
+    google_drive_connected: "Google Drive Bağlandı",
+    cloud_sync_success: "Bulut senkronizasyonu başarılı!",
+    cloud_sync_error: "Eşitleme başarısız. Bağlantınızı/bilgilerinizi kontrol edin."
   }
 };

@@ -12,6 +12,10 @@ const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { databaseService } from './services/databaseService.js';
+import { setupCloudSyncHandlers } from './services/cloudSyncMain.js';
+
+// Initialize Cloud Sync
+setupCloudSyncHandlers();
 
 // SECURITY: Portable Mode Setup
 // Ensure vault data is stored in a consistent, secure location

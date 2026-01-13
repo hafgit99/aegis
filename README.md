@@ -48,6 +48,7 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 - ✅ **Hardware Binding**: KDF is physically bound to this computer's hardware ID
 - ✅ **Code Obfuscation**: Source code protection against reverse engineering
 - ✅ **SQLCipher Database**: Full database-level encryption (AES-256)
+- ✅ **Cloud Bridge (Sync)**: Uçtan uca şifreli (E2EE) Google Drive ve WebDAV senkronizasyonu
 - ✅ **Command Line Interface (CLI)**: Access your vault securely via terminal
 - ✅ **Hardware Security Keys**: FIDO2/WebAuthn support (YubiKey)
 - ✅ **Secure Sidecar Metadata**: CLI-ready salt/iteration storage

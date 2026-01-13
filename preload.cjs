@@ -112,6 +112,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
         getAllFolders: () => ipcRenderer.invoke('db:get-all-folders'),
         setConfig: (key, value) => ipcRenderer.invoke('db:set-config', key, value),
         getConfig: (key) => ipcRenderer.invoke('db:get-config', key)
+    },
+
+    // Cloud Synchronization Bridge
+    cloud: {
+        webdav: {
+            test: (config) => ipcRenderer.invoke('cloud:webdav:test', config),
+            list: (config) => ipcRenderer.invoke('cloud:webdav:list', config),
+            upload: (config, name, buffer) => ipcRenderer.invoke('cloud:webdav:upload', config, name, buffer),
+            download: (config, name) => ipcRenderer.invoke('cloud:webdav:download', config, name),
+            delete: (config, name) => ipcRenderer.invoke('cloud:webdav:delete', config, name)
+        },
+        google: {
+            authenticate: () => ipcRenderer.invoke('cloud:google:authenticate'),
+            list: () => ipcRenderer.invoke('cloud:google:list'),
+            upload: (name, buffer) => ipcRenderer.invoke('cloud:google:upload', name, buffer),
+            download: (fileId) => ipcRenderer.invoke('cloud:google:download', fileId),
+            delete: (fileId) => ipcRenderer.invoke('cloud:google:delete', fileId),
+            logout: () => ipcRenderer.invoke('cloud:google:logout')
+        }
     }
 });
 
