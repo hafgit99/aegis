@@ -11,7 +11,8 @@ const filesToObfuscate = [
     'main.js',
     'cli.js',
     'factory-reset.js',
-    'services/databaseService.js'
+    'services/databaseService.js',
+    'services/cloudSyncMain.js'
 ];
 
 const options = {

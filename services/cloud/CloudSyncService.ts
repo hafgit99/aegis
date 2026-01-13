@@ -60,7 +60,7 @@ export class CloudSyncService {
         }
 
         const payload = JSON.stringify({
-            version: "2.0.2",
+            version: "2.0.1",
             timestamp: Date.now(),
             entries: decryptedEntries
         });

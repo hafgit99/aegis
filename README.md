@@ -4,7 +4,7 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-green?style=for-the-badge&logo=linux)
 ![License](https://img.shields.io/badge/License-Commercial-red?style=for-the-badge)
 ![Security Score](https://img.shields.io/badge/Security%20Score-95%2F100-brightgreen?style=for-the-badge&logo=security)
-![Version](https://img.shields.io/badge/Version-2.0.2-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-2.0.1-blue?style=for-the-badge)
 <table align="center" border="0">
   <tr>
     <td align="center">
@@ -43,7 +43,7 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 - **64MB Memory Cost**: GPU-resistant password hashing
 - **Zero-Knowledge Architecture**: Your master key never leaves your device
 
-### 🛡️ **CURRENT: v2.0.2 - Hardened Edition**
+### 🛡️ **CURRENT: v2.0.1 - Hardened Edition**
 - ✅ **Memory Page Locking**: Critical keys are locked in RAM to prevent disk leaks (Swap)
 - ✅ **Hardware Binding**: KDF is physically bound to this computer's hardware ID
 - ✅ **Code Obfuscation**: Source code protection against reverse engineering
@@ -228,7 +228,7 @@ URL:      https://accounts.google.com
 - ✅ **Safe for automation**: Suitable for scripting and remote access
 
 ## 📊 Security Comparison
-| Feature | Aegis Vault v2.0.2 | KeePassXC | Bitwarden | 1Password |
+| Feature | Aegis Vault v2.0.1 | KeePassXC | Bitwarden | 1Password |
 |---------|-------------------|-----------|-----------|-----------|
 | **Security Score** | **98/100** ⭐ | 90/100 | 88/100 | 92/100 |
 | **Memory Protection** | ✅ **VirtualLock** | ⚠️ Partial | ❌ No | ⚠️ Partial |

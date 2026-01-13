@@ -4,7 +4,7 @@
 
 Aegis Vault is a zero-knowledge password manager with a strong focus on security. We take security vulnerabilities seriously and appreciate responsible disclosure.
 
-## 🛡️ v2.0.2 Security Hardening (January 13, 2026)
+## 🛡️ v2.0.1 Security Hardening (January 13, 2026)
 
 ### ✅ Professional Grade Hardening (NEW)
 **Status**: IMPLEMENTED
@@ -42,7 +42,7 @@ The named pipe server (`\\.\\pipe\\aegis-vault-pipe`) created a security vulnera
 
 - **Security Score**: 98/100 (A++ Grade) ↑+3
 - **Last Audit**: January 13, 2026
-- **Version**: 2.0.2
+- **Version**: 2.0.1
 - **Encryption**: AES-256-GCM (NIST-approved)
 - **KDF**: Argon2id (20 iterations, 64MB RAM)
 - **Hardware Binding**: ACTIVE (Machine Bound)

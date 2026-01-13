@@ -639,7 +639,7 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
       description: 'Physical and code-level protection mechanisms',
       descriptionTr: 'Fiziksel ve kod düzeyinde koruma mekanizmaları',
       icon: <ShieldCheck size={24} className="text-indigo-500" />,
-      details: `Professional Grade Security Hardening (v2.0.2+):
+      details: `Professional Grade Security Hardening (v2.0.1+):
 
 1. Memory Page Locking (VirtualLock)
 - Physically locks sensitive data (keys, raw passwords) into RAM.
@@ -659,7 +659,7 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
 4. Native Core (Node Addon)
 - Critical security functions run in high-performance C++ code.
 - Direct interaction with Windows kernel for memory and protection APIs.`,
-      detailsTr: `Profesyonel Düzey Güvenlik Sertleştirme (v2.0.2+):
+      detailsTr: `Profesyonel Düzey Güvenlik Sertleştirme (v2.0.1+):
 
 1. Bellek Sayfası Kilitleme (VirtualLock)
 - Hassas verileri (anahtarlar, ham şifreler) fiziksel olarak RAM'e kilitler.
