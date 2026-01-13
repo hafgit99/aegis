@@ -20,8 +20,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return () => ipcRenderer.removeListener('vault:lock-trigger', subscription);
     },
 
-    // Uygulama Bilgileri - Sandbox friendly
-    getAppVersion: () => "1.1.1", // Hardcoded or via IPC
+    // Uygulama Bilgileri
+    getAppVersion: () => "1.1.1",
 
     // Pencere Kontrolleri
     minimize: () => {
@@ -37,8 +37,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.send('window:close');
     },
 
-    // Platform Bilgisi - Sandbox friendly
-    platform: 'win32', // Hardcoded or via IPC
+    // Platform Bilgisi
+    platform: 'win32',
 
     // Secure Vault Crypto (IPC)
     vault: {
@@ -98,7 +98,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
         clearAllBackups: () => ipcRenderer.invoke('backup:clearAllBackups'),
         selectDirectory: () => ipcRenderer.invoke('backup:select-directory'),
         getDefaultPath: () => ipcRenderer.invoke('backup:get-default-path')
+    },
+
+    // SQLite Veritabanı (db) - EN SONDA
+    db: {
+        saveEntry: (entry) => ipcRenderer.invoke('db:save-entry', entry),
+        deleteEntry: (id) => ipcRenderer.invoke('db:delete-entry', id),
+        getEntry: (id) => ipcRenderer.invoke('db:get-entry', id),
+        bulkSaveEntries: (entries) => ipcRenderer.invoke('db:bulk-save-entries', entries),
+        getAllEntries: () => ipcRenderer.invoke('db:get-all-entries'),
+        saveFolder: (folder) => ipcRenderer.invoke('db:save-folder', folder),
+        deleteFolder: (id) => ipcRenderer.invoke('db:delete-folder', id),
+        getAllFolders: () => ipcRenderer.invoke('db:get-all-folders'),
+        setConfig: (key, value) => ipcRenderer.invoke('db:set-config', key, value),
+        getConfig: (key) => ipcRenderer.invoke('db:get-config', key)
     }
 });
 
-console.log('[Preload] electronAPI exposed to renderer successfully');
+console.log('[Preload] electronAPI exposed to renderer successfully (WITH DB)');

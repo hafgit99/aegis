@@ -21,18 +21,28 @@ const TitleBar: React.FC = () => {
         return () => clearInterval(interval);
     }, []);
 
-    const callAPI = (method: string) => {
+    const lastCallRef = React.useRef(0);
+    const callAPI = (method: string, event?: React.MouseEvent) => {
+        const now = Date.now();
+        if (now - lastCallRef.current < 800) return; // Arka plan ile senkron
+        lastCallRef.current = now;
+
+        if (event) {
+            // Event'i tamamen yutalım
+            event.preventDefault();
+            event.stopPropagation();
+            event.nativeEvent.stopImmediatePropagation();
+        }
+
         const api = (window as any).electronAPI;
         if (api && api[method]) {
             api[method]();
-        } else {
-            console.error(`electronAPI.${method} not found`);
         }
     };
 
     return (
         <div
-            className="h-8 bg-[#0a0a0a] border-b border-white/5 flex items-center justify-between select-none relative z-[9999] w-full"
+            className="h-8 bg-[#0a0a0a] border-b border-white/5 flex items-center justify-between select-none relative z-[9999] w-full flex-shrink-0"
             style={{ WebkitAppRegion: 'drag' } as any}
         >
             <div
@@ -46,8 +56,8 @@ const TitleBar: React.FC = () => {
             </div>
 
             <div
-                className="flex h-full items-center ml-auto"
-                style={{ WebkitAppRegion: 'no-drag' } as any}
+                className="flex h-full items-center ml-auto relative"
+                style={{ WebkitAppRegion: 'no-drag', pointerEvents: 'auto' } as any}
             >
                 {/* Minimize */}
                 <button
@@ -61,7 +71,7 @@ const TitleBar: React.FC = () => {
 
                 {/* Maximize */}
                 <button
-                    onClick={() => callAPI('maximize')}
+                    onClick={(e) => callAPI('maximize', e)}
                     className="w-12 h-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors pointer-events-auto"
                     style={{ WebkitAppRegion: 'no-drag' } as any}
                     title="Maximize"

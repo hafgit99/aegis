@@ -7,7 +7,7 @@ import {
   Trash2, Globe, CheckCircle2,
   Smartphone, Key, Zap, Languages, Database, CreditCard, FileText, Download, Fingerprint, Moon, Sun,
   ChevronUp, SortAsc, SortDesc, Filter, CheckSquare, Square, Check, Copy, Loader2, ShieldCheck,
-  RotateCcw, Flame, Clock, Calendar, ShieldX, Crown, Gem, Award, ChevronRight, Eye, MoreVertical, SlidersHorizontal, RefreshCw, Folder, BookOpen, Hourglass, Wallet
+  RotateCcw, Flame, Clock, Calendar, ShieldX, Crown, Gem, Award, ChevronRight, Eye, MoreVertical, SlidersHorizontal, RefreshCw, Folder, BookOpen, Hourglass, Wallet, Cpu
 } from 'lucide-react';
 import { VaultEntry, SensitiveData, Category } from '../types.ts';
 import { AutoLockStatus } from '../hooks/useAutoLock.ts';
@@ -358,11 +358,104 @@ const RecoveryWordsView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
+const DuressModeSetup: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { t } = useLanguage();
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handleSetDuress = async () => {
+    if (!password || password !== confirmPassword) {
+      setError(t('password_mismatch'));
+      return;
+    }
+    setError('');
+    setIsSaving(true);
+    try {
+      await VaultService.setupDuressPassword(password);
+      setSuccess(true);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass p-12 rounded-[3.5rem] border border-red-500/20 max-w-md w-full">
+      <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-2xl flex items-center justify-center shadow-xl shadow-red-500/10">
+            <Shield size={32} />
+          </div>
+          <div>
+            <h3 className="text-2xl font-black text-white uppercase tracking-tighter">{t('duress_setup_title')}</h3>
+            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">v4.0 - Aegis Protocol</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="p-2 text-zinc-500 hover:text-white">
+          <X size={20} />
+        </button>
+      </div>
+
+      {success ? (
+        <div className="text-center space-y-6">
+          <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto shadow-xl shadow-emerald-500/10">
+            <Check size={40} />
+          </div>
+          <p className="text-[10px] text-emerald-500 font-black uppercase tracking-widest">{t('success_title')}</p>
+          <button onClick={onClose} className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-blue-600/20">
+            {t('close')}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest leading-relaxed">
+            {t('duress_setup_desc')}
+          </p>
+
+          <div className="space-y-4">
+            <input
+              type="password"
+              placeholder={t('duress_password_label')}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-6 py-4 bg-black/40 border border-white/5 rounded-2xl text-sm text-white outline-none focus:border-red-500/30 transition-all font-mono"
+            />
+            <input
+              type="password"
+              placeholder={t('confirm_password')}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full px-6 py-4 bg-black/40 border border-white/5 rounded-2xl text-sm text-white outline-none focus:border-red-500/30 transition-all font-mono"
+            />
+          </div>
+
+          {error && <p className="text-[9px] text-red-500 font-bold uppercase tracking-widest text-center">{error}</p>}
+
+          <button
+            onClick={handleSetDuress}
+            disabled={isSaving}
+            className="w-full py-4 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-red-600/20"
+          >
+            {isSaving ? <Loader2 className="animate-spin mx-auto" size={16} /> : t('duress_set_btn')}
+          </button>
+        </div>
+      )}
+    </motion.div>
+  );
+};
+
 const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }> = ({ onLogout, lockStatus }) => {
   const { t, lang, setLang } = useLanguage();
   const { theme, setTheme } = useTheme();
-  const { entries, folders, saveEntry, deleteEntry, restoreEntry, permanentDelete, decryptData, loadEntries, toggleFavorite } = useVault();
-  const { masterKey } = useAuth();
+  const { entries: vaultEntries, folders: vaultFolders, saveEntry, deleteEntry, restoreEntry, permanentDelete, decryptData, loadEntries, toggleFavorite } = useVault();
+  const { masterKey, withMasterKeyRaw } = useAuth();
+  const isDuressActive = localStorage.getItem('aegis_duress_active') === 'true';
+  const entries = isDuressActive ? [] : vaultEntries;
+  const folders = isDuressActive ? [] : vaultFolders;
 
   const [activeTab, setActiveTab] = useState<'vault' | 'favorites' | 'audit' | 'generator' | 'settings' | 'trash'>('vault');
   const [activeCat, setActiveCat] = useState<Category | 'All'>('All');
@@ -380,6 +473,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
   const [showChangeMasterKey, setShowChangeMasterKey] = useState(false);
   const [showLegalModal, setShowLegalModal] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
+  const [showDuressSetup, setShowDuressSetup] = useState(false);
   const [legalDocType, setLegalDocType] = useState<'terms' | 'privacy'>('terms');
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -389,6 +483,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
 
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
   const [isBioEnabled, setIsBioEnabled] = useState(BiometricService.isEnabled());
+  const [isSKEnabled, setIsSKEnabled] = useState(BiometricService.isSecurityKeyEnabled());
   const [isLocking, setIsLocking] = useState(false);
 
   const handleLogout = async () => {
@@ -429,6 +524,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
     return () => clearTimeout(timer);
   }, [activeTab]);
 
+
   useEffect(() => {
     loadEntries().then(() => {
       setIsLoading(false);
@@ -455,11 +551,41 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
         BiometricService.disable();
         setIsBioEnabled(false);
       } else {
-        await BiometricService.enableBiometrics(masterKey);
+        await withMasterKeyRaw(async (raw) => {
+          await BiometricService.enableBiometrics(raw);
+        });
         setIsBioEnabled(true);
       }
-    } catch (e) {
-      alert(t('biometric_policy_error'));
+    } catch (e: any) {
+      if (e.message !== 'BIOMETRIC_CANCELED') {
+        alert(`${t('biometric_policy_error')}: ${e.message || e.name}`);
+      }
+    }
+  };
+
+  const toggleSecurityKey = async () => {
+    if (!masterKey) return;
+    try {
+      if (isSKEnabled) {
+        BiometricService.disableSecurityKey();
+        setIsSKEnabled(false);
+      } else {
+        await withMasterKeyRaw(async (raw) => {
+          await BiometricService.enableSecurityKey(raw);
+        });
+        setIsSKEnabled(true);
+      }
+    } catch (e: any) {
+      if (e.message === 'WEBAUTHN_NOT_SUPPORTED') {
+        alert(t('webaunthn_not_supported'));
+      } else if (e.message === 'BIOMETRIC_CANCELED' || e.name === 'NotAllowedError') {
+        // User cancelled or naturally closed the dialog
+      } else if (e.name === 'NotFoundError' || e.message?.includes('found')) {
+        alert(lang === 'tr' ? "Herhangi bir güvenlik anahtarı bulunamadı. Lütfen cihazınızı takıp tekrar deneyin." : "No security key found. Please insert your device and try again.");
+      } else {
+        console.error("Security Key Error Details:", e);
+        alert(`${t('access_denied')} (Kod: ${e.name || e.message})`);
+      }
     }
   };
 
@@ -659,7 +785,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
     });
 
     return filtered;
-  }, [entries, activeTab, activeCat, currentFolderId, deferredQuery, sortOrder]);
+  }, [entries, activeTab, activeCat, currentFolderId, deferredQuery, sortOrder, isDuressActive]);
 
   const [visibleCount, setVisibleCount] = useState(24);
   const observerTarget = React.useRef(null);
@@ -990,45 +1116,53 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
 
                     {settingsTab === 'security' && (
                       <motion.div key="security" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-20">
-                        {/* Section 1: Multi-Factor Authentication */}
-                        <section className="glass p-6 rounded-[2rem] border border-blue-500/10 bg-blue-500/[0.02]">
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-blue-600 text-white rounded-lg shadow-lg shadow-blue-600/20">
-                              <ShieldCheck size={16} />
+                        <section className="glass p-10 rounded-[3rem] border border-main space-y-10">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-blue-600 text-white rounded-[1.5rem] shadow-xl shadow-blue-600/20"><Shield size={24} /></div>
+                              <div>
+                                <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('auth_security')}</h3>
+                                <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{t('security_architecture')}</p>
+                              </div>
                             </div>
-                            <div>
-                              <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('two_factor_title')}</h3>
-                              <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{t('two_factor_desc') || 'Extra protection for your vault'}</p>
-                            </div>
-                          </div>
-                          <div className="max-w-2xl">
-                            <TwoFactorSetup onClose={() => { }} onComplete={() => { }} />
-                          </div>
-                        </section>
-
-                        {/* Section 2: Proactive Defense & Disaster Recovery */}
-                        <section className="glass p-6 rounded-[2rem] border border-amber-500/10 bg-amber-500/[0.02]">
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-amber-600 text-white rounded-lg shadow-lg shadow-amber-600/20">
-                              <AlertTriangle size={16} />
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('incident_response')}</h3>
-                              <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{t('incident_response_desc') || 'Emergency access and panic mode'}</p>
-                            </div>
-                          </div>
-                          {/* EmergencyAccess component */}
-                          <EmergencyAccess onPanic={triggerPanic} />
-                        </section>
-
-                        {/* Section 3: Device Security & Access Control */}
-                        <section className="space-y-4">
-                          <div className="flex items-center gap-3 px-2">
-                            <div className="w-1 h-6 bg-emerald-600 rounded-full" />
-                            <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('security_architecture')}</h3>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* 2FA Card */}
+                            <button onClick={() => setShow2FASetup(true)} className="glass p-5 rounded-[1.5rem] border border-white/5 text-left hover:border-blue-500/20 transition-all flex items-center justify-between group shadow-lg">
+                              <div className="flex items-center gap-4">
+                                <div className="p-2 bg-blue-600/10 text-blue-500 rounded-lg group-hover:scale-110 transition-transform">
+                                  <Smartphone size={18} />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('two_factor_title')}</h4>
+                                  <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1">{t('two_factor_desc')}</p>
+                                </div>
+                              </div>
+                              <ChevronRight size={16} className="text-zinc-700 group-hover:text-blue-500 transition-colors" />
+                            </button>
+
+                            {/* Auto Lock Timer Card */}
+                            <div className="glass p-5 rounded-[1.5rem] border border-white/5 space-y-3 shadow-lg">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg">
+                                  <Clock size={18} />
+                                </div>
+                                <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('auto_lock_timer')}</h4>
+                              </div>
+                              <div className="grid grid-cols-4 gap-2">
+                                {[60000, 300000, 900000, 3600000].map(ms => (
+                                  <button
+                                    key={ms}
+                                    onClick={() => handleAutoLockChange(ms)}
+                                    className={`py-2 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${autoLockDuration === ms ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'}`}
+                                  >
+                                    {ms === 60000 ? t('time_1m') : ms === 300000 ? t('time_5m') : ms === 900000 ? t('time_15m') : t('time_1h')}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
                             {/* Biometric Toggle Card */}
                             <div className="glass p-5 rounded-[1.5rem] border border-white/5 flex items-center justify-between group hover:border-emerald-500/20 transition-all shadow-lg">
                               <div className="flex items-center gap-3">
@@ -1049,24 +1183,78 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                               )}
                             </div>
 
-                            {/* Auto Lock Timer Card */}
-                            <div className="glass p-5 rounded-[1.5rem] border border-white/5 space-y-3 shadow-lg">
+                            {/* Security Key Card */}
+                            <div className="glass p-5 rounded-[1.5rem] border border-white/5 flex items-center justify-between group hover:border-blue-500/20 transition-all shadow-lg">
                               <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg">
-                                  <Clock size={18} />
+                                <div className="p-2 bg-blue-500/10 text-blue-500 rounded-lg group-hover:scale-110 transition-transform">
+                                  <Key size={18} />
                                 </div>
-                                <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('auto_lock_timer')}</h4>
+                                <div>
+                                  <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('security_key')}</h4>
+                                  <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1">{t('security_key_desc')}</p>
+                                </div>
                               </div>
-                              <div className="grid grid-cols-4 gap-2">
-                                {[60000, 300000, 900000, 3600000].map(ms => (
-                                  <button
-                                    key={ms}
-                                    onClick={() => handleAutoLockChange(ms)}
-                                    className={`py-2 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${autoLockDuration === ms ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'bg-white/5 text-zinc-500 hover:text-zinc-300'}`}
-                                  >
-                                    {ms === 60000 ? t('time_1m') : ms === 300000 ? t('time_5m') : ms === 900000 ? t('time_15m') : t('time_1h')}
-                                  </button>
-                                ))}
+                              <button onClick={toggleSecurityKey} className={`px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all ${isSKEnabled ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'bg-zinc-900 text-zinc-600 border border-white/5'}`}>
+                                {isSKEnabled ? t('status_enabled') : t('status_disabled')}
+                              </button>
+                            </div>
+                          </div>
+                        </section>
+
+                        <section className="glass p-10 rounded-[3rem] border border-blue-500/10 bg-blue-500/[0.02] space-y-10 shadow-2xl">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-indigo-600 text-white rounded-[1.5rem] shadow-xl shadow-indigo-600/20"><Cpu size={24} /></div>
+                              <div>
+                                <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('advanced_hardware_security')}</h3>
+                                <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{t('status_protected')}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="glass p-5 rounded-[1.5rem] border border-white/5 space-y-3 shadow-lg group hover:border-indigo-500/20 transition-all">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg group-hover:scale-110 transition-transform"><Zap size={18} /></div>
+                                <h4 className="text-[10px] font-black text-white uppercase tracking-widest">{t('memory_locking')}</h4>
+                              </div>
+                              <p className="text-[8px] text-zinc-500 font-bold uppercase leading-relaxed">{t('memory_locking_desc')}</p>
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/10 text-indigo-400 rounded-full text-[7px] font-black tracking-widest uppercase">
+                                <ShieldCheck size={10} /> {t('status_active')}
+                              </div>
+                            </div>
+
+                            <div className="glass p-5 rounded-[1.5rem] border border-white/5 space-y-3 shadow-lg group hover:border-indigo-500/20 transition-all">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg group-hover:scale-110 transition-transform"><Database size={18} /></div>
+                                <h4 className="text-[10px] font-black text-white uppercase tracking-widest">{t('hardware_binding')}</h4>
+                              </div>
+                              <p className="text-[8px] text-zinc-500 font-bold uppercase leading-relaxed">{t('hardware_binding_desc')}</p>
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/10 text-indigo-400 rounded-full text-[7px] font-black tracking-widest uppercase">
+                                <ShieldCheck size={10} /> {t('status_active')}
+                              </div>
+                            </div>
+
+                            <div className="glass p-5 rounded-[1.5rem] border border-white/5 space-y-3 shadow-lg group hover:border-indigo-500/20 transition-all">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg group-hover:scale-110 transition-transform"><FileText size={18} /></div>
+                                <h4 className="text-[10px] font-black text-white uppercase tracking-widest">{t('native_obfuscation')}</h4>
+                              </div>
+                              <p className="text-[8px] text-zinc-500 font-bold uppercase leading-relaxed">{t('native_obfuscation_desc')}</p>
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-500/10 text-indigo-400 rounded-full text-[7px] font-black tracking-widest uppercase">
+                                <ShieldCheck size={10} /> {t('status_active')}
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+
+                        <section className="glass p-10 rounded-[3rem] border border-main space-y-10">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 bg-amber-600 text-white rounded-[1.5rem] shadow-xl shadow-amber-600/20"><AlertTriangle size={24} /></div>
+                              <div>
+                                <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('incident_response')}</h3>
+                                <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">{t('incident_response_desc') || 'Emergency access and panic mode'}</p>
                               </div>
                             </div>
                           </div>
@@ -1100,12 +1288,38 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                               <ChevronRight size={16} className="text-zinc-700 group-hover:text-blue-500 transition-colors" />
                             </button>
                           </div>
+
+                          {/* Duress Mode Card */}
+                          <div className="glass p-5 rounded-[1.5rem] border border-white/5 space-y-4 shadow-lg">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-red-500/10 text-red-500 rounded-lg">
+                                  <Shield size={18} />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('duress_mode')}</h4>
+                                  <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1">{t('duress_desc')}</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => setShowDuressSetup(true)}
+                                className="px-4 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-500 text-[8px] font-black uppercase tracking-widest rounded-xl transition-all border border-red-500/20"
+                              >
+                                {localStorage.getItem('aegis_vault_duress_verifier') ? t('reconfigure') : t('initialize')}
+                              </button>
+                            </div>
+                            {localStorage.getItem('aegis_vault_duress_verifier') && (
+                              <div className="p-2 bg-red-500/5 rounded-lg border border-red-500/10">
+                                <p className="text-[7px] text-red-400 font-bold uppercase tracking-widest text-center">{t('duress_status_active')}</p>
+                              </div>
+                            )}
+                          </div>
                         </section>
                       </motion.div>
                     )}
 
                     {settingsTab === 'data' && (
-                      <motion.div key="data" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6 pb-20">
+                      <motion.div key="data" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
                         {/* Backup Settings Section */}
                         <section className="glass p-5 rounded-[1.5rem] border border-emerald-500/10 bg-emerald-500/[0.02]">
                           <div className="flex items-center gap-3 mb-3">
@@ -1211,79 +1425,85 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                 </div>
               )}
 
-              {
-                (activeTab === 'vault' || activeTab === 'favorites') && (
-                  <div className="space-y-8 pb-32">
-                    <div className="mb-8">
-                      <h2 className="text-xl font-black text-main uppercase tracking-tighter mb-2">
+              {(activeTab === 'vault' || activeTab === 'favorites') && (
+                <div className="space-y-8 pb-32">
+                  <div className="mb-8">
+                    <div className="flex items-center gap-4 mb-2">
+                      <h2 className="text-xl font-black text-main uppercase tracking-tighter">
                         {searchQuery ? t('search_results') || 'Arama Sonuçları' :
                           activeTab === 'favorites' ? t('favorites') :
                             (activeCat === 'All' ? t('all_items') : t(`cat_${activeCat.toLowerCase()}` as any))}
                       </h2>
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
-                        {searchQuery
-                          ? (t('search_found_count') || '{count} eşleşme bulundu').replace('{count}', processedEntries.length.toString())
-                          : t('found_items').replace('{count}', processedEntries.length.toString())}
-                      </p>
-                    </div>
-                    {currentFolderId && (
-                      <button
-                        onClick={() => setCurrentFolderId(null)}
-                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors mb-6 group"
-                      >
-                        <div className="p-2 bg-white/5 rounded-lg group-hover:bg-blue-600/20 group-hover:text-blue-500 transition-all">
-                          <ChevronLeft size={16} />
+                      {isDuressActive && (
+                        <div className="px-3 py-1 bg-red-600 text-white text-[8px] font-black uppercase tracking-widest rounded-full animate-pulse flex items-center gap-1">
+                          <ShieldAlert size={10} />
+                          {t('duress_active_warning')}
                         </div>
-                        {t('back')}
-                      </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
+                      {searchQuery
+                        ? (t('search_found_count') || '{count} eşleşme bulundu').replace('{count}', processedEntries.length.toString())
+                        : t('found_items').replace('{count}', processedEntries.length.toString())}
+                    </p>
+                  </div>
+                  {currentFolderId && (
+                    <button
+                      onClick={() => setCurrentFolderId(null)}
+                      className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors mb-6 group"
+                    >
+                      <div className="p-2 bg-white/5 rounded-lg group-hover:bg-blue-600/20 group-hover:text-blue-500 transition-all">
+                        <ChevronLeft size={16} />
+                      </div>
+                      {t('back')}
+                    </button>
+                  )}
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8">
+                    {!isLoading && !currentFolderId && relevantFolders.map(folder => (
+                      <motion.div
+                        key={folder.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        whileHover={{ y: -5 }}
+                        onClick={() => setCurrentFolderId(folder.id)}
+                        className="glass p-6 rounded-[2.5rem] border border-main cursor-pointer hover:border-blue-500/30 transition-all group flex flex-col items-center text-center gap-4 shadow-xl"
+                      >
+                        <div className="w-16 h-16 bg-blue-600/10 text-blue-500 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner relative">
+                          <Folder size={32} />
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-[10px] font-black text-white border-2 border-[#050505]">
+                            {entries.filter(e => e.folderId === folder.id && !e.deletedAt && (activeTab === 'favorites' ? e.isFavorite : true)).length}
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-[11px] font-black uppercase tracking-widest text-white leading-tight">{folder.name}</h4>
+                          <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1 tracking-widest opacity-60">{t('collection')}</p>
+                        </div>
+                      </motion.div>
+                    ))}
+
+                    {isLoading ? Array(12).fill(0).map((_, i) => <SkeletonCard key={i} />) : processedEntries.slice(0, visibleCount).map(entry => (
+                      <PasswordCard key={entry.id} entry={entry} onEdit={() => handleEditEntry(entry)} onDelete={() => deleteEntry(entry.id)} onToggleFavorite={() => toggleFavorite(entry.id)} onDecrypt={() => decryptData(entry)} />
+                    ))}
+
+                    {processedEntries.length > visibleCount && (
+                      <div ref={observerTarget} className="col-span-full py-12 flex flex-col items-center gap-4">
+                        <Loader2 className="animate-spin text-zinc-700" size={28} />
+                        <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest">
+                          {processedEntries.length - visibleCount} {t('more_items') || 'daha fazla'}
+                        </p>
+                      </div>
                     )}
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8">
-                      {!isLoading && !currentFolderId && relevantFolders.map(folder => (
-                        <motion.div
-                          key={folder.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          whileHover={{ y: -5 }}
-                          onClick={() => setCurrentFolderId(folder.id)}
-                          className="glass p-6 rounded-[2.5rem] border border-main cursor-pointer hover:border-blue-500/30 transition-all group flex flex-col items-center text-center gap-4 shadow-xl"
-                        >
-                          <div className="w-16 h-16 bg-blue-600/10 text-blue-500 rounded-3xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner relative">
-                            <Folder size={32} />
-                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-[10px] font-black text-white border-2 border-[#050505]">
-                              {entries.filter(e => e.folderId === folder.id && !e.deletedAt && (activeTab === 'favorites' ? e.isFavorite : true)).length}
-                            </div>
-                          </div>
-                          <div>
-                            <h4 className="text-[11px] font-black uppercase tracking-widest text-white leading-tight">{folder.name}</h4>
-                            <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1 tracking-widest opacity-60">{t('collection')}</p>
-                          </div>
-                        </motion.div>
-                      ))}
-
-                      {isLoading ? Array(12).fill(0).map((_, i) => <SkeletonCard key={i} />) : processedEntries.slice(0, visibleCount).map(entry => (
-                        <PasswordCard key={entry.id} entry={entry} onEdit={() => handleEditEntry(entry)} onDelete={() => deleteEntry(entry.id)} onToggleFavorite={() => toggleFavorite(entry.id)} onDecrypt={() => decryptData(entry)} />
-                      ))}
-
-                      {processedEntries.length > visibleCount && (
-                        <div ref={observerTarget} className="col-span-full py-12 flex flex-col items-center gap-4">
-                          <Loader2 className="animate-spin text-zinc-700" size={28} />
-                          <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest">
-                            {processedEntries.length - visibleCount} {t('more_items') || 'daha fazla'}
-                          </p>
-                        </div>
-                      )}
-
-                      {!isLoading && processedEntries.length === 0 && relevantFolders.length === 0 && (
-                        <div className="col-span-full py-48 text-center opacity-30 font-black uppercase tracking-[1em] text-[10px] ml-[1em]">{t('no_assets')}</div>
-                      )}
-                    </div>
+                    {!isLoading && processedEntries.length === 0 && relevantFolders.length === 0 && (
+                      <div className="col-span-full py-48 text-center opacity-30 font-black uppercase tracking-[1em] text-[10px] ml-[1em]">{t('no_assets')}</div>
+                    )}
                   </div>
-                )
-              }
-            </motion.div >
-          </AnimatePresence >
-        </section >
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </section>
 
         <AnimatePresence>
           {showLicensing && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"><LicensingView onClose={() => setShowLicensing(false)} /></div>}
@@ -1291,6 +1511,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
           {show2FASetup && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"><TwoFactorSetup onClose={() => setShow2FASetup(false)} onComplete={() => setShow2FASetup(false)} /></div>}
           {showRecovery && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"><RecoveryWordsView onClose={() => setShowRecovery(false)} /></div>}
           {showChangeMasterKey && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"><ChangeMasterKeyModal onClose={() => setShowChangeMasterKey(false)} masterKey={masterKey} onSuccess={() => setShowChangeMasterKey(false)} /></div>}
+          {showDuressSetup && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"><DuressModeSetup onClose={() => setShowDuressSetup(false)} /></div>}
           {showResetConfirm && (
             <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl">
               <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass p-12 rounded-[3.5rem] border border-red-500/20 max-w-md w-full text-center space-y-8">
@@ -1328,8 +1549,8 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
           <LegalModal isOpen={showLegalModal} onClose={() => setShowLegalModal(false)} docType={legalDocType} />
           <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} />
         </AnimatePresence>
-      </main >
-    </div >
+      </main>
+    </div>
   );
 };
 

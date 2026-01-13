@@ -42,7 +42,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Secure Vault Crypto (IPC)
   vault: {
-    setKey: (raw) => ipcRenderer.invoke('vault:set-key', raw),
+    setKey: (raw, verifier) => ipcRenderer.invoke('vault:set-key', raw, verifier),
     clearKey: () => ipcRenderer.invoke('vault:clear-key'),
     setVerifier: (blob) => ipcRenderer.invoke('vault:set-verifier', blob),
     getVerifier: () => ipcRenderer.invoke('vault:get-verifier'),
@@ -64,9 +64,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveMasterKey: (saltB64, keyB64) => ipcRenderer.invoke('credentials:save-master-key', saltB64, keyB64),
     retrieveMasterKey: () => ipcRenderer.invoke('credentials:retrieve-master-key'),
     clearMasterKey: () => ipcRenderer.invoke('credentials:clear-master-key'),
-    saveBiometricSecret: (secretB64) => ipcRenderer.invoke('credentials:save-biometric-secret', secretB64),
-    retrieveBiometricSecret: () => ipcRenderer.invoke('credentials:retrieve-biometric-secret'),
-    clearBiometricSecret: () => ipcRenderer.invoke('credentials:clear-biometric-secret')
+    saveBiometricSecret: (secretB64, tag) => ipcRenderer.invoke('credentials:save-biometric-secret', secretB64, tag),
+    retrieveBiometricSecret: (tag) => ipcRenderer.invoke('credentials:retrieve-biometric-secret', tag),
+    clearBiometricSecret: (tag) => ipcRenderer.invoke('credentials:clear-biometric-secret', tag)
   },
 
   // Audit Logging
@@ -98,6 +98,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearAllBackups: () => ipcRenderer.invoke('backup:clearAllBackups'),
     selectDirectory: () => ipcRenderer.invoke('backup:select-directory'),
     getDefaultPath: () => ipcRenderer.invoke('backup:get-default-path')
+  },
+
+  // SQLite Database API
+  db: {
+    saveEntry: (entry) => ipcRenderer.invoke('db:save-entry', entry),
+    deleteEntry: (id) => ipcRenderer.invoke('db:delete-entry', id),
+    getAllEntries: () => ipcRenderer.invoke('db:get-all-entries'),
+    saveFolder: (folder) => ipcRenderer.invoke('db:save-folder', folder),
+    deleteFolder: (id) => ipcRenderer.invoke('db:delete-folder', id),
+    getAllFolders: () => ipcRenderer.invoke('db:get-all-folders'),
+    setConfig: (key, value) => ipcRenderer.invoke('db:set-config', key, value),
+    getConfig: (key) => ipcRenderer.invoke('db:get-config', key)
   }
 });
 

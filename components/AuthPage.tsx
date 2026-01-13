@@ -36,6 +36,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
   const [eulaAccepted, setEulaAccepted] = useState(false);
   const [showEulaModal, setShowEulaModal] = useState(false);
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+  const [isSKAvailable, setIsSKAvailable] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [isVerifyingTOTP, setIsVerifyingTOTP] = useState(false);
 
@@ -74,6 +75,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
       const isEnabled = BiometricService.isEnabled();
       const isSupported = await BiometricService.isSupported();
       setIsBiometricAvailable(isEnabled && isSupported);
+      setIsSKAvailable(BiometricService.isSecurityKeyEnabled());
     };
     checkBio();
   }, []);
@@ -123,6 +125,29 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
     setStatus('stretching');
     try {
       const result = await BiometricService.unlock();
+      if (result) {
+        await BruteForceService.recordSuccess();
+        await setKey(result.key, result.raw);
+        setStatus('success');
+      } else {
+        await BruteForceService.recordFailure();
+        const status = await BruteForceService.checkStatus();
+        setFailedAttempts(status.attempts);
+        setLockoutTimer(status.remaining);
+        setStatus('idle');
+      }
+    } catch (err) {
+      setStatus('error');
+      setErrorMessage(t('access_denied'));
+      setTimeout(() => setStatus('idle'), 2000);
+    }
+  };
+
+  const handleSKUnlock = async () => {
+    if (lockoutTimer > 0) return;
+    setStatus('stretching');
+    try {
+      const result = await BiometricService.unlockWithSecurityKey();
       if (result) {
         await BruteForceService.recordSuccess();
         await setKey(result.key, result.raw);
@@ -259,6 +284,21 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
         }
 
         await BruteForceService.recordSuccess();
+
+        // Ensure 2FA config is synced to database for CLI access
+        if ((window as any).electronAPI?.db) {
+          try {
+            const storagePayload = {
+              payload: CryptoService.arrayBufferToBase64(ciphertext.buffer),
+              iv: CryptoService.arrayBufferToBase64(iv.buffer),
+              tag: CryptoService.arrayBufferToBase64(tag.buffer)
+            };
+            await (window as any).electronAPI.db.setConfig('aegis_2fa_config', JSON.stringify(storagePayload));
+          } catch (e) {
+            console.error("Failed to sync 2FA config to DB during login", e);
+          }
+        }
+
         await finalize2FA();
         setStatus('success');
       } else {
@@ -447,21 +487,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
                             <span className="text-[9px] font-black uppercase tracking-widest text-dim">
                               {lang === 'tr' ? 'Şifre Gücü' : 'Password Strength'}
                             </span>
-                            <span className={`text-[9px] font-black uppercase tracking-widest ${
-                              passwordStrength >= 75 ? 'text-green-500' :
+                            <span className={`text-[9px] font-black uppercase tracking-widest ${passwordStrength >= 75 ? 'text-green-500' :
                               passwordStrength >= 50 ? 'text-yellow-500' :
-                              'text-red-500'
-                            }`}>
+                                'text-red-500'
+                              }`}>
                               {passwordStrength}%
                             </span>
                           </div>
                           <div className="h-1.5 bg-zinc-800/50 rounded-full overflow-hidden">
                             <div
-                              className={`h-full transition-all duration-300 ${
-                                passwordStrength >= 75 ? 'bg-green-500' :
+                              className={`h-full transition-all duration-300 ${passwordStrength >= 75 ? 'bg-green-500' :
                                 passwordStrength >= 50 ? 'bg-yellow-500' :
-                                'bg-red-500'
-                              }`}
+                                  'bg-red-500'
+                                }`}
                               style={{ width: `${passwordStrength}%` }}
                             />
                           </div>
@@ -536,16 +574,29 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
                     </button>
                   )}
 
-                  {isBiometricAvailable && (
-                    <button
-                      type="button"
-                      disabled={lockoutTimer > 0}
-                      onClick={handleBiometricUnlock}
-                      className="flex items-center gap-2 text-[10px] font-black text-blue-500 uppercase hover:text-blue-400 transition-colors tracking-widest disabled:opacity-50"
-                    >
-                      <Fingerprint size={14} /> {t('biometric_lock')}
-                    </button>
-                  )}
+                  <div className="flex gap-4">
+                    {isBiometricAvailable && (
+                      <button
+                        type="button"
+                        disabled={lockoutTimer > 0}
+                        onClick={handleBiometricUnlock}
+                        className="flex items-center gap-2 text-[10px] font-black text-blue-500 uppercase hover:text-blue-400 transition-colors tracking-widest disabled:opacity-50"
+                      >
+                        <Fingerprint size={14} /> {t('biometric_lock')}
+                      </button>
+                    )}
+
+                    {isSKAvailable && (
+                      <button
+                        type="button"
+                        disabled={lockoutTimer > 0}
+                        onClick={handleSKUnlock}
+                        className="flex items-center gap-2 text-[10px] font-black text-blue-500 uppercase hover:text-blue-400 transition-colors tracking-widest disabled:opacity-50"
+                      >
+                        <Key size={14} /> {t('security_key_unlock')}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Brute Force Alerts */}

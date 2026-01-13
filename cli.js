@@ -22,6 +22,53 @@ if (isPackaged) {
 
 const dbPath = path.join(userDataPath, 'vault.db');
 const metaPath = path.join(userDataPath, 'vault_meta.json');
+const hbPath = path.join(userDataPath, '.aegis_hb');
+
+// --- NATIVE SECURITY LOADING ---
+let nativeSecurity = null;
+try {
+    const require = (await import('module')).createRequire(import.meta.url);
+    const addonPaths = [
+        path.join(__dirname, 'build', 'Release', 'aegis_security.node'),
+        path.join(path.dirname(process.execPath), 'resources', 'app.asar.unpacked', 'build', 'Release', 'aegis_security.node'),
+        path.join(__dirname, '..', 'app.asar.unpacked', 'build', 'Release', 'aegis_security.node')
+    ];
+    for (const p of addonPaths) {
+        if (fs.existsSync(p)) {
+            nativeSecurity = require(p);
+            break;
+        }
+    }
+} catch (e) {
+    console.warn('⚠️  Uyarı: Native güvenlik modülü yüklenemedi, donanım kilidi yazılımsal sürümde çalışacak.');
+}
+
+function getHardwareBoundSecret(deviceId) {
+    if (nativeSecurity && fs.existsSync(hbPath)) {
+        try {
+            const encrypted = fs.readFileSync(hbPath);
+            const decrypted = nativeSecurity.unprotectData(encrypted);
+            if (decrypted) return decrypted;
+        } catch (e) { }
+    }
+    // Software Fallback
+    return crypto.createHash('sha256').update(deviceId + 'AEGIS-HB-SALT').digest();
+}
+
+function getDeviceId() {
+    try {
+        let serial = "";
+        if (process.platform === 'win32') {
+            serial = execSync('wmic baseboard get serialnumber').toString() +
+                execSync('wmic cpu get processorid').toString();
+        } else {
+            serial = os.hostname() + os.arch() + os.totalmem();
+        }
+        return crypto.createHash('sha256').update(serial.replace(/\s/g, '')).digest('hex').toUpperCase().substring(0, 24);
+    } catch (e) {
+        return "AEGIS-GENERIC-ID";
+    }
+}
 
 // --- SECURE IO: GUI & TERMINAL ---
 async function secureAsk(query) {
@@ -153,9 +200,12 @@ async function main() {
         });
 
         const masterKeyBuffer = Buffer.from(hash);
-        const masterKeyHex = masterKeyBuffer.toString('hex');
 
-        databaseService.init(userDataPath, masterKeyHex);
+        const deviceId = getDeviceId();
+        const hwSecret = getHardwareBoundSecret(deviceId);
+        const combinedKey = crypto.createHmac('sha256', hwSecret).update(masterKeyBuffer).digest('hex');
+
+        databaseService.init(userDataPath, combinedKey);
         databaseService.db.prepare('SELECT count(*) FROM config').get();
 
         // --- 2FA KONTROLÜ ---

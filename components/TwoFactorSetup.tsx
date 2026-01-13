@@ -96,6 +96,16 @@ const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onClose, onComplete }) 
 
         localStorage.setItem('aegis_2fa_config', JSON.stringify(storagePayload));
 
+        // Sync to SQLite database for CLI access
+        if ((window as any).electronAPI?.db) {
+          try {
+            await (window as any).electronAPI.db.setConfig('aegis_2fa_config', JSON.stringify(storagePayload));
+            console.log('[Security] 2FA config synced to SQLite');
+          } catch (e) {
+            console.error('[Security] Failed to sync 2FA to SQLite:', e);
+          }
+        }
+
         // Check for clock drift warning and display it if necessary
         const clockWarning = TwoFactorService.getClockDriftWarning();
         if (clockWarning) {

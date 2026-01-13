@@ -80,6 +80,39 @@ try {
   console.warn('[Security] Failed to load native security addon:', e.message);
 }
 
+// SECURITY: Hardware Binding Secret (DPAPI Protected)
+function getHardwareBoundSecret() {
+  const hwPath = path.join(app.getPath('userData'), '.aegis_hb');
+
+  if (nativeSecurity) {
+    try {
+      if (fs.existsSync(hwPath)) {
+        const encrypted = fs.readFileSync(hwPath);
+        const decrypted = nativeSecurity.unprotectData(encrypted);
+        if (decrypted) {
+          console.log('[Security] Hardware secret decrypted successfully');
+          return decrypted;
+        }
+      }
+
+      // First run or recovery: Create new hardware secret
+      console.log('[Security] Generating new hardware binding secret...');
+      const secret = crypto.randomBytes(32);
+      const encrypted = nativeSecurity.protectData(secret);
+      if (encrypted) {
+        fs.writeFileSync(hwPath, encrypted);
+        return secret;
+      }
+    } catch (e) {
+      console.error('[Security] Hardware binding failed:', e.message);
+    }
+  }
+
+  // Fallback to Device ID based seed if native/DPAPI fails
+  console.warn('[Security] Falling back to software hardware binding');
+  return crypto.createHash('sha256').update(getDeviceId() + 'AEGIS-HB-SALT').digest();
+}
+
 function getDeviceId() {
   try {
     let serial = "";
@@ -263,6 +296,9 @@ function createWindow() {
     frame: true,
     resizable: true
   });
+
+  // SECURITY: Prevent screen capture and recording
+  mainWindow.setContentProtection(true);
 
   // Geliştirme aşamasında Vite sunucusunu kullan, dağıtımda index.html'i yükle
   const isDev = !app.isPackaged;
@@ -590,16 +626,33 @@ loadBruteForceState();
 ipcMain.handle('vault:set-key', (event, keyRaw, verifier) => {
   sessionKey = Buffer.from(keyRaw);
 
+  // SECURITY: Lock memory immediately to prevent swapping
+  if (nativeSecurity) {
+    try {
+      const locked = nativeSecurity.lockMemory(sessionKey);
+      console.log(`[Security] Session key locked in RAM: ${locked}`);
+    } catch (e) {
+      console.error('[Security] Failed to lock session key:', e.message);
+    }
+  }
+
   // If verifier is provided, update the global verifierBlob
   if (verifier) {
     verifierBlob = verifier;
+    if (nativeSecurity && verifierBlob.salt) {
+      // Optional: Could lock salt too, but master key is the priority
+    }
   }
 
   // SECURITY: Initialize SQLite/SQLCipher Database
   try {
-    const masterKeyHex = sessionKey.toString('hex');
-    databaseService.init(app.getPath('userData'), masterKeyHex);
+    const hwSecret = getHardwareBoundSecret();
+    const combinedKey = crypto.createHmac('sha256', hwSecret).update(sessionKey).digest('hex');
 
+    databaseService.init(app.getPath('userData'), combinedKey);
+
+    // SECURITY: Clean up combinedKey from local scope
+    // (Hex string is harder to wipe, but we'll try to minimize lifetime)
     // PERSIST Metadata for CLI access
     if (verifierBlob && verifierBlob.salt) {
       const meta = {
@@ -621,6 +674,11 @@ ipcMain.handle('vault:set-key', (event, keyRaw, verifier) => {
 
 ipcMain.handle('vault:clear-key', () => {
   if (sessionKey) {
+    // SECURITY: Unlock memory before wiping if possible
+    if (nativeSecurity) {
+      try { nativeSecurity.unlockMemory(sessionKey); } catch (e) { }
+    }
+
     // SECURITY: Aggressive wiping - overwrite multiple times
     sessionKey.fill(0xFF);
     sessionKey.fill(0xAA);

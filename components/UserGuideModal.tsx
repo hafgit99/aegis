@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, ChevronUp, BookOpen, Shield, Lock, Key, Folder, Tag, Search, Download, Upload, Eye, Smartphone, AlertTriangle, Settings, HelpCircle } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, BookOpen, Shield, Lock, Key, Folder, Tag, Search, Download, Upload, Eye, Smartphone, AlertTriangle, Settings, HelpCircle, ShieldCheck } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext.tsx';
 
 interface GuideSection {
@@ -631,6 +631,54 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
 - Dosyanın geçerli bir dışa aktarma olduğunu doğrulayın
 - Ana Şifre'nin doğru olduğundan emin olun
 - Mevcut disk alanını kontrol edin`
+    },
+    {
+      id: 'hardened-security',
+      title: 'Advanced Hardened Security',
+      titleTr: 'İleri Seviye Güvenlik Sertleştirme',
+      description: 'Physical and code-level protection mechanisms',
+      descriptionTr: 'Fiziksel ve kod düzeyinde koruma mekanizmaları',
+      icon: <ShieldCheck size={24} className="text-indigo-500" />,
+      details: `Professional Grade Security Hardening (v2.0.2+):
+
+1. Memory Page Locking (VirtualLock)
+- Physically locks sensitive data (keys, raw passwords) into RAM.
+- Prevents the OS from swapping sensitive memory to the disk (Pagefile/Swap).
+- Mitigates forensic analysis and cold-boot attack vectors.
+
+2. Hardware Binding (Machine Bound)
+- Your vault is tied to this specific computer's hardware.
+- Uses Windows DPAPI (Data Protection API) to create a machine-unique secret.
+- Even if someone steals your 'vault.db' file, they cannot open it on another machine.
+
+3. Code Obfuscation
+- The application's source code is transformed into an unreadable format.
+- Protects against reverse engineering and tampering.
+- Ensures the integrity of existing security logic.
+
+4. Native Core (Node Addon)
+- Critical security functions run in high-performance C++ code.
+- Direct interaction with Windows kernel for memory and protection APIs.`,
+      detailsTr: `Profesyonel Düzey Güvenlik Sertleştirme (v2.0.2+):
+
+1. Bellek Sayfası Kilitleme (VirtualLock)
+- Hassas verileri (anahtarlar, ham şifreler) fiziksel olarak RAM'e kilitler.
+- İşletim sisteminin bu verileri diske (Sanal Bellek/Swap) yazmasını engeller.
+- Adli bilişim analizleri ve 'cold-boot' saldırı risklerini azaltır.
+
+2. Donanım Bağlama (Machine Bound)
+- Kasanız bu bilgisayarın donanımına fiziksel olarak bağlanır.
+- Bilgisayara özel gizli bir anahtar oluşturmak için Windows DPAPI kullanır.
+- Birisi 'vault.db' dosyanızı çalsa bile, başka bir bilgisayarda açamaz.
+
+3. Kod Karartma (Obfuscation)
+- Uygulama kaynak kodu okunamaz ve karmaşık bir formata dönüştürülür.
+- Tersine mühendislik ve kod manipülasyonuna karşı koruma sağlar.
+- Mevcut güvenlik mantığının bütünlüğünü garanti altına alır.
+
+4. Native Çekirdek (C++ Addon)
+- Kritik güvenlik fonksiyonları yüksek performanslı C++ kodunda çalışır.
+- Bellek ve koruma API'leri için Windows çekirdeği ile doğrudan etkileşim kurar.`
     },
     {
       id: 'database-engine',

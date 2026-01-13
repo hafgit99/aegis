@@ -83,7 +83,7 @@ const AppContent: React.FC = () => {
   }, [entries, masterKey]);
 
   return (
-    <div className="h-screen w-screen bg-[#050505] text-zinc-50 overflow-hidden flex flex-col">
+    <div className="h-full w-full bg-[#050505] text-zinc-50 overflow-hidden flex flex-col">
       {/* TitleBar is now part of flex flow */}
       <TitleBar />
 

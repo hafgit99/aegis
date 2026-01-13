@@ -52,28 +52,71 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, [logout]);
 
     const loadEntries = useCallback(async () => {
-        const data = await db.vault.toArray();
+        setIsLoading(true);
+        let data: VaultEntry[] = [];
+
+        const electronDB = (window as any).electronAPI?.db;
+
+        if (masterKey && electronDB) {
+            // Check for migration
+            const isMigrated = await VaultService.isMigratedToSQLite();
+            if (!isMigrated) {
+                const indexedDbItems = await db.vault.toArray();
+                console.log(`[Migration] Starting migration... Found ${indexedDbItems.length} items in IndexedDB.`);
+                await VaultService.migrateToSQLite(masterKey);
+                console.log("[Migration] Migration to SQLite completed.");
+            }
+            data = await VaultService.loadAllFromSQLite();
+            console.log(`[Database] Loaded ${data.length} entries from SQLite.`);
+        } else {
+            data = await db.vault.toArray();
+        }
 
         if (masterKey) {
             const decryptedData = await Promise.all(
                 data.map(async (entry) => {
-                    const metadata = await VaultService.decryptEntryMetadata(entry, masterKey);
-                    return {
-                        ...entry,
-                        title: metadata.title,
-                        username: metadata.username,
-                        category: metadata.category || entry.category,
-                        folderId: metadata.folderId,
-                        isFavorite: metadata.isFavorite ?? entry.isFavorite,
-                        deletedAt: metadata.deletedAt,
-                        fileSize: metadata.fileSize ?? entry.fileSize
-                    };
+                    try {
+                        const metadata = await VaultService.decryptEntryMetadata(entry, masterKey);
+                        return {
+                            ...entry,
+                            title: metadata.title,
+                            username: metadata.username,
+                            category: metadata.category || entry.category,
+                            folderId: metadata.folderId,
+                            isFavorite: metadata.isFavorite ?? entry.isFavorite,
+                            deletedAt: metadata.deletedAt,
+                            fileSize: metadata.fileSize ?? entry.fileSize
+                        };
+                    } catch (e) {
+                        console.error("[VaultContext] Failed to decrypt entry metadata:", entry.id, e);
+                        return {
+                            ...entry,
+                            title: '[Decryption Error]',
+                            username: '[Decryption Error]',
+                            category: entry.category,
+                            folderId: undefined,
+                            isFavorite: false,
+                            deletedAt: undefined,
+                            fileSize: entry.fileSize
+                        };
+                    }
                 })
             );
+            console.log(`[VaultContext] Successfully decrypted ${decryptedData.length} entries`);
             setEntries(decryptedData.sort((a, b) => b.updatedAt - a.updatedAt));
 
             const fData = await FolderService.getAllFolders(masterKey);
             setFolders(fData);
+
+            // Sync 2FA config to DB for CLI access
+            const twoFactorConfigB64 = localStorage.getItem('aegis_2fa_config');
+            if (twoFactorConfigB64 && (window as any).electronAPI?.db) {
+                try {
+                    await (window as any).electronAPI.db.setConfig('aegis_2fa_config', twoFactorConfigB64);
+                } catch (e) {
+                    console.error("Failed to sync 2FA to DB in loadEntries:", e);
+                }
+            }
         } else {
             setEntries(data.sort((a, b) => b.updatedAt - a.updatedAt));
         }

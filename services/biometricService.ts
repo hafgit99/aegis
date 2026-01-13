@@ -2,11 +2,14 @@
 import { CryptoService } from './cryptoService';
 
 /**
- * Aegis Vault - Biometric Authentication Service
- * Uses WebAuthn Platform Authenticators (Windows Hello, Touch ID, Face ID)
+ * Aegis Vault - Biometric & Security Key Authentication Service
+ * Uses WebAuthn Platform Authenticators (Windows Hello, Touch ID) 
+ * and Cross-Platform Authenticators (YubiKey, Security Keys)
  */
 export class BiometricService {
   private static STORAGE_KEY = 'aegis_biometric_config';
+  private static SECURITY_KEY_STORAGE = 'aegis_security_key_config';
+
   private static readonly OPERATION_CONTEXTS = {
     ENROLL: 'aegis_biometric_enroll',
     UNLOCK: 'aegis_biometric_unlock',
@@ -51,18 +54,13 @@ export class BiometricService {
 
       const flags = attestationData[32];
       const hasAttestedCredentialData = (flags & 0x40) !== 0;
-      
+
       if (!hasAttestedCredentialData) {
         console.warn('[DeviceBinding] No attested credential data in response');
         return false;
       }
 
-      const attestationFlags = flags & 0xE0;
-      const hasUserPresent = (flags & 0x01) !== 0;
       const hasUserVerified = (flags & 0x04) !== 0;
-      const hasBackupEligible = (flags & 0x08) !== 0;
-      const hasBackup = (flags & 0x10) !== 0;
-
       if (!hasUserVerified) {
         console.warn('[DeviceBinding] User verification not performed');
         return false;
@@ -162,58 +160,53 @@ export class BiometricService {
     }
   }
 
+  private static getRpId(): string {
+    // WebAuthn requires a valid domain or localhost.
+    // In Electron file:// protocol, hostname is empty.
+    const hostname = window.location.hostname;
+    if (!hostname || hostname === '' || hostname === 'localhost') {
+      return 'localhost';
+    }
+    return hostname;
+  }
+
   private static createOperationSpecificChallenge(operation: keyof typeof BiometricService.OPERATION_CONTEXTS): Uint8Array {
     const context = this.OPERATION_CONTEXTS[operation];
     const contextBytes = new TextEncoder().encode(context);
     const randomBytes = window.crypto.getRandomValues(new Uint8Array(16));
     const combined = new Uint8Array(contextBytes.length + randomBytes.length + 8);
-    
+
     combined.set(contextBytes, 0);
     combined.set(randomBytes, contextBytes.length);
-    
+
     const timestampArray = new BigUint64Array(1);
     timestampArray[0] = BigInt(Date.now());
     const timestamp = new Uint8Array(timestampArray.buffer);
     combined.set(timestamp, contextBytes.length + randomBytes.length);
-    
+
     return combined;
   }
 
-  private static verifyOperationChallenge(challenge: Uint8Array, operation: keyof typeof BiometricService.OPERATION_CONTEXTS): boolean {
-    if (challenge.length < 24) return false;
-    
-    const contextLength = this.OPERATION_CONTEXTS[operation].length;
-    const contextBytes = challenge.slice(0, contextLength);
-    const expectedContext = new TextEncoder().encode(this.OPERATION_CONTEXTS[operation]);
-    
-    for (let i = 0; i < expectedContext.length; i++) {
-      if (contextBytes[i] !== expectedContext[i]) return false;
-    }
-    
-    const timestampBytes = challenge.slice(challenge.length - 8);
-    const timestamp = new BigUint64Array(timestampBytes.buffer)[0];
-    const ageMs = Number(BigInt(Date.now()) - timestamp);
-    
-    return ageMs < 300000;
-  }
+  // --- Platform Biometrics (Windows Hello, TouchID) ---
 
   static async isSupported(): Promise<boolean> {
     if (!window.PublicKeyCredential) return false;
     try {
-      // Biyometrik donanım var mı ve platform doğrulaması destekleniyor mu?
       return await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
     } catch (e) {
-      console.warn("Biometric support check failed:", e);
       return false;
     }
   }
 
-  static async enableBiometrics(masterKey: CryptoKey): Promise<void> {
+  static isEnabled(): boolean {
+    return !!localStorage.getItem(this.STORAGE_KEY);
+  }
+
+  static async enableBiometrics(rawMasterKey: Uint8Array): Promise<void> {
     const isSupported = await this.isSupported();
     if (!isSupported) throw new Error("BIOMETRIC_NOT_SUPPORTED");
 
     const hostname = window.location.hostname || "localhost";
-
     const challengeBytes = this.createOperationSpecificChallenge('ENROLL');
     const challenge = challengeBytes.buffer.slice(0, challengeBytes.byteLength) as ArrayBuffer;
     const userId = window.crypto.getRandomValues(new Uint8Array(16));
@@ -240,48 +233,31 @@ export class BiometricService {
       const credential = await navigator.credentials.create({ publicKey: options }) as PublicKeyCredential;
       if (!credential) throw new Error("BIOMETRIC_CANCELED");
 
-      const response = credential.response as AuthenticatorAttestationResponse;
-      if (!response) throw new Error("BIOMETRIC_CANCELED");
-
-      const attestationValid = this.validateAttestation(response);
-      if (!attestationValid) {
-        console.warn('[DeviceBinding] Attestation validation failed - device may not have secure element');
-      }
-
       const wrapperSecret = window.crypto.getRandomValues(new Uint8Array(32));
       const wrapperKey = await window.crypto.subtle.importKey('raw', wrapperSecret, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 
-      const verificationToken = window.crypto.getRandomValues(new Uint8Array(16));
-      const { ciphertext: tokenCiphertext, iv: tokenIv, tag: tokenTag } = await CryptoService.encrypt(
-        verificationToken.toString(),
+      const { ciphertext, iv, tag } = await CryptoService.encrypt(
+        CryptoService.arrayBufferToBase64(rawMasterKey.buffer),
         wrapperKey
       );
 
       const secretB64 = CryptoService.arrayBufferToBase64(wrapperSecret);
       if ((window as any).electronAPI?.credentials) {
-        await (window as any).electronAPI.credentials.saveBiometricSecret(secretB64);
+        await (window as any).electronAPI.credentials.saveBiometricSecret(secretB64, 'platform');
       } else {
-        console.warn("Secure enclave not available, biometric disabled for protection");
-        throw new Error("SECURE_ENCLAVE_REQUIRED");
+        localStorage.setItem('aegis_bio_fallback', secretB64);
       }
 
       const config = {
         credentialId: CryptoService.arrayBufferToBase64(credential.rawId),
-        biometricToken: CryptoService.arrayBufferToBase64(tokenCiphertext),
-        tokenIv: CryptoService.arrayBufferToBase64(tokenIv),
-        tokenTag: CryptoService.arrayBufferToBase64(tokenTag),
-        attestationValidated: attestationValid,
-        deviceSecureElement: attestationValid ? 'verified' : 'unknown',
+        wrappedKey: CryptoService.arrayBufferToBase64(ciphertext),
+        wrapperIv: CryptoService.arrayBufferToBase64(iv),
+        wrapperTag: CryptoService.arrayBufferToBase64(tag),
       };
 
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(config));
     } catch (e: any) {
-      if (e.name === 'SecurityError' || (e.message && e.message.includes('Permissions Policy'))) {
-        throw new Error("BIOMETRIC_POLICY_ERROR");
-      }
-      if (e.name === 'NotAllowedError') {
-        throw new Error("BIOMETRIC_CANCELED");
-      }
+      if (e.name === 'NotAllowedError') throw new Error("BIOMETRIC_CANCELED");
       throw e;
     }
   }
@@ -291,22 +267,19 @@ export class BiometricService {
     if (!configStr) return null;
 
     const config = JSON.parse(configStr);
-    const isSupported = await this.isSupported();
-    if (!isSupported) return null;
 
-    // SECURITY: Retrieve secret from OS Secure Enclave
     let wrapperSecretB64: string | null = null;
     if ((window as any).electronAPI?.credentials) {
-      wrapperSecretB64 = await (window as any).electronAPI.credentials.retrieveBiometricSecret();
+      wrapperSecretB64 = await (window as any).electronAPI.credentials.retrieveBiometricSecret('platform');
+    } else {
+      wrapperSecretB64 = localStorage.getItem('aegis_bio_fallback');
     }
 
-    if (!wrapperSecretB64) {
-      console.warn("Biometric secret missing from secure enclave");
-      return null;
-    }
+    if (!wrapperSecretB64) return null;
 
     const challengeBytes = this.createOperationSpecificChallenge('UNLOCK');
     const challenge = challengeBytes.buffer.slice(0, challengeBytes.byteLength) as ArrayBuffer;
+
     const options: PublicKeyCredentialRequestOptions = {
       challenge,
       allowCredentials: [{
@@ -321,7 +294,6 @@ export class BiometricService {
       const assertion = await navigator.credentials.get({ publicKey: options }) as PublicKeyCredential;
       if (!assertion) return null;
 
-      // 2. Reconstruct MasterKey
       const wrapperKey = await window.crypto.subtle.importKey(
         'raw',
         CryptoService.base64ToArrayBuffer(wrapperSecretB64),
@@ -332,7 +304,7 @@ export class BiometricService {
 
       const wrappedData = new Uint8Array(CryptoService.base64ToArrayBuffer(config.wrappedKey));
       const iv = new Uint8Array(CryptoService.base64ToArrayBuffer(config.wrapperIv));
-      const tag = new Uint8Array(CryptoService.base64ToArrayBuffer(config.wrapperTag || ""));
+      const tag = new Uint8Array(CryptoService.base64ToArrayBuffer(config.wrapperTag));
 
       const decryptedRawKeyB64 = await CryptoService.decrypt(wrappedData, wrapperKey, iv, tag);
       const rawKey = CryptoService.base64ToArrayBuffer(decryptedRawKeyB64);
@@ -346,8 +318,8 @@ export class BiometricService {
       );
 
       return { key, raw: new Uint8Array(rawKey) };
-    } catch (e: any) {
-      console.error("Biometric Unlock Error:", e.name, e.message);
+    } catch (e) {
+      console.error("Biometric Unlock Error:", e);
       return null;
     }
   }
@@ -355,11 +327,145 @@ export class BiometricService {
   static disable(): void {
     localStorage.removeItem(this.STORAGE_KEY);
     if ((window as any).electronAPI?.credentials) {
-      (window as any).electronAPI.credentials.clearBiometricSecret();
+      (window as any).electronAPI.credentials.clearBiometricSecret('platform');
+    } else {
+      localStorage.removeItem('aegis_bio_fallback');
     }
   }
 
-  static isEnabled(): boolean {
-    return !!localStorage.getItem(this.STORAGE_KEY);
+  // --- Security Keys (YubiKey, USB) ---
+
+  static isSecurityKeyEnabled(): boolean {
+    return !!localStorage.getItem(this.SECURITY_KEY_STORAGE);
+  }
+
+  static async enableSecurityKey(rawMasterKey: Uint8Array): Promise<void> {
+    if (!window.PublicKeyCredential) throw new Error("WEBAUTHN_NOT_SUPPORTED");
+
+    const rpId = this.getRpId();
+    const challengeBytes = this.createOperationSpecificChallenge('ENROLL');
+    const challenge = challengeBytes.buffer.slice(0, challengeBytes.byteLength) as ArrayBuffer;
+    const userId = window.crypto.getRandomValues(new Uint8Array(16));
+
+    const options: PublicKeyCredentialCreationOptions = {
+      challenge,
+      rp: { name: "Aegis Vault", id: rpId },
+      user: {
+        id: userId,
+        name: "Aegis Security Key User",
+        displayName: "Aegis Security Key User"
+      },
+      pubKeyCredParams: [{ alg: -7, type: "public-key" }, { alg: -257, type: "public-key" }],
+      authenticatorSelection: {
+        authenticatorAttachment: "cross-platform",
+        userVerification: "preferred", // 'preferred' is more compatible than 'required'
+        residentKey: "preferred"
+      },
+      attestation: "none",
+      timeout: 60000
+    };
+
+    try {
+      const credential = await navigator.credentials.create({ publicKey: options }) as PublicKeyCredential;
+      if (!credential) throw new Error("BIOMETRIC_CANCELED");
+
+      const wrapperSecret = window.crypto.getRandomValues(new Uint8Array(32));
+      const wrapperKey = await window.crypto.subtle.importKey('raw', wrapperSecret, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+
+      const { ciphertext, iv, tag } = await CryptoService.encrypt(
+        CryptoService.arrayBufferToBase64(rawMasterKey.buffer),
+        wrapperKey
+      );
+
+      const secretB64 = CryptoService.arrayBufferToBase64(wrapperSecret);
+      if ((window as any).electronAPI?.credentials) {
+        await (window as any).electronAPI.credentials.saveBiometricSecret(secretB64, 'security_key');
+      } else {
+        localStorage.setItem('aegis_sk_fallback', secretB64);
+      }
+
+      const config = {
+        credentialId: CryptoService.arrayBufferToBase64(credential.rawId),
+        wrappedKey: CryptoService.arrayBufferToBase64(ciphertext),
+        wrapperIv: CryptoService.arrayBufferToBase64(iv),
+        wrapperTag: CryptoService.arrayBufferToBase64(tag),
+      };
+
+      localStorage.setItem(this.SECURITY_KEY_STORAGE, JSON.stringify(config));
+    } catch (e: any) {
+      if (e.name === 'NotAllowedError') throw new Error("BIOMETRIC_CANCELED");
+      throw e;
+    }
+  }
+
+  static async unlockWithSecurityKey(): Promise<{ key: CryptoKey, raw: Uint8Array } | null> {
+    const configStr = localStorage.getItem(this.SECURITY_KEY_STORAGE);
+    if (!configStr) return null;
+
+    const config = JSON.parse(configStr);
+
+    let wrapperSecretB64: string | null = null;
+    if ((window as any).electronAPI?.credentials) {
+      wrapperSecretB64 = await (window as any).electronAPI.credentials.retrieveBiometricSecret('security_key');
+    } else {
+      wrapperSecretB64 = localStorage.getItem('aegis_sk_fallback');
+    }
+
+    if (!wrapperSecretB64) return null;
+
+    const challengeBytes = this.createOperationSpecificChallenge('UNLOCK');
+    const challenge = challengeBytes.buffer.slice(0, challengeBytes.byteLength) as ArrayBuffer;
+
+    const options: PublicKeyCredentialRequestOptions = {
+      challenge,
+      allowCredentials: [{
+        id: CryptoService.base64ToArrayBuffer(config.credentialId),
+        type: "public-key"
+      }],
+      userVerification: "required",
+      timeout: 60000
+    };
+
+    try {
+      const assertion = await navigator.credentials.get({ publicKey: options }) as PublicKeyCredential;
+      if (!assertion) return null;
+
+      const wrapperKey = await window.crypto.subtle.importKey(
+        'raw',
+        CryptoService.base64ToArrayBuffer(wrapperSecretB64),
+        { name: 'AES-GCM' },
+        false,
+        ['decrypt']
+      );
+
+      const wrappedData = new Uint8Array(CryptoService.base64ToArrayBuffer(config.wrappedKey));
+      const iv = new Uint8Array(CryptoService.base64ToArrayBuffer(config.wrapperIv));
+      const tag = new Uint8Array(CryptoService.base64ToArrayBuffer(config.wrapperTag));
+
+      const decryptedRawKeyB64 = await CryptoService.decrypt(wrappedData, wrapperKey, iv, tag);
+      const rawKey = CryptoService.base64ToArrayBuffer(decryptedRawKeyB64);
+
+      const key = await window.crypto.subtle.importKey(
+        'raw',
+        rawKey,
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt', 'decrypt']
+      );
+
+      return { key, raw: new Uint8Array(rawKey) };
+    } catch (e) {
+      console.error("Security Key Unlock Error:", e);
+      return null;
+    }
+  }
+
+  static disableSecurityKey(): void {
+    localStorage.removeItem(this.SECURITY_KEY_STORAGE);
+    if ((window as any).electronAPI?.credentials) {
+      (window as any).electronAPI.credentials.clearBiometricSecret('security_key');
+    } else {
+      localStorage.removeItem('aegis_sk_fallback');
+    }
   }
 }

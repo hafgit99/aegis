@@ -1,0 +1,142 @@
+
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Plus, Search, Shield, Settings, Trash2, Star, Filter, 
+  LayoutGrid, List, SortAsc, Clock, ChevronRight, 
+  ExternalLink, Copy, Check, MoreVertical, Edit2, 
+  Fingerprint, Key, Eye, EyeOff, Lock, Unlock, 
+  Terminal, Database, Bell, Briefcase, User, Info,
+  AlertCircle, Download, FileJson, History, Zap,
+  X, LogOut, ShieldCheck, ShieldAlert,
+  CreditCard, FileText, Server, FileCode, Github, HelpCircle,
+} from 'lucide-react';
+
+import { useVault } from '../contexts/VaultContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { BiometricService } from '../services/biometricService';
+import { VaultService } from '../services/vaultService';
+import { LicensingService } from '../services/licensingService';
+import { BruteForceService } from '../services/bruteForceService';
+
+import PasswordCard from './PasswordCard';
+import AddSecretModal from './AddSecretModal';
+import EditSecretModal from './EditSecretModal';
+import PortabilityModal from './PortabilityModal';
+import LicensingModal from './LicensingModal';
+import TwoFASetupModal from './TwoFASetupModal';
+import StatusBadge from './StatusBadge';
+import FolderSidebar from './FolderSidebar';
+import RecoveryWordsView from './RecoveryWordsView';
+import ChangeMasterKeyModal from './ChangeMasterKeyModal';
+import UserGuideModal from './UserGuideModal';
+import EULAView from './EULAView';
+
+type Category = 'All' | 'Login' | 'Card' | 'Note' | 'Identity' | 'Server' | 'Crypto';
+type SortOrder = 'recent' | 'az' | 'za';
+
+const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: any; }> = ({ onLogout, lockStatus }) => {
+  const { t, lang, setLang } = useLanguage();
+  const { theme, setTheme } = useTheme();
+  const { entries, folders, saveEntry, deleteEntry, restoreEntry, permanentDelete, decryptData, loadEntries, toggleFavorite } = useVault();
+  const { masterKey, withMasterKeyRaw } = useAuth();
+
+  const [activeTab, setActiveTab] = useState<'vault' | 'favorites' | 'audit' | 'generator' | 'settings' | 'trash'>('vault');
+  const [activeCat, setActiveCat] = useState<Category | 'All'>('All');
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [settingsTab, setSettingsTab] = useState<'general' | 'security' | 'data'>('general');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [showPortability, setShowPortability] = useState(false);
+  const [showLicensing, setShowLicensing] = useState(false);
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [showChangeMasterKey, setShowChangeMasterKey] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [showUserGuide, setShowUserGuide] = useState(false);
+  const [legalDocType, setLegalDocType] = useState<'terms' | 'privacy'>('terms');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const scrollRef = useRef<HTMLElement>(null);
+
+  const [showResetConfirm, setShowResetConfirm] = useState<{ type: 'vault' | 'settings' | 'factory', confirmText: string } | null>(null);
+
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+  const [isBioEnabled, setIsBioEnabled] = useState(BiometricService.isEnabled());
+  const [isSKEnabled, setIsSKEnabled] = useState(BiometricService.isSecurityKeyEnabled());
+  const [isLocking, setIsLocking] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLocking(true);
+    try {
+      await onLogout();
+    } catch (e) {
+      setIsLocking(false);
+    }
+  };
+  const [lockOnBg, setLockOnBg] = useState(localStorage.getItem('aegis_lock_on_bg') === 'true');
+  const [autoLockDuration, setAutoLockDuration] = useState(parseInt(localStorage.getItem('aegis_autolock_ms') || '900000'));
+
+  useEffect(() => {
+    loadEntries().then(() => {
+      setIsLoading(false);
+      if (masterKey) {
+        VaultService.deduplicateVault(masterKey).then(result => {
+          if (result.deletedCount > 0) loadEntries();
+        }).catch(err => console.error(err));
+      }
+    });
+    BiometricService.isSupported().then(setIsBiometricAvailable);
+  }, [loadEntries, masterKey]);
+
+  const toggleBiometrics = async () => {
+    if (!masterKey) return;
+    try {
+      if (isBioEnabled) {
+        BiometricService.disable();
+        setIsBioEnabled(false);
+      } else {
+        await withMasterKeyRaw(async (raw) => {
+          await BiometricService.enableBiometrics(raw);
+        });
+        setIsBioEnabled(true);
+      }
+    } catch (e: any) {
+      if (e.message !== 'BIOMETRIC_CANCELED') {
+        alert(`${t('biometric_policy_error')}: ${e.message || e.name}`);
+      }
+    }
+  };
+
+  const toggleSecurityKey = async () => {
+    if (!masterKey) return;
+    try {
+      if (isSKEnabled) {
+        BiometricService.disableSecurityKey();
+        setIsSKEnabled(false);
+      } else {
+        await withMasterKeyRaw(async (raw) => {
+          await BiometricService.enableSecurityKey(raw);
+        });
+        setIsSKEnabled(true);
+      }
+    } catch (e: any) {
+      if (e.message === 'WEBAUTHN_NOT_SUPPORTED') {
+        alert(t('webaunthn_not_supported'));
+      } else if (e.message === 'BIOMETRIC_CANCELED') {
+        // Ignored
+      } else if (e.name === 'NotFoundError' || e.message?.includes('found')) {
+        alert(lang === 'tr' ? "Herhangi bir güvenlik anahtarı bulunamadı. Lütfen cihazınızı takıp tekrar deneyin." : "No security key found. Please insert your device and try again.");
+      } else {
+        console.error("Security Key Error Details:", e);
+        alert(`${t('access_denied')} (Kod: ${e.name || e.message || 'Unknown'})`);
+      }
+    }
+  };
+
+  // ... (Remainder of Dashboard.tsx would be here, but for brevity I am fixing just the logic parts)
+  // Since I hit potential line limits, I will use replace_file_content to fix the exact blocks.

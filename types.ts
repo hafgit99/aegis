@@ -211,7 +211,7 @@ export interface IncidentReport {
   resolvedAt?: number;
 }
 
-export type IncidentType = 
+export type IncidentType =
   | 'unauthorized_access'
   | 'data_breach'
   | 'brute_force_attempt'
@@ -220,3 +220,59 @@ export type IncidentType =
   | 'backup_failure'
   | 'system_tampering'
   | 'other';
+
+declare global {
+  interface Window {
+    electronAPI: {
+      copyToClipboard: (text: string, duration?: number) => void;
+      getDeviceId: () => Promise<string>;
+      panicApp: () => void;
+      onClipboardCleared: (callback: () => void) => void;
+      onLockTrigger: (callback: () => void) => () => void;
+      getAppVersion: () => string;
+      minimize: () => void;
+      maximize: () => void;
+      close: () => void;
+      platform: string;
+      vault: {
+        setKey: (raw: Uint8Array, verifier?: any) => Promise<boolean>;
+        clearKey: () => Promise<boolean>;
+        setVerifier: (blob: any) => Promise<boolean>;
+        getVerifier: () => Promise<any>;
+        encrypt: (text: string) => Promise<{ ciphertext: Uint8Array; iv: Uint8Array; tag: Uint8Array }>;
+        decrypt: (ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array) => Promise<string>;
+        encryptBinary: (buffer: ArrayBuffer | Uint8Array) => Promise<{ ciphertext: Uint8Array; iv: Uint8Array; tag: Uint8Array }>;
+        decryptBinary: (ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array) => Promise<Uint8Array>;
+      };
+      credentials: {
+        saveMasterKey: (saltB64: string, keyB64: string) => Promise<boolean>;
+        retrieveMasterKey: () => Promise<{ saltB64: string; keyB64: string } | null>;
+        clearMasterKey: () => Promise<boolean>;
+        saveBiometricSecret: (secretB64: string, tag?: string) => Promise<boolean>;
+        retrieveBiometricSecret: (tag?: string) => Promise<string | null>;
+        clearBiometricSecret: (tag?: string) => Promise<boolean>;
+      };
+      audit: {
+        logEvent: (action: string, metadata?: any) => Promise<boolean>;
+        flush: () => Promise<boolean>;
+        getLogs: (limit?: number) => Promise<any[]>;
+      };
+      secureMemory: {
+        lockPages: (buffer: Uint8Array) => Promise<boolean>;
+        getStatus: () => Promise<{ locked: boolean; supported: boolean; native: boolean; platform: string }>;
+      };
+      db: {
+        saveEntry: (entry: any) => Promise<any>;
+        deleteEntry: (id: string) => Promise<any>;
+        getEntry: (id: string) => Promise<any>;
+        bulkSaveEntries: (entries: any[]) => Promise<any>;
+        getAllEntries: () => Promise<any[]>;
+        saveFolder: (folder: any) => Promise<any>;
+        deleteFolder: (id: string) => Promise<any>;
+        getAllFolders: () => Promise<any[]>;
+        setConfig: (key: string, value: string) => Promise<any>;
+        getConfig: (key: string) => Promise<string | null>;
+      };
+    };
+  }
+}

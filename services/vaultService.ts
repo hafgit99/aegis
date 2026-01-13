@@ -8,6 +8,7 @@ import zxcvbn from 'zxcvbn';
 
 const MASTER_METADATA_KEY = 'aegis_vault_metadata';
 const MASTER_VERIFIER_KEY = 'aegis_vault_verifier';
+const DURESS_VERIFIER_KEY = 'aegis_vault_duress_verifier';
 const VALIDATOR_TEXT = "AEGIS_VAULT_ACTIVE_SESSION_VALIDATOR";
 
 export class VaultService {
@@ -22,7 +23,7 @@ export class VaultService {
     }
   }
 
-  static async deriveMasterKey(password: string): Promise<{ key: CryptoKey; raw: Uint8Array }> {
+  static async deriveMasterKey(password: string): Promise<{ key: CryptoKey; raw: Uint8Array; duress: boolean }> {
     const metadataStr = localStorage.getItem(MASTER_METADATA_KEY);
     if (!metadataStr) throw new Error("Vault not setup");
 
@@ -41,52 +42,90 @@ export class VaultService {
 
     const { key, raw } = await CryptoService.deriveKeyWithRaw(password, salt, iterations);
 
-    // Verifier'ı localStorage'dan al (kalıcı depolama)
+    // 1. Try Main Verifier
     const verifierStr = localStorage.getItem(MASTER_VERIFIER_KEY);
-    if (!verifierStr) {
-      throw new Error("WRONG_PASSWORD");
+    if (verifierStr) {
+      try {
+        const verifier = JSON.parse(verifierStr);
+        const decrypted = await this.decryptWithMasterKey(key, verifier);
+
+        if (decrypted === VALIDATOR_TEXT) {
+          if ((window as any).electronAPI?.vault) {
+            await (window as any).electronAPI.vault.setKey(raw, { ...verifier, salt: CryptoService.arrayBufferToBase64(salt.buffer), iterations });
+          }
+          return { key, raw, duress: false };
+        }
+      } catch (e) { /* continue to duress check */ }
     }
 
-    try {
-      const verifier = JSON.parse(verifierStr);
-      const encryptedBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.payload));
-      const tagBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.tag));
-      const ivBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.iv));
+    // 2. Try Duress Verifier
+    const duressStr = localStorage.getItem(DURESS_VERIFIER_KEY);
+    if (duressStr) {
+      try {
+        const duressVerifier = JSON.parse(duressStr);
+        const decrypted = await this.decryptWithMasterKey(key, duressVerifier);
 
-      // IMPORTANT: Doğrudan Web Crypto API kullan, Electron IPC değil
-      // Çünkü sessionKey henüz ayarlanmamış olabilir
-      const combined = new Uint8Array(encryptedBuffer.byteLength + tagBuffer.byteLength);
-      combined.set(encryptedBuffer, 0);
-      combined.set(tagBuffer, encryptedBuffer.byteLength);
-
-      const decryptedBuffer = await window.crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: ivBuffer as any },
-        key,
-        combined.buffer as any
-      );
-
-      const decoder = new TextDecoder();
-      const decrypted = decoder.decode(decryptedBuffer);
-
-      if (decrypted !== VALIDATOR_TEXT) {
-        throw new Error("WRONG_PASSWORD");
-      }
-
-      // SECURITY UPGRADE: If iterations is less than default, migrate automatically
-      const metadata = JSON.parse(metadataStr!);
-      if (iterations < CryptoService.DEFAULT_ITERATIONS) {
-        return await this.migrateVault(password, salt, { key, raw }, CryptoService.DEFAULT_ITERATIONS, metadata);
-      }
-
-      // Electron varsa verifier'ı RAM'e de yükle (session için)
-      if ((window as any).electronAPI?.vault) {
-        await (window as any).electronAPI.vault.setVerifier(verifier);
-      }
-    } catch (e) {
-      throw new Error("WRONG_PASSWORD");
+        if (decrypted === VALIDATOR_TEXT) {
+          // Alert the main process it's duress mode
+          if ((window as any).electronAPI?.vault) {
+            await (window as any).electronAPI.vault.setKey(raw, { ...duressVerifier, salt: CryptoService.arrayBufferToBase64(salt.buffer), iterations });
+            (window as any).localStorage.setItem('aegis_duress_active', 'true');
+          }
+          // Log duress access (security alert internally)
+          return { key, raw, duress: true };
+        }
+      } catch (e) { /* failed both */ }
     }
 
-    return { key, raw };
+    throw new Error("WRONG_PASSWORD");
+  }
+
+  private static async decryptWithMasterKey(key: CryptoKey, verifier: any): Promise<string> {
+    const encryptedBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.payload));
+    const tagBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.tag));
+    const ivBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.iv));
+
+    const combined = new Uint8Array(encryptedBuffer.byteLength + tagBuffer.byteLength);
+    combined.set(encryptedBuffer, 0);
+    combined.set(tagBuffer, encryptedBuffer.byteLength);
+
+    const decryptedBuffer = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: ivBuffer as any },
+      key,
+      combined.buffer as any
+    );
+
+    return new TextDecoder().decode(decryptedBuffer);
+  }
+
+  static async setupDuressPassword(password: string): Promise<void> {
+    const salt = this.getSalt();
+    const metadata = JSON.parse(localStorage.getItem(MASTER_METADATA_KEY) || '{}');
+    const iterations = metadata.iterations || CryptoService.DEFAULT_ITERATIONS;
+
+    const { key } = await CryptoService.deriveKeyWithRaw(password, salt, iterations);
+
+    const encoder = new TextEncoder();
+    const dataBytes = encoder.encode(VALIDATOR_TEXT);
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+    const encrypted = await window.crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv: iv as any },
+      key,
+      dataBytes as any
+    );
+
+    const fullBuffer = new Uint8Array(encrypted);
+    const ciphertext = fullBuffer.slice(0, fullBuffer.length - 16);
+    const tag = fullBuffer.slice(fullBuffer.length - 16);
+
+    const duressBlob = {
+      payload: CryptoService.arrayBufferToBase64(ciphertext.buffer),
+      iv: CryptoService.arrayBufferToBase64(iv.buffer),
+      tag: CryptoService.arrayBufferToBase64(tag.buffer)
+    };
+
+    localStorage.setItem(DURESS_VERIFIER_KEY, JSON.stringify(duressBlob));
   }
 
   static async setup(password: string): Promise<{ key: CryptoKey; raw: Uint8Array }> {
@@ -139,7 +178,11 @@ export class VaultService {
 
       // Electron varsa RAM'e de kaydet (session için)
       if ((window as any).electronAPI?.vault) {
-        await (window as any).electronAPI.vault.setVerifier(verifierBlob);
+        await (window as any).electronAPI.vault.setVerifier({
+          ...verifierBlob,
+          salt: saltB64,
+          iterations: iterations
+        });
       }
 
       // Kurulum sırasında kurtarma kelimelerini oluştur ve kaydet
@@ -150,6 +193,108 @@ export class VaultService {
     } catch (error) {
       console.error("Setup error:", error);
       throw error;
+    }
+  }
+
+  // --- SQLite Support ---
+  static async isMigratedToSQLite(): Promise<boolean> {
+    const electronDB = (window as any).electronAPI?.db;
+    if (!electronDB) return false;
+    const val = await electronDB.getConfig('migration_v1_complete');
+    return val === 'true';
+  }
+
+  static async migrateToSQLite(masterKey: CryptoKey): Promise<void> {
+    const electronDB = (window as any).electronAPI?.db;
+    if (!electronDB) return;
+
+    console.log('[Database] Starting migration to SQLite/SQLCipher...');
+
+    // 1. Migrate Folders
+    const allFolders = await db.folders.toArray();
+    console.log(`[Migration] Migrating ${allFolders.length} folders...`);
+    for (const f of allFolders) {
+      await electronDB.saveFolder({
+        id: f.id,
+        name: await FolderService.decryptFolderName(f, masterKey)
+      });
+    }
+
+    // 2. Migrate Entries
+    const allEntries = await db.vault.toArray();
+    console.log(`[Migration] Migrating ${allEntries.length} entries...`);
+    for (const entry of allEntries) {
+      await electronDB.saveEntry({
+        id: entry.id,
+        category: entry.category,
+        folderId: entry.folderId,
+        payload: entry.encryptedData,
+        iv: CryptoService.arrayBufferToBase64(entry.iv.buffer),
+        tag: CryptoService.arrayBufferToBase64(entry.tag.buffer),
+        isFavorite: entry.isFavorite ? 1 : 0
+      });
+    }
+
+    await electronDB.setConfig('migration_v1_complete', 'true');
+    console.log('[Database] Migration completed successfully.');
+  }
+
+  static async loadAllFromSQLite(): Promise<VaultEntry[]> {
+    const electronDB = (window as any).electronAPI?.db;
+    if (!electronDB) return [];
+
+    console.log('[VaultService] Loading entries from SQLite...');
+    try {
+      const rows = await electronDB.getAllEntries();
+      console.log(`[VaultService] Raw rows received from SQLite: ${rows.length}`);
+
+      if (rows.length > 0) {
+        console.log('[VaultService] First row sample:', rows[0]);
+      }
+
+      const mapped = rows.map((row: any) => {
+        try {
+          return {
+            id: row.id,
+            category: row.category,
+            folderId: row.folder_id,
+            // Payload is now Base64 string from IPC
+            encryptedData: new Uint8Array(CryptoService.base64ToArrayBuffer(row.payload)),
+            iv: new Uint8Array(CryptoService.base64ToArrayBuffer(row.iv)),
+            tag: new Uint8Array(CryptoService.base64ToArrayBuffer(row.tag)),
+            isFavorite: !!row.is_favorite,
+            updatedAt: row.updated_at,
+
+            // Metadata Encryption Fields (Base64 -> Uint8Array)
+            encryptedTitle: row.encrypted_title ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_title)) : undefined,
+            titleIv: row.title_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.title_iv)) : undefined,
+            titleTag: row.title_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.title_tag)) : undefined,
+
+            encryptedUsername: row.encrypted_username ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_username)) : undefined,
+            usernameIv: row.username_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.username_iv)) : undefined,
+            usernameTag: row.username_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.username_tag)) : undefined,
+
+            encryptedMetadata: row.encrypted_metadata ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_metadata)) : undefined,
+            metadataIv: row.metadata_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.metadata_iv)) : undefined,
+            metadataTag: row.metadata_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.metadata_tag)) : undefined,
+
+            // Binary Attachment Fields (Base64 -> Uint8Array)
+            encryptedFile: row.encrypted_file ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_file)) : undefined,
+            fileIv: row.file_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.file_iv)) : undefined,
+            fileTag: row.file_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.file_tag)) : undefined
+          };
+        } catch (err) {
+          console.error('[VaultService] Error mapping row:', row.id, err);
+          return null; // Filtrelemek için null döndür
+        }
+      });
+
+      const valid = mapped.filter((e: any) => e !== null);
+      console.log(`[VaultService] Successfully mapped ${valid.length} entries.`);
+      return valid;
+    } catch (e) {
+      console.error('[VaultService] Critical error loading from SQLite:', e);
+      return [];
     }
   }
 
@@ -261,13 +406,28 @@ export class VaultService {
       version: 4 // Mark as Full Encryption
     } as any;
 
-    await db.vault.put(entry);
+    // PERSISTENCE TIER
+    const electronDB = (window as any).electronAPI?.db;
+    if (electronDB) {
+      await electronDB.saveEntry({
+        id: entry.id,
+        category: entry.category,
+        folderId: entry.folderId,
+        payload: entry.encryptedData,
+        iv: CryptoService.arrayBufferToBase64(entry.iv.buffer),
+        tag: CryptoService.arrayBufferToBase64(entry.tag.buffer),
+        isFavorite: entry.isFavorite ? 1 : 0
+      });
+    } else {
+      await db.vault.put(entry);
+    }
 
     if ((window as any).electronAPI?.audit) {
       await (window as any).electronAPI.audit.logEvent('ENTRY_SAVED', {
         entryId: entry.id,
         category: entry.category,
-        fullEncryption: true
+        fullEncryption: true,
+        storage: electronDB ? 'sqlite' : 'indexeddb'
       });
     }
 
@@ -284,6 +444,7 @@ export class VaultService {
     masterKey: CryptoKey
   ): Promise<void> {
     const electronVault = (window as any).electronAPI?.vault;
+    const electronDB = (window as any).electronAPI?.db;
 
     // Perform encryptions in parallel for better speed
     const encryptedEntries = await Promise.all(items.map(async (plainEntry) => {
@@ -292,12 +453,10 @@ export class VaultService {
         let displayTitle = plainEntry.title;
         let displayUsername = plainEntry.username || (plainEntry.sensitive as any)?.username || (plainEntry.sensitive as any)?.email || (plainEntry.sensitive as any)?.user || (plainEntry.sensitive as any)?.login || (plainEntry.sensitive as any)?.id || (plainEntry.sensitive as any)?.login_name || (plainEntry.sensitive as any)?.loginuser || (plainEntry.sensitive as any)?.loginemail;
 
-        // If title is missing, try to get it from sensitive data or notes as a last resort
         if (!displayTitle) {
           displayTitle = (plainEntry.sensitive as any)?.title || (plainEntry.sensitive as any)?.name;
         }
 
-        // If plaintext fields are still missing (older backup), try to decrypt encrypted counterparts
         if (!displayTitle && plainEntry.encryptedTitle && plainEntry.titleIv && plainEntry.titleTag) {
           try {
             if (electronVault) {
@@ -306,7 +465,7 @@ export class VaultService {
               displayTitle = await CryptoService.decrypt(plainEntry.encryptedTitle, masterKey, plainEntry.titleIv, plainEntry.titleTag);
             }
           } catch (e) {
-            console.warn(`Bulk Import: Failed to decrypt legacy title for ${plainEntry.id}, using fallback.`);
+            console.warn(`Bulk Import: Failed to decrypt legacy title for ${plainEntry.id}`);
           }
         }
 
@@ -318,24 +477,12 @@ export class VaultService {
               displayUsername = await CryptoService.decrypt(plainEntry.encryptedUsername, masterKey, plainEntry.usernameIv, plainEntry.usernameTag);
             }
           } catch (e) {
-            console.warn(`Bulk Import: Failed to decrypt legacy username for ${plainEntry.id}.`);
+            console.warn(`Bulk Import: Failed to decrypt legacy username for ${plainEntry.id}`);
           }
         }
 
-        // Additional username fallbacks from sensitive data
-        if (!displayUsername || displayUsername.trim() === '') {
-          const sensitive = plainEntry.sensitive as any;
-          if (sensitive) {
-            displayUsername = sensitive.email || sensitive.user || sensitive.login || sensitive.id || sensitive.login_username || sensitive.loginuser || sensitive.loginemail || '';
-          }
-        }
-
-        // Final UI fallbacks
         displayTitle = displayTitle || (plainEntry.category === Category.FILE ? `Secure-Asset-${crypto.randomUUID().slice(0, 8)}` : 'Unnamed Entry');
         displayUsername = displayUsername || '';
-
-        // Debug log
-        console.log('[BulkImport] Entry processed - ID:', plainEntry.id, 'Title:', displayTitle, 'Username:', displayUsername);
 
         // --- 2. ATTACHMENT HANDLING ---
         const sensitiveCopy = { ...plainEntry.sensitive };
@@ -344,8 +491,6 @@ export class VaultService {
         let fileTag: Uint8Array | undefined;
 
         let fileData = sensitiveCopy.fileBlob || (plainEntry as any).fileBlob;
-
-        // Convert Base64 (from export JSON) back to binary
         if (typeof fileData === 'string' && fileData.length > 0) {
           try {
             fileData = new Uint8Array(CryptoService.base64ToArrayBuffer(fileData));
@@ -354,7 +499,6 @@ export class VaultService {
           }
         }
 
-        // Re-encrypt for the current vault
         if (fileData instanceof Uint8Array && fileData.length > 0) {
           if (electronVault) {
             const fileResult = await electronVault.encryptBinary(fileData);
@@ -367,111 +511,88 @@ export class VaultService {
             fileIv = fileResult.iv;
             fileTag = fileResult.tag;
           }
-          // Remove binary from metadata payload to save space
           delete sensitiveCopy.fileBlob;
         }
 
-        // --- 3. CORE CONTENT ENCRYPTION ---
-        const sensitiveJson = JSON.stringify(sensitiveCopy);
-        let ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array;
-        let titleCiphertext: Uint8Array, titleIv: Uint8Array, titleTag: Uint8Array;
-        let usernameCiphertext: Uint8Array, usernameIv: Uint8Array, usernameTag: Uint8Array;
-
-        if (electronVault) {
-          const resSensitive = await electronVault.encrypt(sensitiveJson);
-          ciphertext = new Uint8Array(resSensitive.ciphertext);
-          iv = new Uint8Array(resSensitive.iv);
-          tag = new Uint8Array(resSensitive.tag);
-
-          const resTitle = await electronVault.encrypt(displayTitle);
-          titleCiphertext = new Uint8Array(resTitle.ciphertext);
-          titleIv = new Uint8Array(resTitle.iv);
-          titleTag = new Uint8Array(resTitle.tag);
-
-          const resUser = await electronVault.encrypt(displayUsername);
-          usernameCiphertext = new Uint8Array(resUser.ciphertext);
-          usernameIv = new Uint8Array(resUser.iv);
-          usernameTag = new Uint8Array(resUser.tag);
-        } else {
-          const resSensitive = await CryptoService.encrypt(sensitiveJson, masterKey);
-          ciphertext = resSensitive.ciphertext;
-          iv = resSensitive.iv;
-          tag = resSensitive.tag;
-
-          const resTitle = await CryptoService.encrypt(displayTitle, masterKey);
-          titleCiphertext = resTitle.ciphertext;
-          titleIv = resTitle.iv;
-          titleTag = resTitle.tag;
-
-          const resUser = await CryptoService.encrypt(displayUsername, masterKey);
-          usernameCiphertext = resUser.ciphertext;
-          usernameIv = resUser.iv;
-          usernameTag = resUser.tag;
-        }
-
-        // --- 4. METADATA & CATEGORY ---
-        const category = plainEntry.category || Category.LOGIN;
-        const metadataPayload = JSON.stringify({
-          category: category,
+        // --- 3. FULL PACKAGE ENCRYPTION (v4) ---
+        const fullPackage = {
+          title: displayTitle,
+          username: displayUsername,
+          category: plainEntry.category || Category.LOGIN,
           folderId: plainEntry.folderId,
           updatedAt: Date.now(),
-          isFavorite: plainEntry.isFavorite,
-          fileSize: plainEntry.fileSize || (fileData instanceof Uint8Array ? fileData.length : 0)
-        });
+          isFavorite: plainEntry.isFavorite || false,
+          fileSize: (fileData as Uint8Array)?.length || plainEntry.fileSize || 0,
+          deletedAt: (plainEntry as any).deletedAt,
+          sensitive: sensitiveCopy
+        };
 
-        let encryptedMetadata: Uint8Array, metadataIv: Uint8Array, metadataTag: Uint8Array;
+        const packageJson = JSON.stringify(fullPackage);
+        let ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array;
+
         if (electronVault) {
-          const res = await electronVault.encrypt(metadataPayload);
-          encryptedMetadata = new Uint8Array(res.ciphertext);
-          metadataIv = new Uint8Array(res.iv);
-          metadataTag = new Uint8Array(res.tag);
+          const result = await electronVault.encrypt(packageJson);
+          ciphertext = new Uint8Array(result.ciphertext);
+          iv = new Uint8Array(result.iv);
+          tag = new Uint8Array(result.tag);
         } else {
-          const res = await CryptoService.encrypt(metadataPayload, masterKey);
-          encryptedMetadata = res.ciphertext;
-          metadataIv = res.iv;
-          metadataTag = res.tag;
+          const result = await CryptoService.encrypt(packageJson, masterKey);
+          ciphertext = result.ciphertext;
+          iv = result.iv;
+          tag = result.tag;
         }
-
-        const securityScore = this.calculateStrength(plainEntry.sensitive?.password || '');
 
         return {
           id: plainEntry.id || crypto.randomUUID(),
-          encryptedTitle: titleCiphertext,
-          titleIv: titleIv,
-          titleTag: titleTag,
-          encryptedUsername: usernameCiphertext,
-          usernameIv: usernameIv,
-          usernameTag: usernameTag,
-
-          encryptedMetadata,
-          metadataIv,
-          metadataTag,
-
-          category: category, // FIXED: Use actual category
-          updatedAt: Date.now(),
-          isFavorite: plainEntry.isFavorite || false,
-          folderId: plainEntry.folderId,
-
-          securityScore,
-          fileSize: plainEntry.fileSize || (fileData instanceof Uint8Array ? fileData.length : 0),
+          encryptedTitle: new Uint8Array(0),
+          titleIv: new Uint8Array(0),
+          titleTag: new Uint8Array(0),
+          encryptedUsername: new Uint8Array(0),
+          usernameIv: new Uint8Array(0),
+          usernameTag: new Uint8Array(0),
+          encryptedMetadata: new Uint8Array(0),
+          metadataIv: new Uint8Array(0),
+          metadataTag: new Uint8Array(0),
           encryptedData: ciphertext,
           iv: iv,
           tag: tag,
-          encryptedFile, // ADDED: file support
+          category: fullPackage.category,
+          updatedAt: fullPackage.updatedAt,
+          isFavorite: fullPackage.isFavorite,
+          folderId: fullPackage.folderId,
+          deletedAt: fullPackage.deletedAt,
+          fileSize: fullPackage.fileSize,
+          encryptedFile,
           fileIv,
-          fileTag
-        } as VaultEntry;
+          fileTag,
+          version: 4
+        } as any;
       } catch (e) {
-        console.error("Bulk Import: Critical processing error for entry", plainEntry.id, e);
+        console.error(`Bulk Import: Failed to process entry`, e);
         return null;
       }
     }));
 
-    // Başarılı şekilde şifrelenmiş girişleri filtrele
-    const validEntries = encryptedEntries.filter((entry): entry is VaultEntry => entry !== null);
+    const validEntries = encryptedEntries.filter((e): e is VaultEntry => e !== null);
 
     if (validEntries.length > 0) {
-      await db.vault.bulkPut(validEntries);
+      if (electronDB) {
+        console.log(`[Import] Saving ${validEntries.length} entries to SQLite using bulk save...`);
+        const sqliteEntries = validEntries.map(entry => ({
+          id: entry.id,
+          category: entry.category,
+          folderId: entry.folderId,
+          payload: entry.encryptedData, // Send binary Uint8Array for SQLite BLOB
+          iv: CryptoService.arrayBufferToBase64(entry.iv),
+          tag: CryptoService.arrayBufferToBase64(entry.tag),
+          isFavorite: entry.isFavorite ? 1 : 0,
+          updatedAt: entry.updatedAt
+        }));
+        await electronDB.bulkSaveEntries(sqliteEntries);
+      } else {
+        await db.vault.bulkPut(validEntries);
+      }
+      console.log(`[Import] Successfully imported ${validEntries.length} entries.`);
     }
   }
 
@@ -539,8 +660,8 @@ export class VaultService {
         }
         const fullPackage = JSON.parse(packageJson);
         return {
-          title: fullPackage.title,
-          username: fullPackage.username,
+          title: fullPackage.title || 'Unnamed Entry',
+          username: fullPackage.username || '',
           category: fullPackage.category,
           folderId: fullPackage.folderId,
           updatedAt: fullPackage.updatedAt,
@@ -563,7 +684,7 @@ export class VaultService {
       }
 
       let extendedMeta: any = {};
-      if (entry.encryptedMetadata && entry.metadataIv && entry.metadataTag) {
+      if (entry.encryptedMetadata && entry.encryptedMetadata.length > 0 && entry.metadataIv && entry.metadataTag) {
         let metaJson = "";
         if (electronVault) {
           metaJson = await electronVault.decrypt(entry.encryptedMetadata, entry.metadataIv, entry.metadataTag);
@@ -584,12 +705,21 @@ export class VaultService {
 
       return {
         ...extendedMeta,
-        title: decryptedTitle,
-        username: decryptedUsername
+        title: decryptedTitle || 'Unnamed Entry',
+        username: decryptedUsername || ''
       };
     } catch (e) {
-      console.error("Metadata Decryption Error:", e);
-      return { title: '[Decryption Error]', username: '[Decryption Error]' };
+      console.error("Metadata Decryption Error for entry", entry.id, ":", e);
+      return {
+        title: '[Decryption Error]',
+        username: '[Decryption Error]',
+        category: entry.category,
+        folderId: entry.folderId,
+        updatedAt: entry.updatedAt,
+        isFavorite: entry.isFavorite,
+        deletedAt: entry.deletedAt,
+        fileSize: entry.fileSize
+      };
     }
   }
 
@@ -598,10 +728,22 @@ export class VaultService {
     changes: { isFavorite?: boolean; deletedAt?: number | undefined; folderId?: string | undefined },
     masterKey: CryptoKey
   ): Promise<void> {
-    const entry = await db.vault.get(id);
-    if (!entry) throw new Error("Entry not found");
-
     const electronVault = (window as any).electronAPI?.vault;
+    const electronDB = (window as any).electronAPI?.db;
+
+    let entry: VaultEntry | undefined;
+
+    if (electronDB) {
+      // SQLite'dan entry'i bulmak için helper lazım, ama şimdilik hafızadaki listeden veya yeniden çekerek bulalım
+      // Performans için tekil get olmalıydı ama electronDB.getAllEntries() var şimdilik
+      // TODO: electronDB.getEntry(id) eklenmeli
+      const allEntries = await electronDB.getAllEntries();
+      entry = allEntries.find((e: any) => e.id === id);
+    } else {
+      entry = await db.vault.get(id);
+    }
+
+    if (!entry) throw new Error("Entry not found");
 
     // 1. Decrypt current metadata to get base
     let currentMeta: any = {
@@ -613,7 +755,7 @@ export class VaultService {
       deletedAt: entry.deletedAt
     };
 
-    if (entry.encryptedMetadata && entry.metadataIv && entry.metadataTag) {
+    if (entry.encryptedMetadata && entry.encryptedMetadata.length > 0 && entry.metadataIv && entry.metadataTag) {
       let metaJson = "";
       if (electronVault) {
         metaJson = await electronVault.decrypt(entry.encryptedMetadata, entry.metadataIv, entry.metadataTag);
@@ -647,20 +789,38 @@ export class VaultService {
     }
 
     // 4. Update DB
-    await db.vault.update(id, {
-      encryptedMetadata,
-      metadataIv,
-      metadataTag,
-      updatedAt: 0, // Dummy
-      isFavorite: false, // Dummy
-      folderId: undefined, // Dummy
-      deletedAt: undefined, // Dummy
-      // Update specific dummy fields if needed? No, always mask.
-    });
+    if (electronDB) {
+      // In SQLite, we store the same encryptedData blob, but we might need to update isFavorite etc.
+      // Since our current SQLite schema stores is_favorite explicitly, we update that.
+      await electronDB.saveEntry({
+        id: entry.id,
+        category: entry.category,
+        folderId: changes.folderId !== undefined ? changes.folderId : entry.folderId,
+        payload: entry.encryptedData,
+        iv: CryptoService.arrayBufferToBase64(entry.iv.buffer),
+        tag: CryptoService.arrayBufferToBase64(entry.tag.buffer),
+        isFavorite: changes.isFavorite !== undefined ? (changes.isFavorite ? 1 : 0) : (entry.isFavorite ? 1 : 0)
+      });
+    } else {
+      await db.vault.update(id, {
+        encryptedMetadata,
+        metadataIv,
+        metadataTag,
+        updatedAt: 0,
+        isFavorite: false,
+        folderId: undefined,
+        deletedAt: undefined,
+      });
+    }
   }
 
   static async deleteEntry(id: string): Promise<void> {
-    await db.vault.delete(id);
+    const electronDB = (window as any).electronAPI?.db;
+    if (electronDB) {
+      await electronDB.deleteEntry(id);
+    } else {
+      await db.vault.delete(id);
+    }
 
     // AUDIT: Log entry deletion
     if ((window as any).electronAPI?.audit) {
@@ -727,103 +887,6 @@ export class VaultService {
     return !!localStorage.getItem(MASTER_METADATA_KEY);
   }
 
-  private static async migrateVault(
-    password: string,
-    salt: Uint8Array,
-    oldData: { key: CryptoKey; raw: Uint8Array },
-    targetIterations: number,
-    oldMetadata: any
-  ): Promise<{ key: CryptoKey; raw: Uint8Array }> {
-    try {
-      // 1. Derive NEW key
-      const { key: newKey, raw: newRaw } = await CryptoService.deriveKeyWithRaw(password, salt, targetIterations);
-
-      // 2. Transcribe entries (Decrypt with old, encrypt with new)
-      const allEntries = await db.vault.toArray();
-      const migratedEntries: VaultEntry[] = [];
-
-      for (const entry of allEntries) {
-        try {
-          const sensitive = await this.decryptEntry(entry, oldData.key);
-          const metadata = await this.decryptEntryMetadata(entry, oldData.key);
-
-          const reEncrypted = await this.encryptEntryHelper({
-            ...entry,
-            ...metadata,
-            sensitive,
-            id: entry.id
-          }, newKey);
-
-          migratedEntries.push(reEncrypted);
-        } catch (err) {
-          console.error(`Migration failed for entry ${entry.id}`, err);
-          throw new Error("MIGRATION_ENTRY_FAILED");
-        }
-      }
-
-      // 3. Transcribe folders
-      const allFolders = await db.folders.toArray();
-      const migratedFolders: Folder[] = [];
-      for (const folder of allFolders) {
-        try {
-          const name = await FolderService.decryptFolderName(folder, oldData.key);
-          const reEncryptedFolder = await FolderService.encryptFolderHelper(name, folder.color, folder.icon, folder.parentId, newKey);
-          migratedFolders.push({ ...reEncryptedFolder, id: folder.id });
-        } catch (err) {
-          console.error(`Migration failed for folder ${folder.id}`, err);
-        }
-      }
-
-      // 4. Batch update DB
-      await db.transaction('rw', [db.vault, db.folders], async () => {
-        if (migratedEntries.length > 0) await db.vault.bulkPut(migratedEntries);
-        if (migratedFolders.length > 0) await db.folders.bulkPut(migratedFolders);
-      });
-
-      // 5. Update Verifier (Validator)
-      const encoder = new TextEncoder();
-      const dataBytes = encoder.encode(VALIDATOR_TEXT);
-      const iv = window.crypto.getRandomValues(new Uint8Array(12));
-      const encrypted = await window.crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv: iv as any },
-        newKey,
-        dataBytes as any
-      );
-      const fullBuffer = new Uint8Array(encrypted);
-      const ciphertext = fullBuffer.slice(0, fullBuffer.length - 16);
-      const tag = fullBuffer.slice(fullBuffer.length - 16);
-
-      const verifierBlob = {
-        payload: CryptoService.arrayBufferToBase64(ciphertext.buffer),
-        iv: CryptoService.arrayBufferToBase64(iv.buffer),
-        tag: CryptoService.arrayBufferToBase64(tag.buffer)
-      };
-
-      // 6. Update Storage Metadata
-      const newMetadata = {
-        ...oldMetadata,
-        iterations: targetIterations,
-        version: 6,
-        migratedAt: Date.now()
-      };
-
-      localStorage.setItem(MASTER_METADATA_KEY, JSON.stringify(newMetadata));
-      localStorage.setItem(MASTER_VERIFIER_KEY, JSON.stringify(verifierBlob));
-
-      if ((window as any).electronAPI?.vault) {
-        await (window as any).electronAPI.vault.setVerifier(verifierBlob);
-      }
-
-      // 7. Security flag for recovery
-      localStorage.setItem('aegis_recovery_sync_required', 'true');
-
-      console.log(`[Security] Vault successfully migrated to ${targetIterations} iterations.`);
-      return { key: newKey, raw: newRaw };
-    } catch (e) {
-      console.error("Vault migration failed critically:", e);
-      return oldData; // Fallback
-    }
-  }
 
   private static async encryptEntryHelper(
     plainEntry: Partial<VaultEntry> & { sensitive: SensitiveData; title?: string; username?: string },

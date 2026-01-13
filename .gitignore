@@ -20,6 +20,7 @@ nul
 # Documentation
 *.md
 !README.md
+!SECURITY.md
 !*_WHITEPAPER_*.md
 
 # Security

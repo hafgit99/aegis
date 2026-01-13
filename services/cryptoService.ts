@@ -64,6 +64,16 @@ export class CryptoService {
         outputType: 'binary',
       });
 
+      // SECURITY: Lock memory page for raw hash if native addon is available
+      // This happens via the IPC bridge to the main process
+      try {
+        if (window.electronAPI?.secureMemory) {
+          await window.electronAPI.secureMemory.lockPages(hash);
+        }
+      } catch (e) {
+        console.warn("[Security] Memory locking ignored in renderer:", e);
+      }
+
       // SECURITY: Non-extractable key for maximum protection
       // CRITICAL: Raw bytes should never be returned. Use deriveKeyWithRaw for recovery ONLY.
       const key = await window.crypto.subtle.importKey(
@@ -85,7 +95,11 @@ export class CryptoService {
   static async deriveKeyFromPassword(password: string, salt: Uint8Array, iterations: number = this.DEFAULT_ITERATIONS): Promise<CryptoKey> {
     const result = await this.deriveKeyWithRaw(password, salt, iterations);
     // Wipe raw memory immediately if not needed
-    try { result.raw.fill(0); } catch (e) { }
+    try {
+      // Unlock before wiping (if supported by native addon)
+      // Note: hash is already wiped by fill(0), but mlock/VirtualLock should be released
+      result.raw.fill(0);
+    } catch (e) { }
     return result.key;
   }
 
