@@ -18,6 +18,7 @@ const CloudBridgeView: React.FC<{ onRefresh?: () => Promise<void> }> = ({ onRefr
     const [isSyncing, setIsSyncing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const isDesktop = !!(window as any).electronAPI;
 
     // WebDAV Form
     const [webdavConfig, setWebdavConfig] = useState({
@@ -122,65 +123,80 @@ const CloudBridgeView: React.FC<{ onRefresh?: () => Promise<void> }> = ({ onRefr
                 </div>
 
                 {!activeProvider ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
-                        {/* Google Drive Option */}
-                        <div className="glass p-8 rounded-[2rem] border border-white/5 space-y-6 flex flex-col items-center text-center group/card hover:border-blue-500/20 transition-all shadow-xl">
-                            <div className="p-5 bg-white/5 text-zinc-400 rounded-3xl group-hover/card:scale-110 group-hover/card:bg-blue-600 group-hover/card:text-white transition-all duration-500">
-                                <Globe size={32} />
+                    <div className="space-y-6 relative z-10">
+                        {!isDesktop && (
+                            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center gap-3 text-amber-500 mb-4">
+                                <AlertTriangle size={18} />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-center">
+                                    {lang === 'tr'
+                                        ? "Bulut Senkronizasyonu sadece Masaüstü Uygulamasında kullanılabilir."
+                                        : "Cloud Sync is only available in the Desktop Application."}
+                                </span>
                             </div>
-                            <div>
-                                <h4 className="text-sm font-black text-white uppercase tracking-widest">Google Drive</h4>
-                                <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest mt-2">{lang === 'tr' ? 'Native OAuth2 Entegrasyonu' : 'Native OAuth2 Integration'}</p>
-                            </div>
-                            <button
-                                onClick={handleConnectGoogle}
-                                disabled={isConnecting}
-                                className="w-full py-4 bg-white/5 border border-white/10 text-white hover:bg-white/10 font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl mb-2 transition-all"
-                            >
-                                {isConnecting ? <Loader2 className="animate-spin mx-auto" size={16} /> : (lang === 'tr' ? 'ŞİMDİ BAĞLA' : 'CONNECT NOW')}
-                            </button>
-                        </div>
-
-                        {/* WebDAV Option */}
-                        <div className="glass p-8 rounded-[2rem] border border-white/5 space-y-6 group/card hover:border-emerald-500/20 transition-all shadow-xl">
-                            <div className="flex items-center gap-4 border-b border-white/5 pb-4">
-                                <div className="p-3 bg-white/5 text-emerald-500 rounded-2xl">
-                                    <Server size={24} />
+                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Google Drive Option */}
+                            <div className={`glass p-8 rounded-[2rem] border border-white/5 space-y-6 flex flex-col items-center text-center group/card transition-all shadow-xl ${!isDesktop ? 'opacity-50 grayscale' : 'hover:border-blue-500/20'}`}>
+                                <div className="p-5 bg-white/5 text-zinc-400 rounded-3xl group-hover/card:scale-110 group-hover/card:bg-blue-600 group-hover/card:text-white transition-all duration-500">
+                                    <Globe size={32} />
                                 </div>
-                                <h4 className="text-sm font-black text-white uppercase tracking-widest">WebDAV / Personal Cloud</h4>
-                            </div>
-
-                            <div className="space-y-4">
-                                <input
-                                    type="text"
-                                    placeholder="Server URL (https://...)"
-                                    value={webdavConfig.url}
-                                    onChange={e => setWebdavConfig({ ...webdavConfig, url: e.target.value })}
-                                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-[10px] font-mono text-zinc-300 outline-none focus:border-emerald-500/50"
-                                />
-                                <div className="grid grid-cols-2 gap-3">
-                                    <input
-                                        type="text"
-                                        placeholder="Username"
-                                        value={webdavConfig.username}
-                                        onChange={e => setWebdavConfig({ ...webdavConfig, username: e.target.value })}
-                                        className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-[10px] font-mono text-zinc-300 outline-none focus:border-emerald-500/50"
-                                    />
-                                    <input
-                                        type="password"
-                                        placeholder="Password"
-                                        value={webdavConfig.password}
-                                        onChange={e => setWebdavConfig({ ...webdavConfig, password: e.target.value })}
-                                        className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-[10px] font-mono text-zinc-300 outline-none focus:border-emerald-500/50"
-                                    />
+                                <div>
+                                    <h4 className="text-sm font-black text-white uppercase tracking-widest">Google Drive</h4>
+                                    <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest mt-2">{lang === 'tr' ? 'Native OAuth2 Entegrasyonu' : 'Native OAuth2 Integration'}</p>
                                 </div>
                                 <button
-                                    onClick={handleConnectWebDAV}
-                                    disabled={isConnecting || !webdavConfig.url}
-                                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-emerald-900/10 transition-all"
+                                    onClick={handleConnectGoogle}
+                                    disabled={isConnecting || !isDesktop}
+                                    className="w-full py-4 bg-white/5 border border-white/10 text-white hover:bg-white/10 font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl mb-2 transition-all"
                                 >
-                                    {isConnecting ? <Loader2 className="animate-spin mx-auto" size={16} /> : (lang === 'tr' ? 'SUNUCUYA BAĞLAN' : 'BRIDGE TO SERVER')}
+                                    {isConnecting ? <Loader2 className="animate-spin mx-auto" size={16} /> : (lang === 'tr' ? 'ŞİMDİ BAĞLA' : 'CONNECT NOW')}
                                 </button>
+                            </div>
+
+                            {/* WebDAV Option */}
+                            <div className={`glass p-8 rounded-[2rem] border border-white/5 space-y-6 group/card transition-all shadow-xl ${!isDesktop ? 'opacity-50 grayscale' : 'hover:border-emerald-500/20'}`}>
+                                <div className="flex items-center gap-4 border-b border-white/5 pb-4">
+                                    <div className="p-3 bg-white/5 text-emerald-500 rounded-2xl">
+                                        <Server size={24} />
+                                    </div>
+                                    <h4 className="text-sm font-black text-white uppercase tracking-widest">WebDAV / Personal Cloud</h4>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <input
+                                        type="text"
+                                        placeholder="Server URL (https://...)"
+                                        value={webdavConfig.url}
+                                        disabled={!isDesktop}
+                                        onChange={e => setWebdavConfig({ ...webdavConfig, url: e.target.value })}
+                                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-[10px] font-mono text-zinc-300 outline-none focus:border-emerald-500/50"
+                                    />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <input
+                                            type="text"
+                                            placeholder="Username"
+                                            value={webdavConfig.username}
+                                            disabled={!isDesktop}
+                                            onChange={e => setWebdavConfig({ ...webdavConfig, username: e.target.value })}
+                                            className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-[10px] font-mono text-zinc-300 outline-none focus:border-emerald-500/50"
+                                        />
+                                        <input
+                                            type="password"
+                                            placeholder="Password"
+                                            value={webdavConfig.password}
+                                            disabled={!isDesktop}
+                                            onChange={e => setWebdavConfig({ ...webdavConfig, password: e.target.value })}
+                                            className="bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-[10px] font-mono text-zinc-300 outline-none focus:border-emerald-500/50"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleConnectWebDAV}
+                                        disabled={isConnecting || !webdavConfig.url || !isDesktop}
+                                        className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl shadow-xl shadow-emerald-900/10 transition-all"
+                                    >
+                                        {isConnecting ? <Loader2 className="animate-spin mx-auto" size={16} /> : (lang === 'tr' ? 'SUNUCUYA BAĞLAN' : 'BRIDGE TO SERVER')}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
