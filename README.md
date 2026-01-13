@@ -43,7 +43,7 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 - **64MB Memory Cost**: GPU-resistant password hashing
 - **Zero-Knowledge Architecture**: Your master key never leaves your device
 
-### 🛡️ **CURRENT: v2.0.2 - Hardened Edition**
+### 🛡️ **CURRENT: v2.0.1 - Hardened Edition**
 - ✅ **Memory Page Locking**: Critical keys are locked in RAM to prevent disk leaks (Swap)
 - ✅ **Hardware Binding**: KDF is physically bound to this computer's hardware ID
 - ✅ **Code Obfuscation**: Source code protection against reverse engineering
