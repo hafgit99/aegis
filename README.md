@@ -48,7 +48,7 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 - ✅ **Hardware Binding**: KDF is physically bound to this computer's hardware ID
 - ✅ **Code Obfuscation**: Source code protection against reverse engineering
 - ✅ **SQLCipher Database**: Full database-level encryption (AES-256)
-- ✅ **Cloud Bridge (Sync)**: Uçtan uca şifreli (E2EE) Google Drive ve WebDAV senkronizasyonu
+- ✅ **Cloud Bridge (BYOC)**: E2EE Sync with Google Drive & WebDAV (Bring Your Own Cloud privacy)
 - ✅ **Command Line Interface (CLI)**: Access your vault securely via terminal
 - ✅ **Hardware Security Keys**: FIDO2/WebAuthn support (YubiKey)
 - ✅ **Secure Sidecar Metadata**: CLI-ready salt/iteration storage
@@ -59,6 +59,27 @@ All-in-One: Manage passwords, encrypt sensitive files, and store crypto seeds in
 - **Triple-Wipe Memory Protection**: Sensitive data overwritten 3 times on lock
 - **2FA Support**: TOTP-based two-factor authentication
 - **Recovery System**: BIP39 24-word recovery phrase with Argon2id protection
+
+## ☁️ Cloud Bridge (BYOC)
+
+Aegis Vault introduces a revolutionary "Bring Your Own Cloud" approach to synchronization. Unlike other password managers that store your data on their servers, Aegis Vault lets **YOU** control the infrastructure.
+
+### Why BYOC?
+- **Zero-Trust**: We don't host your data. We don't want to.
+- **Privacy**: You use your own Google Drive or WebDAV server.
+- **Control**: You manage your own API keys (Client ID / Secret).
+- **Security**: Data is encrypted LOCALLY before it ever touches the cloud.
+
+### Supported Providers
+1. **Google Drive (Professional Mode)**
+   - Enter your own Google Cloud Client ID & Secret
+   - App connects directly to Google (no middleman)
+   - Native OAuth2 authentication flow
+
+2. **WebDAV (Self-Hosted)**
+   - Connect to Nextcloud, ownCloud, or Synology/QNAP NAS
+   - Full support for custom server URLs and Basic Auth
+   - Perfect for total data sovereignty
 
 ## 🛡️ Download Verification
 

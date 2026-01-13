@@ -827,6 +827,78 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
    Başlık:    Google Hesabı
    Kullanıcı: kullanici@gmail.com
    Şifre:     ********`
+    },
+    {
+      id: 'cloud-bridge',
+      title: 'Cloud Bridge (BYOC)',
+      titleTr: 'Bulut Köprüsü (BYOC)',
+      description: 'End-to-End Encrypted Cloud Sync (Google Drive & WebDAV)',
+      descriptionTr: 'Uçtan Uca Şifreli Bulut Eşitleme (Google Drive & WebDAV)',
+      icon: <Upload size={24} className="text-sky-500" />,
+      details: `Setup Your Private Cloud Sync:
+
+1. Bring Your Own Cloud (BYOC) Philosophy
+- Aegis Vault connects directly to YOUR cloud storage.
+- We have no servers, no middleman, and no access to your data.
+- You maintain total control over your cloud infrastructure.
+
+2. Google Drive Setup (Professional)
+- Go to Google Cloud Console (console.cloud.google.com).
+- Create a new project or select an existing one.
+- Enable "Google Drive API".
+- Create OAuth 2.0 Credentials (Desktop App).
+- Copy "Client ID" and "Client Secret".
+- Paste them into Aegis Vault > Settings > Data > Cloud Bridge.
+- Click "Authenticate" to securely link your drive.
+
+3. WebDAV Setup (Self-Hosted)
+- Perfect for Nextcloud, ownCloud, or NAS (Synology/QNAP).
+- Enter your WebDAV URL (e.g., https://cloud.myserver.com/remote.php/webdav).
+- Enter your Username and Password.
+- Aegis connects directly to your server.
+
+4. End-to-End Encryption (E2EE)
+- Your data is encrypted LOCALLY before leaving your device.
+- The cloud provider (Google or your server) receives only encrypted blobs.
+- They CANNOT read your passwords even if they wanted to.
+- Encryption key never leaves your device.
+
+5. Sync Operations
+- Sync Now (Push): Uploads encrypted vault to cloud.
+- Pull from Cloud: Downloads and merges cloud data to local vault.
+- Manual control ensures you know exactly when data moves.`,
+      detailsTr: `Özel Bulut Eşitlemenizi Kurun:
+
+1. Kendi Bulutunu Getir (BYOC) Felsefesi
+- Aegis Vault doğrudan SİZİN bulut depolama alanınıza bağlanır.
+- Sunucumuz, aracımız veya verilerinize erişimimiz yoktur.
+- Bulu altyapınız üzerinde tam kontrole sahipsiniz.
+
+2. Google Drive Kurulumu (Profesyonel)
+- Google Cloud Console'a gidin (console.cloud.google.com).
+- Yeni bir proje oluşturun veya mevcut olanı seçin.
+- "Google Drive API"yi etkinleştirin.
+- OAuth 2.0 Kimlik Bilgileri oluşturun (Masaüstü Uygulaması).
+- "Client ID" ve "Client Secret" bilgilerini kopyalayın.
+- Aegis Vault > Ayarlar > Veri > Bulut Köprüsü'ne yapıştırın.
+- Sürücünüzü güvenli bir şekilde bağlamak için "Kimlik Doğrulama"ya tıklayın.
+
+3. WebDAV Kurulumu (Kendi Sunucunuz)
+- Nextcloud, ownCloud veya NAS (Synology/QNAP) için mükemmeldir.
+- WebDAV URL'nizi girin (örn. https://cloud.sunucum.com/remote.php/webdav).
+- Kullanıcı Adınızı ve Parolanızı girin.
+- Aegis doğrudan sunucunuza bağlanır.
+
+4. Uçtan Uca Şifreleme (E2EE)
+- Verileriniz cihazdan ayrılmadan önce YEREL olarak şifrelenir.
+- Bulut sağlayıcısı (Google veya sunucunuz) yalnızca şifreli veri blokları alır.
+- İstemeleri durumunda bile parolalarınızı OKUYAMAZLAR.
+- Şifreleme anahtarı asla cihazınızdan ayrılmaz.
+
+5. Eşitleme İşlemleri
+- Eşitle (Yükle): Şifreli kasayı buluta yükler.
+- Buluttan Çek: Bulut verilerini indirir ve yerel kasa ile birleştirir.
+- Manuel kontrol, verilerin ne zaman taşındığını tam olarak bilmenizi sağlar.`
     }
   ];
 
