@@ -7,7 +7,8 @@ import {
   Trash2, Globe, CheckCircle2,
   Smartphone, Key, Zap, Languages, Database, CreditCard, FileText, Download, Fingerprint, Moon, Sun,
   ChevronUp, SortAsc, SortDesc, Filter, CheckSquare, Square, Check, Copy, Loader2, ShieldCheck,
-  RotateCcw, Flame, Clock, Calendar, ShieldX, Crown, Gem, Award, ChevronRight, Eye, MoreVertical, SlidersHorizontal, RefreshCw, Folder, BookOpen, Hourglass, Wallet, Cpu
+  RotateCcw, Flame, Clock, Calendar, ShieldX, Crown, Gem, Award, ChevronRight, Eye, MoreVertical, SlidersHorizontal, RefreshCw, Folder, BookOpen, Hourglass, Wallet, Cpu,
+  Cloud
 } from 'lucide-react';
 import { VaultEntry, SensitiveData, Category } from '../types.ts';
 import { AutoLockStatus } from '../hooks/useAutoLock.ts';
@@ -25,6 +26,7 @@ import LicensingView from './LicensingView.tsx';
 import ChangeMasterKeyModal from './ChangeMasterKeyModal.tsx';
 import LegalModal from './LegalModal.tsx';
 import UserGuideModal from './UserGuideModal.tsx';
+import CloudBridgeView from './CloudBridgeView.tsx';
 import { useLanguage } from '../contexts/LanguageContext.tsx';
 import { useVault } from '../hooks/useVault.ts';
 import { useAuth } from '../contexts/AuthContext.tsx';
@@ -1325,6 +1327,20 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
 
                     {settingsTab === 'data' && (
                       <motion.div key="data" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
+                        {/* Cloud Sync Section */}
+                        <section className="glass p-5 rounded-[1.5rem] border border-blue-500/10 bg-blue-500/[0.02]">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-blue-600 text-white rounded-lg shadow-lg shadow-blue-600/20">
+                              <Cloud size={16} />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-black text-white uppercase tracking-tighter">{t('cloud_bridge_title')}</h3>
+                              <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">{t('cloud_bridge_desc')}</p>
+                            </div>
+                          </div>
+                          <CloudBridgeView onRefresh={loadEntries} />
+                        </section>
+
                         {/* Backup Settings Section */}
                         <section className="glass p-5 rounded-[1.5rem] border border-emerald-500/10 bg-emerald-500/[0.02]">
                           <div className="flex items-center gap-3 mb-3">
