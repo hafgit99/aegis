@@ -40,14 +40,22 @@ const CloudBridgeView: React.FC<{ onRefresh?: () => Promise<void> }> = ({ onRefr
         setIsConnecting(true);
         setError(null);
         try {
+            const clientId = localStorage.getItem('aegis_google_client_id');
+            const clientSecret = localStorage.getItem('aegis_google_client_secret');
+
+            if (!clientId || !clientSecret) {
+                throw new Error(lang === 'tr' ? 'Lütfen Client ID ve Secret bilgilerini girin.' : 'Please enter Client ID and Secret.');
+            }
+
             const sync = new CloudSyncService('google');
-            // This triggers Oauth in Main via IPC
-            await (sync as any).provider.initialize();
+            // This triggers Oauth in Main via IPC, passing the custom keys
+            await (sync as any).provider.initialize({ clientId, clientSecret });
+
             setActiveProvider('google');
             localStorage.setItem('aegis_cloud_provider', 'google');
             setSuccess(t('google_drive_connected'));
         } catch (e: any) {
-            setError(t('cloud_sync_error'));
+            setError(e.message || t('cloud_sync_error'));
         } finally {
             setIsConnecting(false);
         }
@@ -142,14 +150,30 @@ const CloudBridgeView: React.FC<{ onRefresh?: () => Promise<void> }> = ({ onRefr
                                 </div>
                                 <div>
                                     <h4 className="text-sm font-black text-white uppercase tracking-widest">Google Drive</h4>
-                                    <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest mt-2">{lang === 'tr' ? 'Native OAuth2 Entegrasyonu' : 'Native OAuth2 Integration'}</p>
+                                    <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest mt-2">{lang === 'tr' ? 'Özel API Yapılandırması' : 'Custom API Configuration'}</p>
+                                </div>
+                                <div className="w-full space-y-3">
+                                    <input
+                                        type="text"
+                                        placeholder="Google Client ID"
+                                        value={localStorage.getItem('aegis_google_client_id') || ''}
+                                        onChange={e => localStorage.setItem('aegis_google_client_id', e.target.value)}
+                                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-[10px] font-mono text-zinc-300 outline-none focus:border-blue-500/50"
+                                    />
+                                    <input
+                                        type="password"
+                                        placeholder="Google Client Secret"
+                                        value={localStorage.getItem('aegis_google_client_secret') || ''}
+                                        onChange={e => localStorage.setItem('aegis_google_client_secret', e.target.value)}
+                                        className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-[10px] font-mono text-zinc-300 outline-none focus:border-blue-500/50"
+                                    />
                                 </div>
                                 <button
                                     onClick={handleConnectGoogle}
                                     disabled={isConnecting || !isDesktop}
-                                    className="w-full py-4 bg-white/5 border border-white/10 text-white hover:bg-white/10 font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl mb-2 transition-all"
+                                    className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-2xl mb-2 transition-all shadow-xl shadow-blue-900/20"
                                 >
-                                    {isConnecting ? <Loader2 className="animate-spin mx-auto" size={16} /> : (lang === 'tr' ? 'ŞİMDİ BAĞLA' : 'CONNECT NOW')}
+                                    {isConnecting ? <Loader2 className="animate-spin mx-auto" size={16} /> : (lang === 'tr' ? 'KİMLİK DOĞRLAMA' : 'AUTHENTICATE')}
                                 </button>
                             </div>
 

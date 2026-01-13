@@ -3,8 +3,8 @@ import { ICloudProvider, CloudFileInfo } from './ICloudProvider';
 export class GoogleDriveProvider implements ICloudProvider {
     name = "Google Drive";
 
-    async initialize(): Promise<void> {
-        const auth = await (window as any).electronAPI.cloud.google.authenticate();
+    async initialize(config?: { clientId: string, clientSecret: string }): Promise<void> {
+        const auth = await (window as any).electronAPI.cloud.google.authenticate(config);
         if (!auth) throw new Error("Google authentication failed");
     }
 

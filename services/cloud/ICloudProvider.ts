@@ -7,7 +7,7 @@ export interface CloudFileInfo {
 
 export interface ICloudProvider {
     name: string;
-    initialize(): Promise<void>;
+    initialize(config?: any): Promise<void>;
     listVaultFiles(): Promise<CloudFileInfo[]>;
     uploadVaultFile(name: string, content: ArrayBuffer | Blob): Promise<void>;
     downloadVaultFile(fileIdOrName: string): Promise<ArrayBuffer>;
