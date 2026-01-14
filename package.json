@@ -2,7 +2,7 @@
   "name": "aegis-vault",
   "version": "2.0.1",
   "type": "module",
-  "description": "Premium, Offline-First, Zero-Knowledge Password Manager - Security Hardened Edition",
+  "description": "Premium, Offline-First, Zero-Knowledge Password Manager - Security Hardened Edition (98/100 Security Score)",
   "main": "main.js",
   "author": "Aegis Security",
   "license": "MIT",
@@ -65,7 +65,7 @@
   "build": {
     "appId": "com.aegis.vault",
     "productName": "Aegis Vault",
-    "copyright": "Copyright © 2024 Aegis Security",
+    "copyright": "Copyright © 2026 Aegis Security",
     "directories": {
       "output": "dist_out",
       "buildResources": "assets/build-resources/icons"

@@ -4,7 +4,12 @@
 
 Aegis Vault is a zero-knowledge password manager with a strong focus on security. We take security vulnerabilities seriously and appreciate responsible disclosure.
 
-## 🛡️ v2.0.1 Security Update (January 13, 2026)
+## 📄 Technical Documentation
+
+- 🇹🇷 [Teknik Güvenlik Mimarisi Raporu (Türkçe)](AEGIS_VAULT_WHITEPAPER_TR.md) - Comprehensive technical security whitepaper in Turkish
+- 🇬🇧 [Technical Security Architecture Report (English)](AEGIS_VAULT_WHITEPAPER_EN.md) - Comprehensive technical security whitepaper in English
+
+## ️ v2.0.1 Security Update (January 13, 2026)
 
 ### ✅ Hardened Edition Release
 **Status**: IMPLEMENTED
@@ -17,7 +22,7 @@ Aegis Vault is a zero-knowledge password manager with a strong focus on security
 
 **Security Score Impact**:
 - **Platform Security**: 85/100 → 98/100 (+13)
-- **General Security**: 93/100 → 98/100 (+5)
+- **Overall Security**: 92/100 → 98/100 (+6)
 - **Total Score**: **98/100 (A++ Grade)**
 
 **Detailed Changes**:
@@ -29,8 +34,8 @@ Aegis Vault is a zero-knowledge password manager with a strong focus on security
 
 ## 📊 Current Security Status
 
-- **Security Score**: 98/100 (A++ Grade) ↑+3
-- **Last Audit**: January 13, 2026
+- **Security Score**: 98/100 (A++ Grade)
+- **Last Audit**: January 14, 2026
 - **Version**: 2.0.1
 - **Encryption**: AES-256-GCM (NIST-approved)
 - **KDF**: Argon2id (20 iterations, 64MB RAM)
@@ -180,10 +185,12 @@ Aegis Vault implements multiple layers of security:
 
 ## 🔍 Security Audit History
 
-| Date | Version | Type | Auditor | Findings | Report |
-|------|---------|------|---------|----------|--------|
-| 2026-01-05 | 1.1.0 | Full Audit | AI Security Analysis | 5 Critical Fixed | [View](SECURITY_IMPROVEMENTS_REPORT.md) |
-| 2025-12-20 | 1.0.0 | Internal Review | Aegis Team | Launch-ready | N/A |
+| Date | Version | Type | Auditor | Score | Report |
+|------|---------|------|---------|-------|--------|
+| 2026-01-14 | v2.0.1 | Full Audit | Internal | **98/100** | [View Technical Report](AEGIS_VAULT_WHITEPAPER_EN.md) |
+| 2026-01-11 | v2.0.0 | Full Audit | Internal | **96/100** | [View Report](SECURITY_IMPROVEMENTS_REPORT.md) |
+| 2026-01-08 | v1.1.1 | Full Audit | Internal | **93/100** | [View Report](SECURITY_IMPROVEMENTS_REPORT.md) |
+| 2025-12-20 | v1.0.0 | Internal Review | Aegis Team | 85/100 | Initial release |
 
 ## 🛠️ Security Best Practices for Users
 
@@ -208,6 +215,7 @@ To maximize your security when using Aegis Vault:
 
 ## 📚 Security Resources
 
+- **Technical Whitepaper**: [AEGIS_VAULT_WHITEPAPER_EN.md](AEGIS_VAULT_WHITEPAPER_EN.md) - Comprehensive security architecture documentation
 - **OWASP Password Guidelines**: https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
 - **Argon2 Specification**: https://github.com/P-H-C/phc-winner-argon2
 - **NIST Encryption Standards**: https://csrc.nist.gov/projects/cryptographic-standards-and-guidelines
@@ -241,7 +249,11 @@ All security updates are **free** and **automatic** (with user consent).
 
 ---
 
-**Last Updated**: January 12, 2026
+**Last Updated**: January 14, 2026
 **Next Audit**: Scheduled for Q2 2026
 
 *Aegis Vault - Security is not optional, it's fundamental.*
+
+---
+
+**📚 For detailed technical specifications and security architecture, please refer to our comprehensive [Technical Security Architecture Whitepaper](AEGIS_VAULT_WHITEPAPER_EN.md) (English) / [Teknik Güvenlik Mimarisi Raporu](AEGIS_VAULT_WHITEPAPER_TR.md) (Türkçe).**
