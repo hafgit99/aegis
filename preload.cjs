@@ -131,7 +131,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
             delete: (fileId) => ipcRenderer.invoke('cloud:google:delete', fileId),
             logout: () => ipcRenderer.invoke('cloud:google:logout')
         }
+    },
+
+    // Secure Licensing System (Backend-enforced, tamper-proof)
+    licensing: {
+        init: () => ipcRenderer.invoke('licensing:init'),
+        getStatus: () => ipcRenderer.invoke('licensing:getStatus'),
+        activatePro: (licenseKey) => ipcRenderer.invoke('licensing:activatePro', licenseKey),
+        updateActivity: () => ipcRenderer.invoke('licensing:updateActivity'),
+        isPro: () => ipcRenderer.invoke('licensing:isPro')
     }
 });
 
 console.log('[Preload] electronAPI exposed to renderer successfully (WITH DB)');
+

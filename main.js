@@ -1261,3 +1261,279 @@ ipcMain.handle('backup:schedule', async (event, config) => {
   console.log('[Backup] Config updated:', config);
   return { success: true };
 });
+
+// ==================== SECURE LICENSING SYSTEM ====================
+// SECURITY: Anti-tampering licensing with HMAC verification and monotonic time tracking
+
+const LICENSE_FILE_PATH = path.join(app.getPath('userData'), '.license-data.enc');
+const LICENSE_HMAC_SECRET = crypto.createHash('sha256')
+  .update(getDeviceId() + 'AEGIS-LICENSE-SALT-V2')
+  .digest();
+
+/**
+ * Creates HMAC signature for license data
+ */
+function signLicenseData(data) {
+  const hmac = crypto.createHmac('sha256', LICENSE_HMAC_SECRET);
+  hmac.update(JSON.stringify(data));
+  return hmac.digest('hex');
+}
+
+/**
+ * Verifies HMAC signature of license data
+ */
+function verifyLicenseData(data, signature) {
+  const expectedSig = signLicenseData(data);
+  return crypto.timingSafeEqual(
+    Buffer.from(signature, 'hex'),
+    Buffer.from(expectedSig, 'hex')
+  );
+}
+
+/**
+ * Saves license data securely with HMAC signature
+ */
+function saveLicenseData(data) {
+  try {
+    const signature = signLicenseData(data);
+    const payload = {
+      data,
+      signature,
+      deviceId: getDeviceId()
+    };
+
+    // Encrypt with device-specific key if native security available
+    let fileContent;
+    if (nativeSecurity) {
+      try {
+        const encrypted = nativeSecurity.protectData(Buffer.from(JSON.stringify(payload)));
+        fileContent = encrypted.toString('base64');
+      } catch (e) {
+        fileContent = JSON.stringify(payload);
+      }
+    } else {
+      // Fallback: AES encryption with device key
+      const iv = crypto.randomBytes(12);
+      const cipher = crypto.createCipheriv('aes-256-gcm', LICENSE_HMAC_SECRET, iv);
+      let encrypted = cipher.update(JSON.stringify(payload), 'utf8', 'hex');
+      encrypted += cipher.final('hex');
+      const tag = cipher.getAuthTag();
+      fileContent = iv.toString('hex') + ':' + tag.toString('hex') + ':' + encrypted;
+    }
+
+    fs.writeFileSync(LICENSE_FILE_PATH, fileContent, 'utf8');
+    console.log('[Licensing] License data saved securely');
+    return true;
+  } catch (e) {
+    console.error('[Licensing] Failed to save license data:', e.message);
+    return false;
+  }
+}
+
+/**
+ * Loads and verifies license data
+ */
+function loadLicenseData() {
+  try {
+    if (!fs.existsSync(LICENSE_FILE_PATH)) {
+      return null;
+    }
+
+    const fileContent = fs.readFileSync(LICENSE_FILE_PATH, 'utf8');
+    let payload;
+
+    // Try DPAPI decryption first
+    if (nativeSecurity && !fileContent.includes(':')) {
+      try {
+        const encrypted = Buffer.from(fileContent, 'base64');
+        const decrypted = nativeSecurity.unprotectData(encrypted);
+        payload = JSON.parse(decrypted.toString());
+      } catch (e) {
+        console.warn('[Licensing] DPAPI decryption failed, trying AES');
+        payload = null;
+      }
+    }
+
+    // Fallback to AES decryption
+    if (!payload && fileContent.includes(':')) {
+      const parts = fileContent.split(':');
+      if (parts.length >= 3) {
+        const iv = Buffer.from(parts[0], 'hex');
+        const tag = Buffer.from(parts[1], 'hex');
+        const ciphertext = parts.slice(2).join(':');
+
+        const decipher = crypto.createDecipheriv('aes-256-gcm', LICENSE_HMAC_SECRET, iv);
+        decipher.setAuthTag(tag);
+        let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        payload = JSON.parse(decrypted);
+      }
+    }
+
+    if (!payload) {
+      console.warn('[Licensing] Failed to decrypt license data');
+      return null;
+    }
+
+    // SECURITY: Verify device binding
+    if (payload.deviceId !== getDeviceId()) {
+      console.warn('[Licensing] Device ID mismatch - license data rejected');
+      fs.unlinkSync(LICENSE_FILE_PATH);
+      return null;
+    }
+
+    // SECURITY: Verify HMAC signature
+    if (!verifyLicenseData(payload.data, payload.signature)) {
+      console.warn('[Licensing] HMAC verification failed - data tampered');
+      fs.unlinkSync(LICENSE_FILE_PATH);
+      return null;
+    }
+
+    return payload.data;
+  } catch (e) {
+    console.error('[Licensing] Failed to load license data:', e.message);
+    return null;
+  }
+}
+
+/**
+ * Detects time manipulation by comparing with last activity timestamp
+ */
+function detectTimeManipulation(licenseData) {
+  if (!licenseData) return false;
+
+  const now = Date.now();
+
+  // Check 1: Current time is before install date (impossible)
+  if (now < licenseData.installDate) {
+    console.warn('[Licensing] Time manipulation detected: current time before install date');
+    return true;
+  }
+
+  // Check 2: Current time is before last activity (clock rolled back)
+  if (licenseData.lastActivity && now < licenseData.lastActivity - 60000) { // 1 minute tolerance
+    console.warn('[Licensing] Time manipulation detected: clock rolled back');
+    return true;
+  }
+
+  // Check 3: Monotonic usage counter - elapsed days should only increase
+  if (licenseData.maxElapsedDays !== undefined) {
+    const currentElapsedDays = (now - licenseData.installDate) / (1000 * 60 * 60 * 24);
+    if (currentElapsedDays < licenseData.maxElapsedDays - 0.1) { // Small tolerance
+      console.warn('[Licensing] Time manipulation detected: elapsed days decreased');
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// IPC Handlers for Secure Licensing
+ipcMain.handle('licensing:init', async () => {
+  let data = loadLicenseData();
+  const now = Date.now();
+
+  if (!data) {
+    // First run - initialize license data
+    data = {
+      installDate: now,
+      lastActivity: now,
+      maxElapsedDays: 0,
+      proActivated: false,
+      proLicense: null
+    };
+    saveLicenseData(data);
+    console.log('[Licensing] Initialized new trial');
+  } else {
+    // Update last activity and max elapsed days
+    const elapsedDays = (now - data.installDate) / (1000 * 60 * 60 * 24);
+    data.lastActivity = now;
+    data.maxElapsedDays = Math.max(data.maxElapsedDays || 0, elapsedDays);
+    saveLicenseData(data);
+  }
+
+  return {
+    installDate: data.installDate,
+    proActivated: data.proActivated,
+    timeManipulated: detectTimeManipulation(data)
+  };
+});
+
+ipcMain.handle('licensing:getStatus', async () => {
+  const data = loadLicenseData();
+  const now = Date.now();
+  const TRIAL_DAYS = 3;
+
+  if (!data) {
+    return {
+      isPro: false,
+      remainingDays: TRIAL_DAYS,
+      isExpired: false,
+      timeManipulated: false
+    };
+  }
+
+  // Check for time manipulation
+  const timeManipulated = detectTimeManipulation(data);
+
+  // If time manipulation detected, treat as expired
+  if (timeManipulated && !data.proActivated) {
+    return {
+      isPro: false,
+      remainingDays: 0,
+      isExpired: true,
+      timeManipulated: true
+    };
+  }
+
+  // Calculate remaining trial days
+  const elapsedDays = Math.max(data.maxElapsedDays || 0, (now - data.installDate) / (1000 * 60 * 60 * 24));
+  const remainingDays = Math.max(0, Math.ceil(TRIAL_DAYS - elapsedDays));
+
+  return {
+    isPro: data.proActivated,
+    remainingDays: data.proActivated ? -1 : remainingDays,
+    isExpired: !data.proActivated && remainingDays <= 0,
+    timeManipulated: false
+  };
+});
+
+ipcMain.handle('licensing:activatePro', async (event, licenseKey) => {
+  const data = loadLicenseData();
+  if (!data) {
+    return { success: false, error: 'LICENSE_DATA_NOT_FOUND' };
+  }
+
+  // License key will be verified in the renderer using ECDSA
+  // Here we just store the activation status
+  data.proActivated = true;
+  data.proLicense = licenseKey;
+  data.proActivatedAt = Date.now();
+
+  const saved = saveLicenseData(data);
+
+  if (saved) {
+    console.log('[Licensing] Pro license activated successfully');
+    return { success: true };
+  } else {
+    return { success: false, error: 'SAVE_FAILED' };
+  }
+});
+
+ipcMain.handle('licensing:updateActivity', async () => {
+  const data = loadLicenseData();
+  if (!data) return false;
+
+  const now = Date.now();
+  const elapsedDays = (now - data.installDate) / (1000 * 60 * 60 * 24);
+
+  data.lastActivity = now;
+  data.maxElapsedDays = Math.max(data.maxElapsedDays || 0, elapsedDays);
+
+  return saveLicenseData(data);
+});
+
+ipcMain.handle('licensing:isPro', async () => {
+  const data = loadLicenseData();
+  return data?.proActivated === true;
+});

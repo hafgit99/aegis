@@ -499,9 +499,33 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
   const [lockOnBg, setLockOnBg] = useState(localStorage.getItem('aegis_lock_on_bg') === 'true');
   const [autoLockDuration, setAutoLockDuration] = useState(parseInt(localStorage.getItem('aegis_autolock_ms') || '900000'));
 
-  const isPro = LicensingService.isPro();
-  const isExpired = LicensingService.isTrialExpired();
-  const remainingDays = LicensingService.getRemainingTrialDays();
+  // Secure Licensing State (loaded from backend)
+  const [licenseStatus, setLicenseStatus] = useState<{
+    isPro: boolean;
+    remainingDays: number;
+    isExpired: boolean;
+    timeManipulated: boolean;
+  }>({
+    isPro: LicensingService.isPro(),
+    remainingDays: LicensingService.getRemainingTrialDays(),
+    isExpired: LicensingService.isTrialExpired(),
+    timeManipulated: false
+  });
+
+  // Derived values for backward compatibility
+  const isPro = licenseStatus.isPro;
+  const isExpired = licenseStatus.isExpired;
+  const remainingDays = licenseStatus.remainingDays;
+
+  // Load license status from secure backend
+  useEffect(() => {
+    LicensingService.getStatus().then(status => {
+      setLicenseStatus(status);
+      if (status.timeManipulated) {
+        console.warn('[Dashboard] Time manipulation detected - trial expired');
+      }
+    }).catch(console.error);
+  }, []);
 
   // Sekme değiştirildiğinde tüm engelleyici arayüz elemanlarını temizle
   useEffect(() => {
