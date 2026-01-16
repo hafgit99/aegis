@@ -31,6 +31,8 @@ Aegis Vault is an offline-first, portable, and ultra-secure password manager des
 
 - 🇹🇷 [Teknik Güvenlik Mimarisi Raporu (Türkçe)](AEGIS_VAULT_WHITEPAPER_TR.md) - Comprehensive technical security whitepaper in Turkish
 - 🇬🇧 [Technical Security Architecture Report (English)](AEGIS_VAULT_WHITEPAPER_EN.md) - Comprehensive technical security whitepaper in English
+- 🇹🇷 [Aegis Vault: Dijital Kale (Sunum)](docs/Aegis_Vault_Dijital_Kale_TR.pdf) - PDF presentation in Turkish
+- 🇬🇧 [Aegis Vault: Hardened Security (Presentation)](docs/Aegis_Vault_Hardened_Security_EN.pdf) - PDF presentation in English
 
 ### Why choose Aegis Vault?
 

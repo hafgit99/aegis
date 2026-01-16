@@ -28,6 +28,7 @@ nul
 *.md
 !README.md
 !SECURITY.md
+!CHANGELOG.md
 !*_WHITEPAPER_*.md
 
 # Security
