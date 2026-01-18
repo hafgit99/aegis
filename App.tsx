@@ -9,6 +9,8 @@ import AuthPage from './components/AuthPage.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import TitleBar from './components/TitleBar.tsx';
 import { VaultService } from './services/vaultService.ts';
+import { PasskeyService } from './services/passkeyService.ts';
+import { CryptoService } from './services/cryptoService.ts';
 
 const AppContent: React.FC = () => {
   const {
@@ -77,6 +79,30 @@ const AppContent: React.FC = () => {
             username: entry.username,
             password: sensitive.password
           });
+        }
+      });
+
+      extension.onPasskeySign(async (event: any, { entryId, challenge, requestId }: any) => {
+        if (!masterKey) return;
+        const entry = entries.find(i => i.id === entryId);
+        if (entry) {
+          try {
+            const sensitive = await VaultService.decryptEntry(entry, masterKey);
+            if (sensitive.passkeyDetails) {
+              // Convert challenge from base64 string to ArrayBuffer if necessary
+              const challengeBuffer = typeof challenge === 'string'
+                ? CryptoService.base64ToArrayBuffer(challenge)
+                : challenge;
+
+              const assertion = await PasskeyService.signChallenge(sensitive.passkeyDetails, challengeBuffer);
+              extension.sendResult(`passkey-result-${requestId}`, assertion);
+            } else {
+              extension.sendResult(`passkey-result-${requestId}`, { error: "NOT_A_PASSKEY" });
+            }
+          } catch (e) {
+            console.error("[Extension] Passkey signing error:", e);
+            extension.sendResult(`passkey-result-${requestId}`, { error: "SIGN_FAILED" });
+          }
         }
       });
     }

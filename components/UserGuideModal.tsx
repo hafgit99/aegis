@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, ChevronUp, BookOpen, Shield, Lock, Key, Folder, Tag, Search, Download, Upload, Eye, Smartphone, AlertTriangle, Settings, HelpCircle, ShieldCheck } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, BookOpen, Shield, Lock, Key, Folder, Tag, Search, Download, Upload, Eye, Smartphone, AlertTriangle, Settings, HelpCircle, ShieldCheck, Fingerprint } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext.tsx';
 
 interface GuideSection {
@@ -679,6 +679,58 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
 4. Native Çekirdek (C++ Addon)
 - Kritik güvenlik fonksiyonları yüksek performanslı C++ kodunda çalışır.
 - Bellek ve koruma API'leri için Windows çekirdeği ile doğrudan etkileşim kurar.`
+    },
+    {
+      id: 'passkey-support',
+      title: 'Passkey (WebAuthn) Support',
+      titleTr: 'Passkey (WebAuthn) Desteği',
+      description: 'Modern Phishing-Resistant Authentication',
+      descriptionTr: 'Modern Oltalama Korumalı Kimlik Doğrulama',
+      icon: <Fingerprint size={24} className="text-indigo-400" />,
+      details: `Passkey & WebAuthn Integration (v2.1.0+):
+ 
+ 1. What is a Passkey?
+ - A more secure alternative to traditional passwords.
+ - Uses public-key cryptography (ES256) instead of shared secrets.
+ - Mathematically bound to the specific website (phishing resistant).
+ 
+ 2. Registering a Passkey
+ - Select "Passkey" category in the Entry Form.
+ - Enter the Domain (RPID) and your Display Name.
+ - Click "REGISTER PASSKEY" to generate a cryptographically secure key pair.
+ - Aegis Vault will store the public/private key pair under Zero-Knowledge encryption.
+ 
+ 3. Using Passkeys
+ - When a website asks for a Passkey, Aegis Vault can sign the challenge.
+ - This requires interaction with the Browser Extension (v2+).
+ - High security: Your actual private key never touches the browser.
+ 
+ 4. Why use Passkeys?
+ - No more passwords to remember or type.
+ - Immune to phishing; hackers cannot steal what isn't shared.
+ - Aegis manages everything offline - maximum privacy.`,
+      detailsTr: `Passkey ve WebAuthn Entegrasyonu (v2.1.0+):
+ 
+ 1. Passkey Nedir?
+ - Geleneksel parolalara karşı geliştirilmiş, daha güvenli bir alternatif.
+ - Paylaşılan sırlar yerine açık anahtarlı şifreleme (ES256) kullanır.
+ - Belirli bir web sitesine matematiksel olarak bağlıdır (oltalama korumalı).
+ 
+ 2. Passkey Kaydetme
+ - Kayıt formunda "Passkey" kategorisini seçin.
+ - Alan Adı (RPID) ve Görünen Adınızı girin.
+ - Kriptografik olarak güvenli bir anahtar çifti oluşturmak için "ANAHTAR OLUŞTUR" butonuna basın.
+ - Aegis Vault, bu anahtar çiftini Sıfır-Bilgi şifrelemesi ile kasanıza kaydeder.
+ 
+ 3. Passkey Kullanımı
+ - Bir web sitesi Passkey istediğinde, Aegis Vault gelen isteği imzalar.
+ - Bu işlem için Tarayıcı Eklentisi (v2+) ile iletişim kurulur.
+ - Yüksek Güvenlik: Özel anahtarınız (private key) asla tarayıcıya iletilmez.
+ 
+ 4. Neden Passkey Kullanmalıyım?
+ - Hatırlanacak veya yazılacak bir parola yoktur.
+ - Kimlik avına karşı tam koruma sağlar; siber saldırganlar kasada olmayan şeyi çalamazlar.
+ - Aegis her şeyi çevrimdışı yönetir - maksimum gizlilik.`
     },
     {
       id: 'database-engine',

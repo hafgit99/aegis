@@ -895,7 +895,8 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                   { id: Category.CARD, icon: CreditCard, label: t('cat_card') },
                   { id: Category.NOTE, icon: FileText, label: t('cat_note') },
                   { id: Category.FILE, icon: Download, label: t('cat_file') },
-                  { id: Category.CRYPTO, icon: Wallet, label: t('cat_crypto') }
+                  { id: Category.CRYPTO, icon: Wallet, label: t('cat_crypto') },
+                  { id: Category.PASSKEY, icon: Fingerprint, label: t('cat_passkey') }
                 ].map(cat => (
                   <button key={cat.id} onClick={() => setActiveCat(cat.id)} className={`w-full flex items-center gap-3 py-2 px-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeCat === cat.id ? 'text-blue-500 bg-blue-500/5' : 'text-zinc-600 hover:text-zinc-400'}`}>
                     <cat.icon size={14} />

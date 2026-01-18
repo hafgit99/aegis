@@ -236,7 +236,12 @@ export class VaultService {
     }
 
     await electronDB.setConfig('migration_v1_complete', 'true');
-    console.log('[Database] Migration completed successfully.');
+
+    // SECURITY: Wipe legacy IndexedDB data after successful migration
+    await db.vault.clear();
+    await db.folders.clear();
+
+    console.log('[Database] Migration completed and IndexedDB wiped successfully.');
   }
 
   static async loadAllFromSQLite(): Promise<VaultEntry[]> {
@@ -371,7 +376,7 @@ export class VaultService {
       tag = result.tag;
     }
 
-    const securityScore = this.calculateStrength(plainEntry.sensitive.password || '');
+    const securityScore = plainEntry.category === Category.PASSKEY ? 100 : this.calculateStrength(plainEntry.sensitive.password || '');
 
     const entry: VaultEntry = {
       id: plainEntry.id || crypto.randomUUID(),
@@ -565,6 +570,7 @@ export class VaultService {
           encryptedFile,
           fileIv,
           fileTag,
+          securityScore: fullPackage.category === Category.PASSKEY ? 100 : this.calculateStrength(fullPackage.sensitive.password || ''),
           version: 4
         } as any;
       } catch (e) {

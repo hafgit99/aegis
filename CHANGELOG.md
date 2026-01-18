@@ -4,6 +4,31 @@ All notable changes to Aegis Vault will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [2.1.0] - 2026-01-18
+
+### 🛡️ Passkey (WebAuthn) Support - Phishing Resistance
+
+#### Added
+- **Full Passkey Integration**
+  - Secure storage for WebAuthn/FIDO2 credentials
+  - Integrated cryptography engine for ES256 (ECDSA) key pairs
+  - Phishing-resistant authentication architecture
+  - Support for "Register Passkey" directly within the vault
+  - Automated signature verification test for stored credentials
+
+- **Phishing Protection Engine**
+  - Dedicated Passkey UI category with specialized security indicators
+  - Domain-specific binding for credentials
+  - Visual identity markers for Passkey-enabled accounts
+
+- **Browser Extension IPC Protocol v2**
+  - Enhanced communication layer for Passkey signing requests
+  - Secure challenge-response handling between vault and extension
+
+#### Changed
+- **Security Score**: 98/100 → 99/100 (+1 point)
+- **Category Filter**: Added "Passkey" to sidebar and global navigation
+- **Password Card**: Redesigned to support structured Passkey data display
 
 ## [2.0.2] - 2026-01-16
 

@@ -122,7 +122,7 @@ export class ExportService {
   }
 
   private static convertToCSV(entries: any[]): string {
-    const headers = ['Title', 'URL', 'Username', 'Password', 'Notes', 'Category', 'Tags'];
+    const headers = ['Title', 'URL', 'Username', 'Password', 'Notes', 'Category', 'Passkey_RPID', 'Passkey_DisplayName', 'Tags'];
     const rows = entries.map(e => [
       `"${(e.title || '').replace(/"/g, '""')}"`,
       `"${(e.sensitive?.url || '').replace(/"/g, '""')}"`,
@@ -130,6 +130,8 @@ export class ExportService {
       `"${(e.sensitive?.password || '').replace(/"/g, '""')}"`,
       `"${(e.sensitive?.notes || '').replace(/"/g, '""')}"`,
       `"${e.category}"`,
+      `"${(e.sensitive?.passkeyDetails?.rpId || '').replace(/"/g, '""')}"`,
+      `"${(e.sensitive?.passkeyDetails?.displayName || '').replace(/"/g, '""')}"`,
       `"${(e.tags || []).join(', ')}"`
     ]);
 

@@ -86,6 +86,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     extension: {
         onSearch: (callback) => ipcRenderer.on('extension:search', callback),
         onGetCreds: (callback) => ipcRenderer.on('extension:get-creds', callback),
+        onPasskeySign: (callback) => ipcRenderer.on('extension:passkey-sign', callback),
         sendResult: (id, data) => ipcRenderer.send(`extension:${id}`, data),
     },
 

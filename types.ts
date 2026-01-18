@@ -3,7 +3,8 @@ export enum Category {
   CARD = 'Credit Card',
   NOTE = 'Secure Note',
   FILE = 'Secure File',
-  CRYPTO = 'Crypto Wallet'
+  CRYPTO = 'Crypto Wallet',
+  PASSKEY = 'Passkey'
 }
 
 export interface CustomField {
@@ -26,6 +27,17 @@ export interface CryptoDetails {
   address: string; // Public Address
   seed: string; // Mnemonic (12/24 words) - Masked UI
   privateKey?: string; // Optional
+}
+
+export interface PasskeyDetails {
+  credentialId: string; // Base64URL
+  publicKey: string; // Base64URL (Public Key for verification/storage)
+  signCount: number;
+  transports?: string[]; // e.g. ['usb', 'nfc', 'ble', 'internal']
+  createdAt: number;
+  rpId: string; // Relying Party ID (domain)
+  displayName: string; // User-facing name for this passkey
+  privateKey?: string; // Encrypted private key blob
 }
 
 export interface Folder {
@@ -90,6 +102,7 @@ export interface SensitiveData {
   fileMime?: string;
   cardDetails?: CardDetails;
   cryptoDetails?: CryptoDetails;
+  passkeyDetails?: PasskeyDetails;
   customFields?: CustomField[];
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "aegis-vault",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "type": "module",
   "description": "Premium, Offline-First, Zero-Knowledge Password Manager - Security Hardened Edition (98/100 Security Score)",
   "main": "main.js",
@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "start": "npx electron .",
+    "prebuild": "powershell -Command \"Remove-Item -Path dist_out, dist_electron_obfuscated -Recurse -Force -ErrorAction SilentlyContinue\"",
     "build": "npx vite build && npm run obfuscate && npx electron-builder build --win",
     "obfuscate": "node scripts/obfuscate.js",
     "postbuild": "node copy-node-cli.cjs && powershell -Command \"$out = 'dist_out'; if (Test-Path $out) { Remove-Item -Path (Join-Path $out 'SHA256SUMS.txt') -ErrorAction SilentlyContinue; Get-ChildItem -Path $out -Filter '*.zip' | ForEach-Object { $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash; \\\"$hash  $($_.Name)\\\" | Out-File (Join-Path $out 'SHA256SUMS.txt') -Append -Encoding utf8; Write-Host \\\"[Security] Checksum created for $($_.Name)\\\" } }\"",
@@ -101,15 +102,17 @@
         "zip"
       ],
       "icon": "assets/build-resources/icons/app_icon_v2.ico",
-      "publisherName": "Aegis Security",
       "verifyUpdateCodeSignature": true,
       "forceCodeSigning": false,
       "certificateFile": null,
       "certificatePassword": null,
-      "signingHashAlgorithms": [
-        "sha256"
-      ],
-      "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+      "signtoolOptions": {
+        "publisherName": "Aegis Security",
+        "signingHashAlgorithms": [
+          "sha256"
+        ],
+        "rfc3161TimeStampServer": "http://timestamp.digicert.com"
+      },
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "publish": {

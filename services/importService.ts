@@ -294,6 +294,8 @@ export class ImportService {
 
     if (fileBlob) {
       category = Category.FILE;
+    } else if (raw.passkeyDetails || raw.sensitive?.passkeyDetails) {
+      category = Category.PASSKEY;
     } else if (cardDetails) {
       category = Category.CARD;
     } else if (notes && !password && !username) {
@@ -317,6 +319,10 @@ export class ImportService {
 
     if (cardDetails) {
       sensitiveData.cardDetails = cardDetails;
+    }
+
+    if (raw.passkeyDetails || raw.sensitive?.passkeyDetails) {
+      sensitiveData.passkeyDetails = raw.passkeyDetails || raw.sensitive.passkeyDetails;
     }
 
     return {

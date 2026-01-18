@@ -1,12 +1,12 @@
-
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { VaultEntry, Category, SensitiveData, CustomField } from '../types';
+import { VaultEntry, Category, SensitiveData, CustomField, Folder } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { usePasswordGenerator } from '../hooks/usePasswordGenerator';
+import { PasskeyService } from '../services/passkeyService';
 // Added Check icon to imports from lucide-react
-import { FileUp, File, X, AlertCircle, Loader2, Plus, Trash2, Eye, EyeOff, Lock, Globe, CreditCard, FileText, Download, ChevronRight, Wand2, Check, Wallet } from 'lucide-react';
+import { FileUp, File, X, AlertCircle, Loader2, Plus, Trash2, Eye, EyeOff, Lock, Globe, CreditCard, FileText, Download, ChevronRight, Wand2, Check, Wallet, Fingerprint } from 'lucide-react';
 
 interface EntryFormProps {
   entry?: VaultEntry;
@@ -16,7 +16,7 @@ interface EntryFormProps {
 }
 
 const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose }) => {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { masterKey } = useAuth();
   const { generate } = usePasswordGenerator();
   const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -38,7 +38,8 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
     url: '',
     customFields: [],
     cardDetails: { number: '', expiry: '', cvv: '', holder: '' },
-    cryptoDetails: { walletName: '', network: '', address: '', seed: '', privateKey: '' }
+    cryptoDetails: { walletName: '', network: '', address: '', seed: '', privateKey: '' },
+    passkeyDetails: { credentialId: '', publicKey: '', signCount: 0, rpId: '', displayName: '', createdAt: Date.now() }
   });
 
   const handleQuickGenerate = () => {
@@ -80,6 +81,26 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
       ...sensitiveData,
       cardDetails: { ...sensitiveData.cardDetails!, number: masked }
     });
+  };
+
+  const handleRegisterPasskey = async () => {
+    try {
+      const rpId = sensitiveData.passkeyDetails?.rpId || formData.url.replace(/^https?:\/\//, '').split('/')[0] || 'localhost';
+      const displayName = sensitiveData.passkeyDetails?.displayName || formData.username || 'Aegis User';
+
+      const credential = await PasskeyService.createCredential(rpId, displayName);
+
+      setSensitiveData({
+        ...sensitiveData,
+        passkeyDetails: credential
+      });
+
+      if (!formData.title) {
+        setFormData({ ...formData, title: `Passkey: ${rpId} ` });
+      }
+    } catch (e) {
+      console.error("Passkey registration failed", e);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,6 +167,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
                 <option value={Category.NOTE}>{t('cat_note')}</option>
                 <option value={Category.FILE}>{t('cat_file')}</option>
                 <option value={Category.CRYPTO}>{t('cat_crypto')}</option>
+                <option value={Category.PASSKEY}>{t('cat_passkey')}</option>
               </select>
               <ChevronRight className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-zinc-600 pointer-events-none" size={18} />
             </div>
@@ -231,7 +253,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
                     rows={3}
                     value={sensitiveData.cryptoDetails?.seed || ''}
                     onChange={e => setSensitiveData({ ...sensitiveData, cryptoDetails: { ...sensitiveData.cryptoDetails!, seed: e.target.value, walletName: formData.title, network: sensitiveData.cryptoDetails?.network || '', address: sensitiveData.cryptoDetails?.address || '' } })}
-                    className={`w-full px-6 py-5 bg-black/60 border border-amber-500/20 rounded-[1.5rem] text-white outline-none focus:border-amber-500/50 font-mono text-sm resize-none select-text ${!showPassword ? 'text-security-disc' : ''}`}
+                    className={`w - full px - 6 py - 5 bg - black / 60 border border - amber - 500 / 20 rounded - [1.5rem] text - white outline - none focus: border - amber - 500 / 50 font - mono text - sm resize - none select - text ${!showPassword ? 'text-security-disc' : ''} `}
                     placeholder={showPassword ? t('crypto_seed_placeholder_shown') : t('crypto_seed_placeholder_hidden')}
                     style={!showPassword ? { WebkitTextSecurity: 'disc' } : {}}
                   />
@@ -283,15 +305,48 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
             </AnimatePresence>
           )}
 
+          {formData.category === Category.PASSKEY && (
+            <AnimatePresence mode="wait">
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="col-span-2 grid grid-cols-2 gap-8">
+                <div className="space-y-3 col-span-2">
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('passkey_rp_id')}</label>
+                    <button
+                      type="button"
+                      onClick={handleRegisterPasskey}
+                      className="px-3 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 text-[8px] font-black uppercase tracking-widest rounded-lg border border-indigo-500/20 transition-all flex items-center gap-2"
+                    >
+                      <Fingerprint size={12} />
+                      {lang === 'tr' ? 'ANAHTAR OLUŞTUR' : 'CREATE CREDENTIAL'}
+                    </button>
+                  </div>
+                  <input value={sensitiveData.passkeyDetails?.rpId} onChange={e => setSensitiveData({ ...sensitiveData, passkeyDetails: { ...sensitiveData.passkeyDetails!, rpId: e.target.value } })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono select-text" placeholder="example.com" />
+                </div>
+                <div className="space-y-3 col-span-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('passkey_display_name')}</label>
+                  <input value={sensitiveData.passkeyDetails?.displayName} onChange={e => setSensitiveData({ ...sensitiveData, passkeyDetails: { ...sensitiveData.passkeyDetails!, displayName: e.target.value } })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-bold select-text" />
+                </div>
+                <div className="space-y-3 col-span-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('passkey_credential_id')}</label>
+                  <input value={sensitiveData.passkeyDetails?.credentialId} onChange={e => setSensitiveData({ ...sensitiveData, passkeyDetails: { ...sensitiveData.passkeyDetails!, credentialId: e.target.value } })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono text-xs select-text" />
+                </div>
+                <div className="space-y-3 col-span-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('passkey_public_key')}</label>
+                  <textarea rows={3} value={sensitiveData.passkeyDetails?.publicKey} onChange={e => setSensitiveData({ ...sensitiveData, passkeyDetails: { ...sensitiveData.passkeyDetails!, publicKey: e.target.value } })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-mono text-xs resize-none select-text" />
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          )}
+
           {formData.category === Category.FILE && (
             <AnimatePresence mode="wait">
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="col-span-2">
-                <div className={`relative border-2 border-dashed rounded-[2rem] p-12 flex flex-col items-center justify-center transition-all group/file ${sensitiveData.fileBlob ? 'bg-emerald-500/5 border-emerald-500/30' : 'border-white/10 hover:bg-white/[0.02] hover:border-blue-500/30'}`}>
+                <div className={`relative border - 2 border - dashed rounded - [2rem] p - 12 flex flex - col items - center justify - center transition - all group / file ${sensitiveData.fileBlob ? 'bg-emerald-500/5 border-emerald-500/30' : 'border-white/10 hover:bg-white/[0.02] hover:border-blue-500/30'} `}>
                   <input type="file" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 group-hover/file:scale-110 transition-transform ${sensitiveData.fileBlob ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-600/10 text-blue-500'}`}>
+                  <div className={`w - 16 h - 16 rounded - 2xl flex items - center justify - center mb - 4 group - hover / file: scale - 110 transition - transform ${sensitiveData.fileBlob ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-600/10 text-blue-500'} `}>
                     {isProcessingFile ? <Loader2 className="animate-spin" size={32} /> : sensitiveData.fileBlob ? <Check size={32} /> : <FileUp size={32} />}
                   </div>
-                  <span className={`text-xs font-black uppercase tracking-widest ${sensitiveData.fileBlob ? 'text-emerald-500' : 'text-white'}`}>
+                  <span className={`text - xs font - black uppercase tracking - widest ${sensitiveData.fileBlob ? 'text-emerald-500' : 'text-white'} `}>
                     {sensitiveData.fileName || t('drop_file')}
                   </span>
                   {sensitiveData.fileBlob && (

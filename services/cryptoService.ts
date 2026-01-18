@@ -213,6 +213,12 @@ export class CryptoService {
 
   static arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array | ArrayBufferLike): string {
     const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer as ArrayBuffer);
+
+    // SECURITY: Use Buffer for stable Base64 conversion in tests/node environments
+    if (typeof window === 'undefined' || !window.btoa) {
+      return Buffer.from(bytes).toString('base64');
+    }
+
     let binary = '';
     for (let i = 0; i < bytes.byteLength; i++) {
       binary += String.fromCharCode(bytes[i]);
@@ -221,6 +227,12 @@ export class CryptoService {
   }
 
   static base64ToArrayBuffer(base64: string): ArrayBuffer {
+    // SECURITY: Use Buffer for stable Base64 conversion in tests/node environments
+    if (typeof window === 'undefined' || !window.atob) {
+      const buf = Buffer.from(base64, 'base64');
+      return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+    }
+
     const binary = window.atob(base64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {

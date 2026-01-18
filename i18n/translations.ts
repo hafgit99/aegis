@@ -52,6 +52,7 @@ export const translations = {
     cat_identity: "Identity",
     cat_server: "Server",
     cat_file: "Secure File",
+    cat_passkey: "Passkey",
     days_left: "{count} days left",
     delete_confirm: "Are you sure you want to move this to trash?",
     strength_insecure: "Insecure",
@@ -346,6 +347,14 @@ export const translations = {
     crypto_seed_placeholder_shown: "word1 word2 word3...",
     crypto_seed_placeholder_hidden: "•••• •••• •••• ••••",
     crypto_pk_placeholder: "Private Key (starts with 0x or K/L...)",
+
+    // Passkey
+    passkey_credential_id: "Credential ID",
+    passkey_public_key: "Public Key",
+    passkey_sign_count: "Signature Count",
+    passkey_rp_id: "Relying Party ID (Domain)",
+    passkey_display_name: "Display Name",
+    passkey_created_at: "Created At",
 
     // General UI
     copy_btn: "COPY",
@@ -738,6 +747,7 @@ export const translations = {
     cat_identity: "Kimlik",
     cat_server: "Sunucu",
     cat_file: "Güvenli Dosya",
+    cat_passkey: "Passkey (Geçiş Anahtarı)",
     days_left: "{count} gün kaldı",
     delete_confirm: "Çöp kutusuna taşımak istediğinize emin misiniz?",
     strength_insecure: "Güvensiz",
@@ -1202,7 +1212,15 @@ export const translations = {
     crypto_address_placeholder: "0x...",
     crypto_seed_placeholder_shown: "kelime1 kelime2 kelime3...",
     crypto_seed_placeholder_hidden: "•••• •••• •••• ••••",
-    crypto_pk_placeholder: "Özel Anahtar (0x veya K/L ile başlar)",
+    crypto_pk_placeholder: "Özel Anahtar (0x veya K/L... ile başlar)",
+
+    // Passkey
+    passkey_credential_id: "Kimlik Bilgisi Kimliği (ID)",
+    passkey_public_key: "Genel Anahtar (Public Key)",
+    passkey_sign_count: "İmza Sayısı",
+    passkey_rp_id: "İlgili Taraf Kimliği (Domain)",
+    passkey_display_name: "Görünen Ad",
+    passkey_created_at: "Oluşturulma Tarihi",
 
     // General UI
     copy_btn: "KOPYALA",

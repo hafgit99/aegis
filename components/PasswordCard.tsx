@@ -4,10 +4,11 @@ import React, { useState, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Star, Trash2, Copy, Check, Eye, EyeOff, Globe, CreditCard,
-  FileText, Download, CheckSquare, Square, RotateCcw, ShieldAlert, Wallet
+  FileText, Download, CheckSquare, Square, RotateCcw, ShieldAlert, Wallet, Fingerprint, Shield
 } from 'lucide-react';
 import { VaultEntry, SensitiveData, Category } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
+import { PasskeyService } from '../services/passkeyService';
 
 interface PasswordCardProps {
   entry: VaultEntry;
@@ -88,6 +89,30 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
     }
   };
 
+  const [isSigning, setIsSigning] = useState(false);
+  const [signSuccess, setSignSuccess] = useState(false);
+
+  const handleSignChallenge = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!sensitiveData?.passkeyDetails) return;
+
+    setIsSigning(true);
+    try {
+      // Simulate a challenge from a server
+      const challenge = new TextEncoder().encode('aegis-vault-challenge-' + Date.now()).buffer;
+      const assertion = await PasskeyService.signChallenge(sensitiveData.passkeyDetails, challenge);
+
+      console.log('[Passkey] Signed Assertion:', assertion);
+
+      setSignSuccess(true);
+      setTimeout(() => setSignSuccess(false), 3000);
+    } catch (err) {
+      console.error("Passkey signing failed:", err);
+    } finally {
+      setIsSigning(false);
+    }
+  };
+
   const toggleReveal = async (e: React.MouseEvent) => {
     e.stopPropagation();
     console.log('Toggle Reveal', entry.category);
@@ -140,6 +165,13 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
           iconBg: 'bg-purple-500/10 text-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.1)]',
           accent: 'text-purple-500'
         };
+      case Category.PASSKEY:
+        return {
+          bg: isDark ? 'bg-gradient-to-br from-[#1e1b4b] to-[#020617]' : 'bg-gradient-to-br from-indigo-50 to-white',
+          border: 'border-indigo-500/10 group-hover:border-indigo-500/40',
+          iconBg: 'bg-indigo-500/10 text-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.1)]',
+          accent: 'text-indigo-500'
+        };
       default: // LOGIN
         return {
           bg: isDark ? 'bg-gradient-to-br from-[#0f172a] to-[#020617]' : 'bg-gradient-to-br from-blue-50 to-white',
@@ -182,6 +214,7 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
             {entry.category === Category.NOTE && <FileText size={22} />}
             {entry.category === Category.FILE && <Download size={22} />}
             {entry.category === Category.CRYPTO && <Wallet size={22} />}
+            {entry.category === Category.PASSKEY && <Fingerprint size={22} />}
           </div>
 
           <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0">
@@ -217,7 +250,8 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
                 entry.category === Category.CARD ? t('cat_card') :
                   entry.category === Category.NOTE ? t('cat_note') :
                     entry.category === Category.FILE ? t('cat_file') :
-                      entry.category === Category.CRYPTO ? t('cat_crypto') : '---'
+                      entry.category === Category.CRYPTO ? t('cat_crypto') :
+                        entry.category === Category.PASSKEY ? t('cat_passkey') : '---'
             )}
           </p>
         </div>
@@ -318,6 +352,71 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
                     {t('hide_wallet')}
                   </button>
                 </motion.div>
+              </motion.div>
+            ) : entry.category === Category.PASSKEY ? (
+              <motion.div
+                key="passkey-modal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-30 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center text-center rounded-[2.5rem] p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="w-full space-y-4 text-left">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 bg-indigo-500/10 text-indigo-500 rounded-xl flex items-center justify-center">
+                      <Fingerprint size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-black text-white uppercase tracking-widest">{t('cat_passkey')}</h4>
+                      <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-widest">WebAuthn Registry</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[7px] text-zinc-600 font-black uppercase tracking-widest block mb-1 pl-1">{t('passkey_rp_id')}</label>
+                      <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl text-[10px] text-white font-mono break-all group/pkrp">
+                        {sensitiveData.passkeyDetails?.rpId}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[7px] text-zinc-600 font-black uppercase tracking-widest block mb-1 pl-1">{t('passkey_display_name')}</label>
+                      <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl text-[10px] text-indigo-400 font-bold uppercase tracking-tighter">
+                        {sensitiveData.passkeyDetails?.displayName}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[7px] text-zinc-600 font-black uppercase tracking-widest block mb-1 pl-1">{t('passkey_sign_count')}</label>
+                        <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl text-[10px] text-white font-mono">
+                          {sensitiveData.passkeyDetails?.signCount}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[7px] text-zinc-600 font-black uppercase tracking-widest block mb-1 pl-1">{t('passkey_created_at')}</label>
+                        <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl text-[10px] text-white font-mono">
+                          {new Date(sensitiveData.passkeyDetails?.createdAt || 0).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pb-2">
+                    <button
+                      onClick={handleSignChallenge}
+                      disabled={isSigning}
+                      className={`w-full py-3 ${signSuccess ? 'bg-emerald-600' : 'bg-indigo-600 hover:bg-indigo-500'} text-white text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2`}
+                    >
+                      {isSigning ? <RotateCcw size={14} className="animate-spin" /> :
+                        signSuccess ? <Check size={14} /> : <Shield size={14} />}
+                      {signSuccess ? (lang === 'tr' ? 'DOĞRULANDI' : 'SIGNED') : (lang === 'tr' ? 'TEST İMZASI' : 'TEST SIGN')}
+                    </button>
+                    <button onClick={() => setIsRevealed(false)} className="w-full py-3 bg-white/5 hover:bg-white/10 text-white text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all border border-white/5">
+                      {t('abort')}
+                    </button>
+                  </div>
+                </div>
               </motion.div>
             ) : (
               <motion.div

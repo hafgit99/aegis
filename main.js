@@ -453,6 +453,25 @@ async function handleExtensionMessage(socket, msg) {
           response.data = creds;
         }
         break;
+      case 'PASSKEY_SIGN':
+        if (!sessionKey) {
+          response.error = "VAULT_LOCKED";
+          break;
+        }
+        if (mainWindow) {
+          const assertion = await new Promise((resolve) => {
+            const requestId = Math.random().toString(36).substring(7);
+            ipcMain.once(`extension:passkey-result-${requestId}`, (event, data) => resolve(data));
+            mainWindow.webContents.send('extension:passkey-sign', {
+              entryId: msg.entryId,
+              challenge: msg.challenge,
+              requestId
+            });
+          });
+          response.success = true;
+          response.data = assertion;
+        }
+        break;
       case 'OPEN_POPUP':
         if (mainWindow) {
           mainWindow.show();
