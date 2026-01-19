@@ -30,6 +30,7 @@ nul
 !SECURITY.md
 !CHANGELOG.md
 !*_WHITEPAPER_*.md
+!BROWSER_EXTENSION_GUIDE.md
 
 # Security
 private_key.pem
