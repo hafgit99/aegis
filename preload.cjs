@@ -84,9 +84,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Browser Extension Integration
     extension: {
-        onSearch: (callback) => ipcRenderer.on('extension:search', callback),
-        onGetCreds: (callback) => ipcRenderer.on('extension:get-creds', callback),
-        onPasskeySign: (callback) => ipcRenderer.on('extension:passkey-sign', callback),
+        onSearch: (callback) => {
+            const subscription = (event, ...args) => callback(event, ...args);
+            ipcRenderer.on('extension:search', subscription);
+            return () => ipcRenderer.removeListener('extension:search', subscription);
+        },
+        onGetCreds: (callback) => {
+            const subscription = (event, ...args) => callback(event, ...args);
+            ipcRenderer.on('extension:get-creds', subscription);
+            return () => ipcRenderer.removeListener('extension:get-creds', subscription);
+        },
+        onPasskeySign: (callback) => {
+            const subscription = (event, ...args) => callback(event, ...args);
+            ipcRenderer.on('extension:passkey-sign', subscription);
+            return () => ipcRenderer.removeListener('extension:passkey-sign', subscription);
+        },
         sendResult: (id, data) => ipcRenderer.send(`extension:${id}`, data),
     },
 

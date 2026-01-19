@@ -4,7 +4,7 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-green?style=for-the-badge&logo=linux)
 ![License](https://img.shields.io/badge/License-Commercial-red?style=for-the-badge)
 ![Security Score](https://img.shields.io/badge/Security%20Score-99%2F100-brightgreen?style=for-the-badge&logo=security)
-![Version](https://img.shields.io/badge/Version-2.1.0-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-2.2.0-blue?style=for-the-badge)
 <table align="center" border="0">
   <tr>
     <td align="center">
@@ -54,8 +54,9 @@ Aegis Vault is an offline-first, portable, and ultra-secure password manager des
 - **64MB Memory Cost**: GPU-resistant password hashing
 - **Zero-Knowledge Architecture**: Your master key never leaves your device
 
-### 🛡️ **CURRENT: v2.1.0 - Passkey Edition**
+### 🛡️ **CURRENT: v2.2.0 - Browser Integration**
 - ✅ **Passkey (WebAuthn) Support**: Phishing-resistant credential storage (ES256)
+- ✅ **Browser Extension**: Stable Native Messaging Bridge with fixed ID
 - ✅ **Secure Register Flow**: Create new Passkeys directly within the vault
 - ✅ **Memory Page Locking**: Critical keys are locked in RAM to prevent disk leaks (Swap)
 - ✅ **Hardware Binding**: KDF is physically bound to this computer's hardware ID
@@ -140,6 +141,15 @@ ZIP (Portable Archive):   8FBCE7C80F96D3F2B6DEF5ACAB05DAA29D155C8DAFE5C554A443AF
 - ✅ Smaller download size
 - ✅ No extraction step needed after download
 - ✅ Same portability as EXE
+
+### Method 3: Browser Extension (Optional)
+To enable Autofill and Passkey support in your browser:
+1. Open **Chrome/Edge** and navigate to `chrome://extensions/`
+2. Enable **Developer mode** (toggle in the top right corner)
+3. Click **Load unpacked**
+4. Select the `browser-extension` folder from your Aegis Vault directory
+5. Verify the extension ID is `pjjmjgibliobepbjbghmipfpiljgogii`
+6. Make sure the Aegis Vault desktop app is open to allow communication
 
 ## 💡 First-Time Setup
 
@@ -323,6 +333,12 @@ npm run dev
 npm run build
 ```
 
+## 🛡️ What's New in v2.2.0 - Browser Integration
+- 🌐 **Fixed Extension ID**: Stable ID (`pjjmjgibliobepbjbghmipfpiljgogii`) for all users.
+- 🔗 **Native Messaging Bridge**: High-performance, secure bridge between Chrome and Vault.
+- ⚡ **Improved Autofill**: Faster credential detection and injection.
+- 🔒 **Fixed Connectivity**: Resolved "No connection to host" issues across updates.
+
 ## 🛡️ What's New in v2.1.0 - Passkey Integration
 
 ### Passkey (WebAuthn) Support
@@ -340,7 +356,7 @@ npm run build
 - 📈 **Overall Security**: 92/100 → 98/100 (+6 points)
 - 🛡️ **Attack Surface**: Reduced by 90% (minimal exposure)
 - ✅ **Privilege Escalation**: No extension pipe vector
-- ⚠️ **Browser Extension Support**: Removed (not in use)
+- ⚠️ **Browser Extension Support**: Stable & Ready (ID: `pjjmjgibliobepbjbghmipfpiljgogii`)
 - 🎯 **Class-Leading Security**: 98/100 security score, highest among competitors
 
 ### Rationale

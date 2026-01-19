@@ -9,6 +9,7 @@ import {
 import { VaultEntry, SensitiveData, Category } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PasskeyService } from '../services/passkeyService';
+import { BiometricService } from '../services/biometricService';
 
 interface PasswordCardProps {
   entry: VaultEntry;
@@ -98,6 +99,13 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
 
     setIsSigning(true);
     try {
+      // Require biometric approval for signing
+      const isVerified = await BiometricService.verifyUser();
+      if (!isVerified) {
+        setIsSigning(false);
+        return;
+      }
+
       // Simulate a challenge from a server
       const challenge = new TextEncoder().encode('aegis-vault-challenge-' + Date.now()).buffer;
       const assertion = await PasskeyService.signChallenge(sensitiveData.passkeyDetails, challenge);

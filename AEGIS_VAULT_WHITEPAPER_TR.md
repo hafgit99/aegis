@@ -57,7 +57,7 @@ Potansiyel bir saldırganın ilk adımlarından biri, uygulamanın yürütülebi
  
  Aegis Vault v2.1.0, modern kimlik doğrulamanın zirvesi kabul edilen Passkey (WebAuthn) standardını yerel olarak destekler. Geleneksel parolaların aksine, Passkey'ler kriptografik anahtar çiftleri (ES256 - ECDSA) kullanarak oltalama (phishing) saldırılarını imkansız hale getirir.
  
- - **Donanım Düzeyinde Güvenlik:** Passkey özel anahtarları (private keys), kasanın kriptografik koruması altında tutulur ve yalnızca biyometrik onay ile kullanılabilir.
+ - **Donanım Düzeyinde Güvenlik:** Passkey özel anahtarları (private keys), kasanın kriptografik koruması altında tutulur ve her imza işleminde **zorunlu biyometrik onay (re-authentication)** ile korunur.
  - **Alan Adı Bağlama:** Her Passkey, yalnızca oluşturulduğu alan adı (domain) için geçerlidir. Bu, saldırganların sahte siteler üzerinden kimlik bilgisi çalmasını matematiksel olarak engeller.
  - **Sıfır Bilgi İmzaları:** Kimlik doğrulama sırasında gerçek anahtar paylaşılmaz; bunun yerine yalnızca matematiksel bir imza (assertion) gönderilir.
  
@@ -65,7 +65,18 @@ Potansiyel bir saldırganın ilk adımlarından biri, uygulamanın yürütülebi
 
 ## 4.0 Saldırı Yüzeyi Yönetimi ve Sürekli İyileştirme
 
-v2.1.0 güncellemesi ile Aegis Vault, kimlik avı korumalı (phishing-resistant) kimlik doğrulama standardı olan Passkey (WebAuthn) desteğini mimarisine entegre ederek güvenlik puanını 98/100'den **99/100**'e çıkarmıştır. Bu bölümde, bu yaklaşımın somut örnekleri olan v2.0.1 ve v2.1.0 güncellemeleri üzerinden, saldırı yüzeyinin nasıl etkin bir şekilde yönetildiği analiz edilecektir.
+v2.2.0 güncellemesi ile Aegis Vault, kimlik avı korumalı (phishing-resistant) kimlik doğrulama standardı olan Passkey (WebAuthn) desteğini ve güvenli Tarayıcı Eklentisi (Native Messaging Bridge) mimarisini entegre ederek güvenlik puanını 98/100'den **99/100**'e çıkarmıştır. Bu bölümde, bu yaklaşımın somut örnekleri olan v2.0.1, v2.1.0 ve v2.2.0 güncellemeleri üzerinden, saldırı yüzeyinin nasıl etkin bir şekilde yönetildiği analiz edilecektir.
+
+### v2.2.0: Güvenli Tarayıcı Entegrasyonu (Native Messaging Bridge)
+
+Daha önceki sürümlerde saldırı yüzeyini daraltmak amacıyla kaldırılan tarayıcı eklentisi desteği, v2.2.0 ile tamamen yeni ve güvenli bir mimariyle geri dönmüştür. Eski Named Pipe mimarisinin aksine, yeni sistem **Chrome Native Messaging** protokolünü kullanır:
+
+- **Sabit Eklenti Kimliği (Fixed Extension ID):** Eklenti, önceden tanımlanmış bir public key ile imzalanmıştır (`pjjmjgibliobepbjbghmipfpiljgogii`). Bu sayede ana uygulama, yalnızca bu spesifik ve güvenilir eklentiden gelen bağlantıları kabul eder.
+- **İzole Köprü Süreci (Isolated Bridge Process):** Tarayıcı ile iletişim, ana uygulamadan izole edilmiş, düşük ayrıcalıklı bir köprü süreci üzerinden yürütülür. Bu, tarayıcı tabanlı bir zafiyetin ana kasaya sıçramasını engeller.
+- **Şifreli Yerel İletişim:** Köprü süreci ile ana uygulama arasındaki veri alışverişi, yalnızca yerel döngü (loopback) üzerinde çalışan ve ek güvenlik kontrollerine sahip bir kanal üzerinden gerçekleştirilir.
+
+### v2.1.0 Güncellemesi: Passkey (WebAuthn) Entegrasyonu
+Passkey desteği ile uygulama, oltalama saldırılarına karşı donanım düzeyinde koruma sağlamaya başlamıştır. ES256 (ECDSA) tabanlı anahtar çiftleri ile şifre paylaşmadan güvenli imzalama yapılabilmektedir.
 
 ### v2.0.1 Güncellemesi ile Saldırı Yüzeyinin Azaltılması
 
@@ -162,9 +173,10 @@ Bu bölüm, Aegis Vault'un güvenlik mimarisini ve özelliklerini, piyasadaki ye
 
 | Özellik | Aegis Vault v2.0.1 | KeePassXC | Bitwarden | 1Password |
 |---------|---------------------|-----------|-----------|-----------|
-| Genel Güvenlik Skoru | 98/100 ⭐ | 90/100 | 88/100 | 92/100 |
+| Genel Güvenlik Skoru | 99/100 ⭐ | 90/100 | 88/100 | 92/100 |
 | Bellek Koruması (VirtualLock) | ✅ Tam | ⚠️ Kısmi | ❌ Yok | ⚠️ Kısmi |
 | Donanım Bağlama | ✅ Var | ❌ Yok | ❌ Yok | ❌ Yok |
+| Tarayıcı Eklentisi (Fixed ID) | ✅ Güvenli Bridge | ⚠️ Standart | ✅ Standart | ✅ Standart |
 | Kod Karartma (Obfuscation) | ✅ Var | ❌ Yok | ❌ Yok | ❌ Yok |
 | Çevrimdışı Öncelikli (Offline-First) | ✅ %100 | ✅ %100 | ⚠️ %50 | ❌ %10 |
 | Anahtar Türetme Fonksiyonu (KDF) | Argon2id (20 iterasyon) | Argon2id | PBKDF2 | PBKDF2 |

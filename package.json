@@ -1,6 +1,6 @@
 {
   "name": "aegis-vault",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "type": "module",
   "description": "Premium, Offline-First, Zero-Knowledge Password Manager - Security Hardened Edition (98/100 Security Score)",
   "main": "main.js",
@@ -10,9 +10,9 @@
     "dev": "vite",
     "start": "npx electron .",
     "prebuild": "powershell -Command \"Remove-Item -Path dist_out, dist_electron_obfuscated -Recurse -Force -ErrorAction SilentlyContinue\"",
-    "build": "npx vite build && npm run obfuscate && npx electron-builder build --win",
+    "build": "npx vite build && npm run obfuscate && npx electron-builder build --win && npm run postbuild",
     "obfuscate": "node scripts/obfuscate.js",
-    "postbuild": "node copy-node-cli.cjs && powershell -Command \"$out = 'dist_out'; if (Test-Path $out) { Remove-Item -Path (Join-Path $out 'SHA256SUMS.txt') -ErrorAction SilentlyContinue; Get-ChildItem -Path $out -Filter '*.zip' | ForEach-Object { $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash; \\\"$hash  $($_.Name)\\\" | Out-File (Join-Path $out 'SHA256SUMS.txt') -Append -Encoding utf8; Write-Host \\\"[Security] Checksum created for $($_.Name)\\\" } }\"",
+    "postbuild": "node copy-node-cli.cjs && powershell -Command \"Copy-Item -Path 'native-host-bridge.cjs' -Destination 'dist_out/win-unpacked/resources/' -Force; $out = 'dist_out'; $unpackedDir = Join-Path $out 'win-unpacked'; $version = (Get-Content 'package.json' | ConvertFrom-Json).version; $zipName = \\\"Aegis Vault-$version-x64.zip\\\"; $zipPath = Join-Path $out $zipName; if (Test-Path $zipPath) { Remove-Item $zipPath -Force }; Write-Host '[Build] Recreating ZIP with all files...'; Compress-Archive -Path (Join-Path $unpackedDir '*') -DestinationPath $zipPath -Force; Write-Host \\\"[Build] ZIP recreated: $zipName\\\"; Remove-Item -Path (Join-Path $out 'SHA256SUMS.txt') -ErrorAction SilentlyContinue; Get-ChildItem -Path $out -Filter '*.zip' | ForEach-Object { $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash; \\\"$hash  $($_.Name)\\\" | Out-File (Join-Path $out 'SHA256SUMS.txt') -Append -Encoding utf8; Write-Host \\\"[Security] Checksum created for $($_.Name)\\\" }\"",
     "rebuild-native": "electron-rebuild -f -w aegis_security",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -81,13 +81,15 @@
           "services/**/*"
         ]
       },
-      "package.json"
+      "package.json",
+      "browser-extension/**/*"
     ],
     "extraResources": [
       {
         "from": "dist_electron_obfuscated/preload.cjs",
         "to": "preload.cjs"
-      }
+      },
+      "native-host-bridge.cjs"
     ],
     "extraFiles": [
       {

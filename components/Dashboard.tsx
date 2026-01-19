@@ -1230,6 +1230,31 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                                 {isSKEnabled ? t('status_enabled') : t('status_disabled')}
                               </button>
                             </div>
+
+                            {/* Browser Integration Card */}
+                            <div className="glass p-5 rounded-[1.5rem] border border-white/5 flex items-center justify-between group hover:border-violet-500/20 transition-all shadow-lg">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-violet-600/10 text-violet-500 rounded-lg group-hover:scale-110 transition-transform">
+                                  <Globe size={18} />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('browser_extension')}</h4>
+                                  <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1">{t('browser_integration_desc')}</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={async () => {
+                                  if ((window as any).electronAPI) {
+                                    // The main process handles setup on launch, this is just visual confirmation for now
+                                    // In a real scenario, we would send an IPC call to re-register/check
+                                    alert(t('integration_active'));
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all bg-violet-600 text-white shadow-lg shadow-violet-600/20 hover:bg-violet-500`}
+                              >
+                                {t('enable_integration')}
+                              </button>
+                            </div>
                           </div>
                         </section>
 

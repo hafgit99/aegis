@@ -57,7 +57,7 @@ One of the first steps a potential attacker takes is to analyze the application'
  
  Aegis Vault v2.1.0 natively supports the Passkey (WebAuthn) standard, considered the pinnacle of modern authentication. Unlike traditional passwords, Passkeys use cryptographic key pairs (ES256 - ECDSA) to make phishing attacks mathematically impossible.
  
- - **Hardware-Level Security:** Passkey private keys are kept under the vault's cryptographic protection and can only be used with biometric approval.
+ - **Hardware-Level Security:** Passkey private keys are kept under the vault's cryptographic protection and are protected by **mandatory biometric re-authentication** for every signing operation.
  - **Domain Binding:** Each Passkey is valid only for the domain it was created for. This prevents attackers from stealing credentials through fake websites.
  - **Zero-Knowledge Signatures:** The actual key is never shared during authentication; instead, only a mathematical signature (assertion) is sent.
  
@@ -65,7 +65,18 @@ One of the first steps a potential attacker takes is to analyze the application'
 
 ## 4.0 Attack Surface Management and Continuous Improvement
 
-With the v2.1.0 update, Aegis Vault integrated Passkey (WebAuthn) support—the gold standard for phishing-resistant authentication—into its architecture, increasing the security score from 98/100 to **99/100**. In this section, through the concrete examples of the v2.0.1 and v2.1.0 updates, how the attack surface is effectively managed will be analyzed.
+With the v2.2.0 update, Aegis Vault integrated Passkey (WebAuthn) support—the gold standard for phishing-resistant authentication—and the secure Browser Extension (Native Messaging Bridge) architecture, increasing the security score from 98/100 to **99/100**. In this section, through the concrete examples of the v2.0.1, v2.1.0, and v2.2.0 updates, how the attack surface is effectively managed will be analyzed.
+
+### v2.2.0: Secure Browser Integration (Native Messaging Bridge)
+
+The browser extension support, which was removed in previous versions to reduce the attack surface, has returned in v2.2.0 with a completely new and secure architecture. Unlike the old Named Pipe architecture, the new system uses the **Chrome Native Messaging** protocol:
+
+- **Fixed Extension ID:** The extension is signed with a predefined public key (`pjjmjgibliobepbjbghmipfpiljgogii`). This ensures that the main application only accepts connections from this specific and trusted extension.
+- **Isolated Bridge Process:** Communication with the browser is handled through an isolated, low-privilege bridge process. This prevents any browser-based vulnerability from affecting the main vault.
+- **Encrypted Local Communication:** Data exchange between the bridge process and the main app occurs over a local loopback channel with additional security checks.
+
+### v2.1.0 Update: Passkey (WebAuthn) Integration
+With Passkey support, the application provides hardware-level protection against phishing attacks. Secure signatures can be made without sharing passwords using ES256 (ECDSA) based key pairs.curity risk. It was observed that any process in the system could connect to this communication channel, potentially paving the way for data leakage or privilege escalation attacks while the vault is unlocked.
 
 ### Reducing Attack Surface with v2.0.1 Update
 
@@ -160,10 +171,11 @@ These user-friendly and secure features clearly demonstrate Aegis Vault's positi
 
 This section demonstrates Aegis Vault's technical superiority by comparing its security architecture and features with established competitors in the market through objective metrics. The primary purpose of this analysis is to prove the concrete technical advantages Aegis Vault offers, particularly in critical security metrics and advanced defense mechanisms. The comparison is based on the v2.0.1 "Hardened Edition" version.
 
-| Feature | Aegis Vault v2.1.0 | KeePassXC | Bitwarden | 1Password |
+| Feature | Aegis Vault v2.2.0 | KeePassXC | Bitwarden | 1Password |
 |---------|---------------------|-----------|-----------|-----------|
 | Overall Security Score | **99/100** ⭐ | 90/100 | 88/100 | 92/100 |
 | Passkey Support | ✅ **Phishing Resistant** | ⚠️ Partial | ✅ Yes | ✅ Yes |
+| Browser Extension (Fixed ID) | ✅ **Secure Bridge** | ⚠️ Standard | ✅ Standard | ✅ Standard |
 | Memory Protection (VirtualLock) | ✅ Full | ⚠️ Partial | ❌ None | ⚠️ Partial |
 | Hardware Binding | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | Code Obfuscation | ✅ Yes | ❌ No | ❌ No | ❌ No |

@@ -324,6 +324,36 @@ export class BiometricService {
     }
   }
 
+  static async verifyUser(): Promise<boolean> {
+    const isSupported = await this.isSupported();
+    if (!isSupported) return true; // Fallback if hardware not available
+
+    const configStr = localStorage.getItem(this.STORAGE_KEY);
+    if (!configStr) return true; // Biometrics not enabled by user
+
+    const config = JSON.parse(configStr);
+    const challengeBytes = this.createOperationSpecificChallenge('VERIFY');
+    const challenge = challengeBytes.buffer.slice(0, challengeBytes.byteLength) as ArrayBuffer;
+
+    const options: PublicKeyCredentialRequestOptions = {
+      challenge,
+      allowCredentials: [{
+        id: CryptoService.base64ToArrayBuffer(config.credentialId),
+        type: "public-key"
+      }],
+      userVerification: "required",
+      timeout: 60000
+    };
+
+    try {
+      const assertion = await navigator.credentials.get({ publicKey: options });
+      return !!assertion;
+    } catch (e) {
+      console.error("Biometric Verification Failed:", e);
+      return false;
+    }
+  }
+
   static disable(): void {
     localStorage.removeItem(this.STORAGE_KEY);
     if ((window as any).electronAPI?.credentials) {

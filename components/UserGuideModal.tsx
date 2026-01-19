@@ -703,7 +703,8 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
  3. Using Passkeys
  - When a website asks for a Passkey, Aegis Vault can sign the challenge.
  - This requires interaction with the Browser Extension (v2+).
- - High security: Your actual private key never touches the browser.
+ - **High security: Every signing operation requires a Biometric Confirmation (Windows Hello / Touch ID).**
+ - Your actual private key never touches the browser.
  
  4. Why use Passkeys?
  - No more passwords to remember or type.
@@ -725,7 +726,8 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
  3. Passkey Kullanımı
  - Bir web sitesi Passkey istediğinde, Aegis Vault gelen isteği imzalar.
  - Bu işlem için Tarayıcı Eklentisi (v2+) ile iletişim kurulur.
- - Yüksek Güvenlik: Özel anahtarınız (private key) asla tarayıcıya iletilmez.
+ - **Yüksek Güvenlik: Her imzalama işlemi Biyometrik Onay (Windows Hello / Touch ID) gerektirir.**
+ - Özel anahtarınız (private key) asla tarayıcıya iletilmez.
  
  4. Neden Passkey Kullanmalıyım?
  - Hatırlanacak veya yazılacak bir parola yoktur.

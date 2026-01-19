@@ -360,50 +360,286 @@ app.whenReady().then(async () => {
 
   createWindow();
 
-  // SECURITY: Named Pipe Server DISABLED
-  // The pipe server has been disabled to eliminate a potential attack surface.
-  // Any process on the system could connect to the Named Pipe and potentially
-  // access vault data if the vault was unlocked. Since browser extension
-  // functionality is not used, this security risk has been removed entirely.
-  // To re-enable, uncomment: setupExtensionServer();
+  // SECURITY: Initialize Bridge Server (Main Process Side)
+  setupBridgeServer();
+
+  // SECURITY: Native Messaging Setup
+  // Automatically register host on startup (Safe, HKCU path)
+  setupNativeMessagingHost();
+
+  // If launched as a messaging host, start listener
+  if (process.argv.includes('--native-messaging-host') || process.argv.includes('com.aegis.vault.json')) {
+    startNativeMessagingListener();
+  }
 });
 
-// SECURITY: Named Pipe Server for Browser Extension
+// SECURITY: Dedicated Bridge Server for Native Messaging
+// Only used to communicate between the Extension Bridge process and the Main App.
 const PIPE_NAME = '\\\\.\\pipe\\aegis-vault-pipe';
-let extensionConnections = new Set();
 
-function setupExtensionServer() {
+// Helper for shared logging
+function logMain(msg) {
+  // Debug logging disabled for production
+  // Uncomment below for troubleshooting
+  /*
+  try {
+    const logPath = path.join(app.getPath('desktop'), 'native_host.log');
+    fs.appendFileSync(logPath, `[MAIN ${new Date().toISOString()}] ${msg}\n`);
+  } catch (e) { }
+  */
+}
+
+// 1. MAIN PROCESS: Listen for Bridge connections
+function setupBridgeServer() {
+  logMain("Setting up Bridge Server on: " + PIPE_NAME);
+  // If pipe exists, remove it (cleanup)
   const server = net.createServer((socket) => {
-    console.log('[Extension] New connection from bridge');
-    extensionConnections.add(socket);
+    logMain("Bridge connection accepted from Native Host process.");
 
     socket.on('data', async (data) => {
+      // Data received from Bridge (originally from Chrome)
       const chunks = data.toString().split('\n').filter(c => c.trim());
       for (const chunk of chunks) {
         try {
           const msg = JSON.parse(chunk);
+          logMain("Received Message: " + msg.type);
+          // Process the message (Search, Sign, etc.)
           await handleExtensionMessage(socket, msg);
         } catch (e) {
-          console.error('[Extension] Error handling message chunk:', e);
+          logMain('[Bridge] Malformed message: ' + e.message);
         }
       }
-    });
-
-    socket.on('close', () => {
-      extensionConnections.delete(socket);
-      console.log('[Extension] Bridge disconnected');
     });
   });
 
   server.listen(PIPE_NAME, () => {
-    console.log('[Security] Extension pipe server listening on', PIPE_NAME);
+    logMain("Bridge Server listening successfully.");
   });
+
+  server.on('error', (err) => {
+    logMain("Bridge Server Error: " + err.message);
+  });
+
+  return server;
 }
 
-async function handleExtensionMessage(socket, msg) {
+// 2. BRIDGE PROCESS (Native Messaging Host): Forward Chrome <-> Main App
+function runBridgeMode() {
+  // CRITICAL: Do NOT use app.getPath() here - it triggers Electron lifecycle!
+  // Use os.homedir() instead for pure Node.js operation.
+  const os = require('os');
+  const logPath = path.join(os.homedir(), 'Desktop', 'native_host.log');
+  const log = (msg) => {
+    // Debug logging disabled for production
+    /*
+    try {
+      fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${msg}\n`);
+    } catch (e) { }
+    */
+  };
+
+  // Silence stdout for protocol compliance
+  console.log = function () { };
+  console.error = function (err) { log("ERROR: " + err); };
+  console.warn = function () { };
+
+  log("Starting Bridge Mode...");
+  log("Args: " + JSON.stringify(process.argv));
+
+  // CRITICAL: Prevent Electron from creating windows
+  // This must happen BEFORE any async operations
+  if (app && app.on) {
+    app.on('ready', () => {
+      log("Electron ready event fired in Bridge Mode - ignoring.");
+    });
+    app.on('window-all-closed', () => {
+      // Do nothing - prevent default quit behavior
+    });
+  }
+  log("Starting Bridge Mode...");
+  log("Args: " + JSON.stringify(process.argv));
+
+  const tryConnect = (retries = 20) => {
+    log("Attempting connection to pipe: " + PIPE_NAME + " (Retry: " + retries + ")");
+    const socket = net.createConnection(PIPE_NAME);
+
+    const cleanup = () => {
+      try { socket.end(); } catch (e) { }
+      process.exit(0);
+    };
+
+    socket.on('connect', () => {
+      // Bridge connected to Main App
+    });
+
+    socket.on('error', (err) => {
+      if (retries > 0) {
+        setTimeout(() => tryConnect(retries - 1), 500);
+      } else {
+        // Log minimal error to stderr if needed, but Native Messaging expects specific format or silence
+        process.exit(1);
+      }
+    });
+
+    socket.on('close', cleanup);
+    process.on('SIGINT', cleanup);
+
+    // A. From Chrome (stdin) -> To Pipe
+    let inputBuffer = Buffer.alloc(0);
+    process.stdin.on('data', (chunk) => {
+      inputBuffer = Buffer.concat([inputBuffer, chunk]);
+      while (inputBuffer.length >= 4) {
+        const msgLen = inputBuffer.readUint32LE(0);
+        if (inputBuffer.length >= 4 + msgLen) {
+          const payload = inputBuffer.subarray(4, 4 + msgLen);
+          inputBuffer = inputBuffer.subarray(4 + msgLen);
+
+          socket.write(payload);
+          socket.write('\n');
+        } else {
+          break;
+        }
+      }
+    });
+
+    // B. From Pipe (Main App) -> To Chrome (stdout)
+    socket.on('data', (data) => {
+      const lines = data.toString().split('\n').filter(l => l.trim());
+      for (const line of lines) {
+        try {
+          const msg = JSON.parse(line);
+          sendToExtension(process.stdout, msg);
+        } catch (e) {
+          // Ignore
+        }
+      }
+    });
+  };
+
+  tryConnect();
+}
+
+const EXTENSION_ID = 'pjjmjgibliobepbjbghmipfpiljgogii';
+function sendToExtension(socketOrStdout, message) {
+  const payload = JSON.stringify(message);
+  const buffer = Buffer.from(payload);
+  const header = Buffer.alloc(4);
+  header.writeUint32LE(buffer.length, 0);
+
+  if (socketOrStdout.write) {
+    socketOrStdout.write(header);
+    socketOrStdout.write(buffer);
+  } else {
+    process.stdout.write(header);
+    process.stdout.write(buffer);
+  }
+}
+
+/**
+ * Registers this application as a Native Messaging Host in the OS.
+ * Uses a standalone Node.js bridge script (not the Electron app) to avoid lifecycle conflicts.
+ */
+function setupNativeMessagingHost() {
+  const hostName = 'com.aegis.vault';
+
+  // Path to the standalone bridge script
+  let bridgeScript;
+  let nodeExe;
+
+  const exeDir = path.dirname(app.getPath('exe'));
+
+  if (app.isPackaged) {
+    // Production path
+    bridgeScript = path.join(exeDir, 'resources', 'native-host-bridge.cjs');
+    nodeExe = path.join(exeDir, 'node.exe');
+  } else {
+    // Development path
+    bridgeScript = path.join(__dirname, 'native-host-bridge.cjs');
+    nodeExe = 'node'; // Use system node in dev
+  }
+
+  // Create a batch file to launch node with the bridge script
+  const batchPath = path.join(app.getPath('userData'), 'aegis-bridge.bat');
+  const batchContent = `@echo off\n"${nodeExe}" "${bridgeScript}" %*`;
+  fs.writeFileSync(batchPath, batchContent);
+
+  const manifest = {
+    name: hostName,
+    description: "Aegis Vault Security Bridge",
+    path: batchPath,
+    type: "stdio",
+    allowed_origins: [
+      `chrome-extension://${EXTENSION_ID}/`
+    ]
+  };
+
+  const manifestPath = path.join(app.getPath('userData'), 'com.aegis.vault.json');
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  logMain("Native Host manifest written to: " + manifestPath);
+  logMain("Bridge batch file written to: " + batchPath);
+
+  if (process.platform === 'win32') {
+    const regKey = `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${hostName}`;
+    try {
+      execSync(`reg add "${regKey}" /ve /t REG_SZ /d "${manifestPath}" /f`);
+      console.log('[Security] Native Messaging Host registered in Registry');
+    } catch (e) {
+      console.error('[Security] Failed to register Registry key:', e.message);
+    }
+  }
+}
+
+// 3. STARTUP LOGIC
+// Check if running as Native Messaging Host (Bridge Mode)
+// Chrome passes the origin (chrome-extension://ID/) as an argument on Windows
+const isNativeHost = process.argv.includes('--native-messaging-host') ||
+  process.argv.includes('com.aegis.vault.json') ||
+  process.argv.some(arg => arg.startsWith('chrome-extension://'));
+
+if (isNativeHost) {
+  // We are the Bridge Process launched by Chrome
+  runBridgeMode();
+  // Do NOT continue to create window or start app
+} else {
+  // We are the Main Application
+  // Check Single Instance Lock
+  const gotTheLock = app.requestSingleInstanceLock();
+  if (!gotTheLock) {
+    app.quit();
+  } else {
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+      // Someone tried to run a second instance, we should focus our window.
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+      }
+    });
+
+    app.whenReady().then(async () => {
+      // SECURITY: If we somehow got here in Native Host mode, STOP immediately.
+      // This prevents double-database access and phantom windows.
+      if (isNativeHost) {
+        logMain("Detected Native Host mode inside whenReady - Aborting GUI launch.");
+        return;
+      }
+
+      await loadKeytar();
+      const userDataPath = setupPortablePaths();
+      console.log('User data path:', userDataPath);
+
+      createWindow();
+
+      // SECURITY: Initialize Bridge Server (Main Process Side)
+      setupBridgeServer();
+
+      // Register Host Manifest (So Chrome knows where to find us)
+      setupNativeMessagingHost();
+    });
+  }
+}
+
+async function handleExtensionMessage(socketOrStdout, msg) {
   // Handle different request types from the extension
-  // Initial Handshake, Get Entries, Autofill request, etc.
-  // Responses must be sent back through the socket
   let response = { id: msg.id, success: false };
 
   try {
@@ -486,7 +722,14 @@ async function handleExtensionMessage(socket, msg) {
     response.error = err.message;
   }
 
-  socket.write(JSON.stringify(response) + '\n');
+  // Send response back through the pipe (JSON + newline, not Native Messaging protocol)
+  try {
+    const responseStr = JSON.stringify(response) + '\n';
+    socketOrStdout.write(responseStr);
+    logMain("Sent Response: " + response.success);
+  } catch (e) {
+    logMain("Failed to send response: " + e.message);
+  }
 }
 
 let clipboardTimer;

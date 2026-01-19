@@ -11,6 +11,7 @@ import TitleBar from './components/TitleBar.tsx';
 import { VaultService } from './services/vaultService.ts';
 import { PasskeyService } from './services/passkeyService.ts';
 import { CryptoService } from './services/cryptoService.ts';
+import { BiometricService } from './services/biometricService.ts';
 
 const AppContent: React.FC = () => {
   const {
@@ -43,50 +44,105 @@ const AppContent: React.FC = () => {
   // Browser Extension Integration
   React.useEffect(() => {
     const electronAPI = (window as any).electronAPI;
+
+    // Only proceed if API is available
     if (electronAPI?.extension) {
       const extension = electronAPI.extension;
 
-      extension.onSearch(async (event: any, { query, requestId }: any) => {
+      const removeSearch = extension.onSearch(async (event: any, { query, requestId }: any) => {
         if (!entries || !masterKey) {
-          console.log("[Extension] Search ignored: Vault locked or entries empty");
+          extension.sendResult(`search-result-${requestId}`, { error: "VAULT_LOCKED" });
           return;
         }
 
-        const searchTerm = query.toLowerCase();
-        const filtered = entries
-          .filter(item => {
-            const titleMatch = item.title?.toLowerCase().includes(searchTerm);
-            const userMatch = item.username?.toLowerCase().includes(searchTerm);
-            return titleMatch || userMatch;
-          })
-          .slice(0, 10) // Support up to 10 results
-          .map(item => ({
-            id: item.id,
-            title: item.title || "Unnamed Entry",
-            username: item.username || ""
-          }));
+        let results = [];
+        const searchTerm = query ? query.toLowerCase().trim() : "";
 
-        console.log(`[Extension] Search for "${query}" found ${filtered.length} results`);
-        extension.sendResult(`search-result-${requestId}`, filtered);
-      });
+        // Boş arama ise son 10 kaydı dön (Kullanıcıya kolaylık)
+        if (!searchTerm) {
+          results = entries.slice(0, 10);
+        } else {
+          // Domain parse etme (google.com -> google)
+          let domainKeyword = searchTerm;
+          try {
+            // Basit domain extraction
+            const parts = searchTerm.split('.');
+            if (parts.length >= 2) {
+              domainKeyword = parts[parts.length - 2]; // amazon.com -> amazon
+            }
+          } catch (e) { }
 
-      extension.onGetCreds(async (event: any, { entryId, requestId }: any) => {
-        if (!masterKey) return;
-        const entry = entries.find(i => i.id === entryId);
-        if (entry) {
-          const sensitive = await VaultService.decryptEntry(entry, masterKey);
-          extension.sendResult(`cred-result-${requestId}`, {
-            username: entry.username,
-            password: sensitive.password
+          // 1. Metadata (Title/Username) üzerinde ara
+          results = entries.filter(item => {
+            const title = item.title?.toLowerCase() || "";
+            const username = item.username?.toLowerCase() || "";
+
+            // Tam eşleşme veya keyword eşleşmesi
+            if (title.includes(searchTerm) || username.includes(searchTerm)) return true;
+            if (domainKeyword && domainKeyword.length > 3) {
+              if (title.includes(domainKeyword)) return true;
+            }
+            return false;
           });
+
+          // 2. Eğer metadata ile çok az sonuç bulduysak veya hiç bulamadıysak, 
+          // ve arama bir domain ise, URL kontrolü yap (Maliyetli ama gerekli)
+          // (Şimdilik performans için sadece ilk 50 kaydı tarıyoruz)
+          if (results.length === 0 && searchTerm.includes('.')) {
+            for (const entry of entries.slice(0, 50)) {
+              // Zaten bulduklarımızı atla
+              if (results.find(r => r.id === entry.id)) continue;
+
+              try {
+                const sensitive = await VaultService.decryptEntry(entry, masterKey);
+                if (sensitive.url && sensitive.url.toLowerCase().includes(domainKeyword)) {
+                  results.push(entry);
+                }
+              } catch (e) { }
+              if (results.length >= 5) break;
+            }
+          }
         }
+
+        const mapped = results.map(item => ({
+          id: item.id,
+          title: item.title || "Unnamed Entry",
+          username: item.username || ""
+        }));
+
+        console.log(`[Extension] Search for "${query}" found ${mapped.length} results`);
+        extension.sendResult(`search-result-${requestId}`, mapped);
       });
 
-      extension.onPasskeySign(async (event: any, { entryId, challenge, requestId }: any) => {
+      const removeGetCreds = extension.onGetCreds(async (event: any, { entryId, requestId }: any) => {
         if (!masterKey) return;
         const entry = entries.find(i => i.id === entryId);
         if (entry) {
           try {
+            const sensitive = await VaultService.decryptEntry(entry, masterKey);
+            extension.sendResult(`cred-result-${requestId}`, {
+              username: entry.username,
+              password: sensitive.password
+            });
+          } catch (e) {
+            extension.sendResult(`cred-result-${requestId}`, { error: "DECRYPT_FAILED" });
+          }
+        }
+      });
+
+      const removePasskey = extension.onPasskeySign(async (event: any, { entryId, challenge, requestId }: any) => {
+        if (!masterKey) return;
+        const entry = entries.find(i => i.id === entryId);
+        if (entry) {
+          try {
+            // Require biometric approval for Passkey signing (High-Security)
+            const isVerified = await BiometricService.verifyUser();
+            if (!isVerified) {
+              console.log("[Extension] Passkey signing rejected: Biometric verification failed");
+              extension.sendResult(`passkey-result-${requestId}`, { error: "USER_REJECTED_BIOMETRIC" });
+              return;
+            }
+
             const sensitive = await VaultService.decryptEntry(entry, masterKey);
             if (sensitive.passkeyDetails) {
               // Convert challenge from base64 string to ArrayBuffer if necessary
@@ -105,6 +161,13 @@ const AppContent: React.FC = () => {
           }
         }
       });
+
+      // CLEANUP FUNCTION to remove listeners when dependencies change
+      return () => {
+        if (removeSearch && typeof removeSearch === 'function') removeSearch();
+        if (removeGetCreds && typeof removeGetCreds === 'function') removeGetCreds();
+        if (removePasskey && typeof removePasskey === 'function') removePasskey();
+      };
     }
   }, [entries, masterKey]);
 
