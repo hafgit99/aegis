@@ -42,6 +42,117 @@ searchInput.addEventListener('input', (e) => search(e.target.value));
 document.getElementById('refreshBtn').addEventListener('click', () => search(searchInput.value || currentDomain));
 document.getElementById('openAppBtn').addEventListener('click', () => sendNative('OPEN_POPUP'));
 
+// QR Scan functionality
+const qrScanBtn = document.getElementById('qrScanBtn');
+const qrModal = document.getElementById('qrModal');
+const qrModalClose = document.getElementById('qrModalClose');
+const qrUploadArea = document.getElementById('qrUploadArea');
+const qrFileInput = document.getElementById('qrFileInput');
+const qrResult = document.getElementById('qrResult');
+
+qrScanBtn?.addEventListener('click', () => {
+    qrModal.style.display = 'flex';
+    resetQrResult();
+});
+
+qrModalClose?.addEventListener('click', () => {
+    qrModal.style.display = 'none';
+});
+
+qrUploadArea?.addEventListener('click', () => {
+    qrFileInput.click();
+});
+
+qrFileInput?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    showQrResult('Scanning QR code...', 'info');
+
+    try {
+        const qrData = await scanQrFromFile(file);
+        if (qrData) {
+            // Send QR data to desktop app
+            sendNative('SCAN_QR_RESULT', { qrData });
+            showQrResult('QR code sent to desktop app!', 'success');
+            setTimeout(() => {
+                qrModal.style.display = 'none';
+            }, 1500);
+        } else {
+            showQrResult('No QR code found in image', 'error');
+        }
+    } catch (error) {
+        showQrResult('Failed to scan QR code', 'error');
+    }
+
+    // Reset file input
+    qrFileInput.value = '';
+});
+
+function resetQrResult() {
+    if (qrResult) {
+        qrResult.style.display = 'none';
+        qrResult.className = 'qr-result';
+        qrResult.textContent = '';
+    }
+}
+
+function showQrResult(message, type) {
+    if (qrResult) {
+        qrResult.style.display = 'block';
+        qrResult.className = `qr-result ${type}`;
+        qrResult.textContent = message;
+    }
+}
+
+async function scanQrFromFile(file) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        const reader = new FileReader();
+
+        reader.onload = (e) => {
+            img.onload = () => {
+                // Create canvas to read image data
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+
+                if (!ctx) {
+                    resolve(null);
+                    return;
+                }
+
+                ctx.drawImage(img, 0, 0);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                // Try to find QR code using jsQR library if available
+                if (typeof jsQR !== 'undefined') {
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    resolve(code ? code.data : null);
+                } else {
+                    // If jsQR is not available, send image data to desktop app for processing
+                    const dataUrl = canvas.toDataURL('image/png');
+                    sendNative('PROCESS_QR_IMAGE', { imageData: dataUrl });
+                    resolve(null); // Desktop app will handle it
+                }
+            };
+
+            img.onerror = () => {
+                resolve(null);
+            };
+
+            img.src = e.target.result;
+        };
+
+        reader.onerror = () => {
+            resolve(null);
+        };
+
+        reader.readAsDataURL(file);
+    });
+}
+
 function log(msg) {
     if (!debugMode) return;
     const d = document.getElementById('debugLog');

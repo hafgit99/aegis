@@ -1,6 +1,6 @@
 {
   "name": "aegis-vault",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "type": "module",
   "description": "Premium, Offline-First, Zero-Knowledge Password Manager - Security Hardened Edition (98/100 Security Score)",
   "main": "main.js",
@@ -29,6 +29,7 @@
     "hash-wasm": "4.11.0",
     "html2canvas": "1.4.1",
     "jspdf": "2.5.1",
+    "jsqr": "^1.4.0",
     "lucide-react": "0.471.1",
     "papaparse": "5.5.3",
     "qrcode": "1.5.4",

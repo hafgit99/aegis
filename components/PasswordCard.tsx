@@ -4,12 +4,13 @@ import React, { useState, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Star, Trash2, Copy, Check, Eye, EyeOff, Globe, CreditCard,
-  FileText, Download, CheckSquare, Square, RotateCcw, ShieldAlert, Wallet, Fingerprint, Shield
+  FileText, Download, CheckSquare, Square, RotateCcw, ShieldAlert, Wallet, Fingerprint, Shield, Share as ShareIcon
 } from 'lucide-react';
 import { VaultEntry, SensitiveData, Category } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PasskeyService } from '../services/passkeyService';
 import { BiometricService } from '../services/biometricService';
+import ShareModal from './ShareModal';
 
 interface PasswordCardProps {
   entry: VaultEntry;
@@ -34,6 +35,8 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareSensitiveData, setShareSensitiveData] = useState<SensitiveData | null>(null);
 
   const isDeleted = entry.deletedAt !== undefined;
 
@@ -137,6 +140,17 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
       } catch (e) {
         console.error("Failed to decrypt for reveal", e);
       }
+    }
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const sensitive = await onDecrypt();
+      setShareSensitiveData(sensitive);
+      setIsShareModalOpen(true);
+    } catch (e) {
+      console.error("Failed to decrypt for share", e);
     }
   };
 
@@ -292,6 +306,9 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
               </button>
               <button onClick={toggleReveal} className="text-zinc-500 hover:text-main transition-all hover:scale-110 active:scale-90">
                 {isRevealed ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+              <button onClick={handleShare} className="text-zinc-500 hover:text-main transition-all hover:scale-110 active:scale-90" title={lang === 'tr' ? 'QR ile Paylaş' : 'Share via QR'}>
+                <ShareIcon size={16} />
               </button>
               <button onClick={(e) => { e.stopPropagation(); handleCopy('password'); }} className="text-zinc-500 hover:text-main transition-all hover:scale-110 active:scale-90">
                 {copiedField === 'password' ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
@@ -527,6 +544,20 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
                 )}
               </motion.div>
             )
+          )}
+        </AnimatePresence>
+
+        {/* Share Modal */}
+        <AnimatePresence>
+          {isShareModalOpen && shareSensitiveData && (
+            <ShareModal
+              entry={entry}
+              decryptedData={shareSensitiveData}
+              onClose={() => {
+                setIsShareModalOpen(false);
+                setShareSensitiveData(null);
+              }}
+            />
           )}
         </AnimatePresence>
       </div>

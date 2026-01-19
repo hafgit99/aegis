@@ -8,7 +8,7 @@ import {
   Smartphone, Key, Zap, Languages, Database, CreditCard, FileText, Download, Fingerprint, Moon, Sun,
   ChevronUp, SortAsc, SortDesc, Filter, CheckSquare, Square, Check, Copy, Loader2, ShieldCheck,
   RotateCcw, Flame, Clock, Calendar, ShieldX, Crown, Gem, Award, ChevronRight, Eye, MoreVertical, SlidersHorizontal, RefreshCw, Folder, BookOpen, Hourglass, Wallet, Cpu,
-  Cloud
+  Cloud, QrCode
 } from 'lucide-react';
 import { VaultEntry, SensitiveData, Category } from '../types.ts';
 import { AutoLockStatus } from '../hooks/useAutoLock.ts';
@@ -27,6 +27,8 @@ import ChangeMasterKeyModal from './ChangeMasterKeyModal.tsx';
 import LegalModal from './LegalModal.tsx';
 import UserGuideModal from './UserGuideModal.tsx';
 import CloudBridgeView from './CloudBridgeView.tsx';
+import ScanModal from './ScanModal.tsx';
+import ImportSharedEntryModal from './ImportSharedEntryModal.tsx';
 import { useLanguage } from '../contexts/LanguageContext.tsx';
 import { useVault } from '../hooks/useVault.ts';
 import { useAuth } from '../contexts/AuthContext.tsx';
@@ -479,6 +481,10 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
   const [legalDocType, setLegalDocType] = useState<'terms' | 'privacy'>('terms');
   const [sortOrder, setSortOrder] = useState<SortOrder>('recent');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // QR Share states
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+  const [scannedPayload, setScannedPayload] = useState<any>(null);
   const scrollRef = useRef<HTMLElement>(null);
 
   const [showResetConfirm, setShowResetConfirm] = useState<{ type: 'vault' | 'settings' | 'factory', confirmText: string } | null>(null);
@@ -964,6 +970,13 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                 className={`p-3 rounded-2xl border transition-all ${isFilterOpen ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20' : 'bg-black/20 border-main text-zinc-500 hover:text-main'}`}
               >
                 <SlidersHorizontal size={18} />
+              </button>
+              <button
+                onClick={() => setIsScanModalOpen(true)}
+                className="p-3 rounded-2xl bg-emerald-600/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-600/20 transition-all"
+                title={lang === 'tr' ? 'QR Tara' : 'Scan QR'}
+              >
+                <QrCode size={18} />
               </button>
               <button
                 onClick={() => { if (isExpired && !isPro) return; setIsAdding(true); setEditingEntry(null); }}
@@ -1619,6 +1632,26 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
           )}
           <LegalModal isOpen={showLegalModal} onClose={() => setShowLegalModal(false)} docType={legalDocType} />
           <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} />
+          {isScanModalOpen && (
+            <ScanModal
+              onClose={() => setIsScanModalOpen(false)}
+              onScanComplete={(payload) => {
+                setScannedPayload(payload);
+                setIsScanModalOpen(false);
+              }}
+            />
+          )}
+          {scannedPayload && (
+            <ImportSharedEntryModal
+              payload={scannedPayload}
+              onClose={() => setScannedPayload(null)}
+              onImportSuccess={() => {
+                setScannedPayload(null);
+                // Refresh entries
+                window.location.reload();
+              }}
+            />
+          )}
         </AnimatePresence>
       </main>
     </div>

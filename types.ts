@@ -234,6 +234,67 @@ export type IncidentType =
   | 'system_tampering'
   | 'other';
 
+// ==================== QR SHARE SYSTEM TYPES ====================
+
+export interface QRSharePayload {
+  version: "1.0";
+  type: "AEGIS_SHARE";
+  createdAt: number;
+  expiresAt: number;
+
+  encryptedEntry: {
+    payload: string;
+    iv: string;
+    tag: string;
+  };
+
+  keyEncryption: {
+    algorithm: "argon2id-aes256-gcm";
+    salt: string;
+    iterations: number;
+    encryptedKey: {
+      payload: string;
+      iv: string;
+      tag: string;
+    };
+  };
+
+  metadata: {
+    titleHint: string;
+    category: Category;
+    hasPassword: true;
+    isExpired: boolean;
+  };
+
+  checksum: string;
+}
+
+export interface ChunkedPayload {
+  totalChunks: number;
+  chunkIndex: number;
+  chunkId: string;
+  data: string;
+  checksum: string;
+}
+
+export interface DecryptedShareEntry {
+  title: string;
+  username: string;
+  category: Category;
+  sensitive: SensitiveData;
+  folderId?: string;
+  isFavorite?: boolean;
+}
+
+export type ShareErrorType =
+  | 'SHARE_EXPIRED'
+  | 'SHARE_TAMPERED'
+  | 'PASSWORD_REQUIRED'
+  | 'INVALID_SHARE_FORMAT'
+  | 'NO_QR_FOUND'
+  | 'PASSWORD_TOO_WEAK'
+  | 'DECRYPTION_FAILED';
+
 declare global {
   interface Window {
     electronAPI: {

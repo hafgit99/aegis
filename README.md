@@ -4,7 +4,7 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-green?style=for-the-badge&logo=linux)
 ![License](https://img.shields.io/badge/License-Commercial-red?style=for-the-badge)
 ![Security Score](https://img.shields.io/badge/Security%20Score-99%2F100-brightgreen?style=for-the-badge&logo=security)
-![Version](https://img.shields.io/badge/Version-2.2.0-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-2.3.0-blue?style=for-the-badge)
 <table align="center" border="0">
   <tr>
     <td align="center">
@@ -55,7 +55,16 @@ Aegis Vault is an offline-first, portable, and ultra-secure password manager des
 - **64MB Memory Cost**: GPU-resistant password hashing
 - **Zero-Knowledge Architecture**: Your master key never leaves your device
 
-### 🛡️ **CURRENT: v2.2.0 - Browser Integration**
+### 📱 **NEW: v2.3.0 - QR Code Sharing (Offline)**
+- ✅ **100% Offline Password Sharing**: Share passwords via QR codes without internet
+- ✅ **Dual-Layer Encryption**: Ephemeral key + AES-256-GCM + Argon2id
+- ✅ **Multi-QR Support**: Automatic chunking for large entries
+- ✅ **24-Hour Expiration**: Auto-expiring shares for security
+- ✅ **Password Protected**: Mandatory 12+ character sharing password
+- ✅ **Camera & Upload Support**: Scan via webcam or upload image
+- ✅ **Browser Extension Integration**: QR scanning in Chrome/Edge extension
+
+### 🛡️ **v2.2.0 - Browser Integration**
 - ✅ **Passkey (WebAuthn) Support**: Phishing-resistant credential storage (ES256)
 - ✅ **Browser Extension**: Stable Native Messaging Bridge with fixed ID
 - ✅ **Secure Register Flow**: Create new Passkeys directly within the vault
@@ -179,6 +188,7 @@ word1 word2 word3 ... word24
 - **Configure Auto-Lock**: Set inactivity timeout (recommended: 5-15 minutes)
 
 ## 🚀 Key Capabilities
+- **QR Code Sharing**: Share passwords offline via QR codes with dual-layer encryption
 - **Portable Mode**: Run directly from a USB stick without installation
 - **3D Card View**: Visualize your credit cards with a flip animation to see CVC and details securely
 - **Secure File Storage**: Store sensitive files and documents encrypted alongside your passwords
@@ -336,6 +346,31 @@ npm run dev
 npm run build
 ```
 
+## 🛡️ What's New in v2.3.0 - QR Code Sharing (Offline)
+- 📱 **100% Offline Password Sharing**: Share passwords via QR codes without any internet connection
+- 🔐 **Dual-Layer Encryption**: Ephemeral key + AES-256-GCM + Argon2id (20 iterations)
+- 📷 **Camera & Upload Support**: Scan QR codes via webcam or upload image files
+- ⏰ **24-Hour Auto-Expiration**: All shares automatically expire after 24 hours
+- 🔑 **Mandatory Password Protection**: All QR shares require 12+ character sharing password
+- 📦 **Multi-QR Chunking**: Large entries automatically split across multiple QR codes
+- 🌐 **Browser Extension QR Scanner**: QR scanning available in Chrome/Edge extension
+- ✅ **SHA-256 Integrity**: All shares protected with checksum verification
+- 🛡️ **Forward Secrecy**: Ephemeral keys destroyed after use
+
+### How to Share via QR Code
+1. Open any password card in your vault
+2. Click the "Share" button (between Eye and Copy password icons)
+3. Enter a sharing password (min 12 characters) or click "GEN" to auto-generate
+4. QR code(s) will be generated - download or screenshot them
+5. Share the QR code AND password with the recipient (via separate secure channel)
+
+### How to Receive via QR Code
+1. Click the "QR Scan" button (green icon) in the Dashboard header
+2. Choose "Camera" to scan with webcam or "Upload" to select an image
+3. Enter the sharing password provided by the sender
+4. Preview the received password details
+5. Confirm to import into your vault (encrypted with YOUR master key)
+
 ## 🛡️ What's New in v2.2.0 - Browser Integration
 - 🌐 **Fixed Extension ID**: Stable ID (`pjjmjgibliobepbjbghmipfpiljgogii`) for all users.
 - 🔗 **Native Messaging Bridge**: High-performance, secure bridge between Chrome and Vault.
@@ -399,6 +434,7 @@ If you find a security vulnerability:
 ## 🔒 Security Audit History
 | Date | Version | Auditor | Score | Report |
 |------|---------|---------|-------|--------|
+| 2026-01-19 | v2.3.0 | Internal | **99/100** | [View Technical Report](AEGIS_VAULT_WHITEPAPER_EN.md) |
 | 2026-01-18 | v2.1.0 | Internal | **99/100** | [View Technical Report](AEGIS_VAULT_WHITEPAPER_EN.md) |
 | 2026-01-14 | v2.0.1 | Internal | **98/100** | [View Technical Report](AEGIS_VAULT_WHITEPAPER_EN.md) |
 | 2026-01-11 | v2.0.0 | Internal | **96/100** | [View Report](SECURITY_IMPROVEMENTS_REPORT.md) |

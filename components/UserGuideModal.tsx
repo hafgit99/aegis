@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronDown, ChevronUp, BookOpen, Shield, Lock, Key, Folder, Tag, Search, Download, Upload, Eye, Smartphone, AlertTriangle, Settings, HelpCircle, ShieldCheck, Fingerprint } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, BookOpen, Shield, Lock, Key, Folder, Tag, Search, Download, Upload, Eye, Smartphone, AlertTriangle, Settings, HelpCircle, ShieldCheck, Fingerprint, QrCode } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext.tsx';
 
 interface GuideSection {
@@ -953,6 +953,120 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
 - Eşitle (Yükle): Şifreli kasayı buluta yükler.
 - Buluttan Çek: Bulut verilerini indirir ve yerel kasa ile birleştirir.
 - Manuel kontrol, verilerin ne zaman taşındığını tam olarak bilmenizi sağlar.`
+    },
+    {
+      id: 'qr-sharing',
+      title: 'QR Code Sharing',
+      titleTr: 'QR Kod ile Paylaşım',
+      description: 'Share passwords securely via QR codes (100% Offline)',
+      descriptionTr: 'QR kodlar ile güvenli şifre paylaşımı (%100 Çevrimdışı)',
+      icon: <QrCode size={24} className="text-emerald-500" />,
+      details: `Offline Password Sharing via QR Codes:
+
+1. What is QR Sharing?
+- Share passwords with anyone without internet
+- 100% offline - no servers or cloud required
+- Military-grade encryption (AES-256-GCM)
+- Password protected (minimum 12 characters)
+- Auto-expires after 24 hours
+
+2. How to Share a Password
+- Open any password card in your vault
+- Click the "Share" button (between Eye and Copy icons)
+- Enter a sharing password (min 12 characters)
+  - Click "GEN" to auto-generate a strong password
+  - Or create your own secure password
+- Confirm the password
+- QR code(s) will be generated
+  - Small entries: Single QR code
+  - Large entries: Multiple QR codes (chunking)
+- Download or screenshot the QR code(s)
+- Share the QR code AND the sharing password with the recipient
+
+3. How to Receive a Password
+- Click the "QR Scan" button (green icon) in Dashboard header
+- Choose scanning method:
+  - Camera: Scan QR code with your webcam
+  - Upload: Select QR code image file
+- Enter the sharing password from the sender
+- Preview the received password details
+- Confirm to import into your vault
+- The password is encrypted with YOUR master key
+
+4. Security Features
+- Dual-layer encryption:
+  1. Entry data encrypted with ephemeral key
+  2. Ephemeral key encrypted with sharing password
+- Argon2id key derivation (20 iterations)
+- SHA-256 checksum verification
+- 24-hour auto-expiration
+- Forward secrecy (ephemeral keys destroyed after use)
+
+5. Browser Extension Support
+- QR scan button also available in browser extension
+- Upload QR code images to scan
+- Automatically send to desktop app for processing
+
+6. Best Practices
+- Always share the password securely (separate channel)
+- Never share the QR code publicly
+- QR codes expire after 24 hours
+- Each QR code can only be decrypted with the correct password
+- Verify the password before importing
+- The sender cannot access your vault after sharing`,
+      detailsTr: `QR Kodlar ile Çevrimdışı Şifre Paylaşımı:
+
+1. QR Paylaşımı Nedir?
+- İnternet olmadan herhangi biriyle şifre paylaşın
+- %100 çevrimdışı - sunucu veya bulut gerektirmez
+- Askeri sınıf şifreleme (AES-256-GCM)
+- Şifre korumalı (minimum 12 karakter)
+- 24 saat sonra otomatik sona erer
+
+2. Şifre Nasıl Paylaşılır?
+- Kasanızdaki herhangi bir şifre kartını açın
+- "Paylaş" butonuna tıklayın (Göz ve Kopyala ikonları arasında)
+- Paylaşım şifresi girin (min 12 karakter)
+  - Güçlü bir parola otomatik üretmek için "ÜRET"e tıklayın
+  - Veya kendi güvenli şifrenizi oluşturun
+- Şifreyi doğrulayın
+- QR kod(lar) oluşturulur:
+  - Küçük girdiler: Tek QR kod
+  - Büyük girdiler: Çoklu QR kod (bölme)
+- QR kod(lar)ı indirin veya ekran görüntüsü alın
+- QR kodu VE paylaşım şifresini alıcıyla paylaşın
+
+3. Şifre Nasıl Alınır?
+- Dashboard başlığındaki "QR Tara" butonuna (yeşil ikon) tıklayın
+- Tarama yöntemini seçin:
+  - Kamera: Web kamerası ile QR kodu tarayın
+  - Yükle: QR kod görsel dosyasını seçin
+- Gönderenden gelen paylaşım şifresini girin
+- Alınan şifre detaylarını önizleyin
+- Kasanıza eklemek için onaylayın
+- Şifre SİZİN Ana Anahtarınız ile şifrelenir
+
+4. Güvenlik Özellikleri
+- Çift katmanlı şifreleme:
+  1. Girdi verisi ephemeral key ile şifrelenir
+  2. Ephemeral key paylaşım şifresiyle şifrelenir
+- Argon2id anahtar türetme (20 iterasyon)
+- SHA-256 checksum doğrulaması
+- 24 saatlik otomatik sona erme
+- İleri gizlilik (ephemeral key'ler kullanımdan sonra silinir)
+
+5. Browser Uzantısı Desteği
+- Tarayıcı uzantısında da QR tara butonu mevcuttur
+- Taramak için QR kod görsellerini yükleyin
+- İşlemek için masaüstü uygulamaya otomatik gönderir
+
+6. En İyi Uygulamalar
+- Paylaşım şifresini her zaman güvenli kanaldan paylaşın
+- QR kodu asla herkese açık paylaşmayın
+- QR kodlar 24 saat sonra sona erer
+- Her QR kod yalnızca doğru şifreyle çözülebilir
+- İçe aktarmadan önce şifreyi doğrulayın
+- Paylaştıktan sonra gönderici kasanıza erişemez`
     }
   ];
 
