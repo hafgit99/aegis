@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { VaultEntry, SensitiveData } from '../types.ts';
 import { analyzeStrength } from '../utils/passwordStrength.ts';
-// import { OfflineBreachService } from '../services/offlineBreachService';
+import { OfflineBreachService } from '../services/offlineBreachService.ts';
 
 export interface AuditIssue {
   entry: VaultEntry;
@@ -77,8 +77,8 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
   const runAudit = useCallback(async () => {
     if (entries.length === 0) return;
 
-    // Offline breach database missing
-    // await OfflineBreachService.initialize();
+    // Initialize offline breach database
+    await OfflineBreachService.initialize();
 
     setIsScanning(true);
     await new Promise(r => setTimeout(r, 2000));
@@ -110,8 +110,7 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
           atRiskIds.add(entry.id);
         }
 
-        // 2. Offline breach check (REMOVED - missing service)
-        /*
+        // 2. Offline breach check
         const breachResult = await OfflineBreachService.checkPassword(pass);
         if (breachResult.isBreached) {
           foundIssues.push({
@@ -123,7 +122,6 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
           atRiskIds.add(entry.id);
           breachMatches++;
         }
-        */
 
         // 3. Pattern matching
         const isCommon = commonPatterns.some(p => pass.toLowerCase().includes(p));
@@ -177,7 +175,7 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
     const finalScore = Math.max(0, 100 - Math.round(riskFactor));
 
     // Get breach database statistics
-    // const breachStats = OfflineBreachService.getStats();
+    const breachStats = OfflineBreachService.getStats();
 
     const newStats = {
       score: finalScore,
@@ -186,10 +184,7 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
       atRisk: atRiskIds.size,
       secureCount: entries.length - atRiskIds.size,
       breachMatches,
-      breachDatabaseStats: {
-        patternCount: 0,
-        initialized: false
-      }
+      breachDatabaseStats: breachStats
     };
 
     console.log(`[SecurityAudit] Audit complete: score=${finalScore}, breached=${breachMatches}, atRisk=${atRiskIds.size}`);

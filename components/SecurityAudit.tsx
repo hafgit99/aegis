@@ -226,11 +226,36 @@ const SecurityAudit: React.FC<SecurityAuditProps> = ({ entries, onEditEntry }) =
               </div>
             </div>
 
-            <div className="glass rounded-2xl p-6 border border-amber-500/10 bg-amber-500/[0.02] flex items-center gap-4">
-              <Info className="text-amber-500" size={20} />
-              <p className="text-[10px] text-amber-500/80 font-bold uppercase tracking-widest leading-relaxed">
-                {t('offline_notice')}
-              </p>
+            <div className="glass rounded-2xl p-6 border border-blue-500/10 bg-blue-500/[0.02] flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Info className="text-blue-500" size={20} />
+                <div className="flex flex-col">
+                  <p className="text-[10px] text-blue-500/80 font-bold uppercase tracking-widest leading-relaxed">
+                    {t('offline_notice')}
+                  </p>
+                  {stats.breachDatabaseStats?.initialized && (
+                    <p className="text-[9px] text-zinc-500 mt-1 font-medium uppercase tracking-wide">
+                      {t('breach_db_loaded', {
+                        count: stats.breachDatabaseStats.patternCount?.toLocaleString() || '0',
+                        version: stats.breachDatabaseStats.version || '1.0'
+                      })}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                {stats.breachDatabaseStats?.initialized && (
+                  <div className="flex items-center gap-4 text-[9px] text-zinc-500 font-bold uppercase tracking-wider">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                      <span>{stats.breachDatabaseStats.totalChecks || 0} {t('checks')}</span>
+                    </div>
+                    {stats.breachDatabaseStats.lastUpdated && (
+                      <span>{new Date(stats.breachDatabaseStats.lastUpdated).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </motion.div>
         )}

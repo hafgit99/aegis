@@ -55,8 +55,14 @@ Aegis Vault is an offline-first, portable, and ultra-secure password manager des
 - **64MB Memory Cost**: GPU-resistant password hashing
 - **Zero-Knowledge Architecture**: Your master key never leaves your device
 
-### 📱 **NEW: v2.3.0 - QR Code Sharing (Offline)**
-- ✅ **100% Offline Password Sharing**: Share passwords via QR codes without internet
+### 📱 **NEW: v2.3.0 - Offline Breach Monitoring**
+- ✅ **100% Offline Breach Detection**: Check passwords against 2000+ leaked passwords without internet
+- ✅ **SHA-1 Hash Database**: Fast local lookup with cryptographic security
+- ✅ **IndexedDB Caching**: High performance after first load
+- ✅ **Real-Time Security Audit**: Automatic breach checking during vault scan
+- ✅ **Zero Network Requests**: Complete privacy - no data leaves your device
+- ✅ **Database Statistics**: View version, entry count, and total checks performed
+- ✅ **QR Code Sharing (Offline)**: Share passwords via QR codes without internet
 - ✅ **Dual-Layer Encryption**: Ephemeral key + AES-256-GCM + Argon2id
 - ✅ **Multi-QR Support**: Automatic chunking for large entries
 - ✅ **24-Hour Expiration**: Auto-expiring shares for security
@@ -188,6 +194,7 @@ word1 word2 word3 ... word24
 - **Configure Auto-Lock**: Set inactivity timeout (recommended: 5-15 minutes)
 
 ## 🚀 Key Capabilities
+- **Offline Breach Monitoring**: Real-time password breach detection with 2000+ leaked password database (100% offline)
 - **QR Code Sharing**: Share passwords offline via QR codes with dual-layer encryption
 - **Portable Mode**: Run directly from a USB stick without installation
 - **3D Card View**: Visualize your credit cards with a flip animation to see CVC and details securely
@@ -195,7 +202,7 @@ word1 word2 word3 ... word24
 - **Passkey Management**: Full WebAuthn support with ES256 (ECDSA) cryptography
 - **Offline-First**: No internet connection required. Your vault is always accessible
 - **Password Generator**: Cryptographically secure random password generation
-- **Security Audit**: Built-in password strength analysis and reuse detection
+- **Security Audit**: Built-in password strength analysis, reuse detection, and breach checking
 - **Auto-Lock**: Configurable inactivity timeout for automatic vault locking
 - **Import/Export**: Secure vault backup with AES-256-GCM encryption
 
@@ -265,9 +272,10 @@ URL:      https://accounts.google.com
 - ✅ **Safe for automation**: Suitable for scripting and remote access
 
 ## 📊 Security Comparison
-| Feature | Aegis Vault v2.1.0 | KeePassXC | Bitwarden | 1Password |
+| Feature | Aegis Vault v2.3.0 | KeePassXC | Bitwarden | 1Password |
 |---------|-------------------|-----------|-----------|-----------|
 | **Security Score** | **99/100** ⭐ | 90/100 | 88/100 | 92/100 |
+| **Breach Detection** | ✅ **2000+ Offline** | ⚠️ Online API | ✅ Yes | ✅ Yes |
 | **Passkey Support** | ✅ **Phishing Resistant** | ⚠️ Partial | ✅ Yes | ✅ Yes |
 | **Memory Protection** | ✅ **VirtualLock** | ⚠️ Partial | ❌ No | ⚠️ Partial |
 | **Hardware Binding** | ✅ **Machine Bound** | ❌ No | ❌ No | ❌ No |
@@ -283,6 +291,7 @@ URL:      https://accounts.google.com
 - **Encryption Algorithm**: AES-256-GCM (Authenticated Encryption + SQLCipher)
 - **Key Derivation**: Argon2id with 20 iterations, 64MB RAM, 4 threads
 - **Password Policy**: Minimum 12 characters, zxcvbn strength analysis
+- **Breach Detection**: SHA-1 hash database with 2000+ leaked passwords (100% offline)
 - **Brute-Force Protection**: Progressive lockout (3→30s, 5→5min, 10→30min)
 - **Audit Logging**: AES-256-GCM encrypted, device-bound
 - **Memory Security**: Triple-wipe with 0xFF, 0xAA, 0x55 patterns
@@ -346,7 +355,17 @@ npm run dev
 npm run build
 ```
 
-## 🛡️ What's New in v2.3.0 - QR Code Sharing (Offline)
+## 🛡️ What's New in v2.3.0 - Offline Breach Monitoring & QR Sharing
+
+### 🚨 Offline Breach Monitoring (NEW)
+- 🔍 **2000+ Leaked Password Database**: Check passwords against most common breached passwords
+- 🔐 **100% Offline Detection**: No network requests - complete privacy
+- ⚡ **SHA-1 Hash Lookup**: Fast cryptographic comparison
+- 💾 **IndexedDB Caching**: High performance after first load
+- 📊 **Database Statistics**: View version, entry count, and total checks performed
+- 🛡️ **Real-Time Security Audit**: Automatic breach checking during vault scan
+
+### 📱 QR Code Sharing (Offline)
 - 📱 **100% Offline Password Sharing**: Share passwords via QR codes without any internet connection
 - 🔐 **Dual-Layer Encryption**: Ephemeral key + AES-256-GCM + Argon2id (20 iterations)
 - 📷 **Camera & Upload Support**: Scan QR codes via webcam or upload image files

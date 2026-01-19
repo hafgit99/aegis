@@ -120,6 +120,27 @@ export interface BreachDatabaseEntry {
   count: number;
 }
 
+export interface BreachEntry {
+  hash: string; // SHA-1 hash (hex, 40 chars)
+  occurrenceCount: number; // How many breaches it appeared in
+  severity: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface BreachDatabase {
+  version: string;
+  lastUpdated: number;
+  source: 'haveibeenpwned-top1m' | 'custom';
+  entries: BreachEntry[];
+}
+
+export interface BreachDatabaseStats {
+  patternCount: number;
+  initialized: boolean;
+  version?: string;
+  lastUpdated?: number;
+  totalChecks?: number;
+}
+
 // ==================== BACKUP SYSTEM TYPES ====================
 
 export interface BackupFile {
