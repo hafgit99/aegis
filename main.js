@@ -376,6 +376,20 @@ app.whenReady().then(async () => {
 // SECURITY: Dedicated Bridge Server for Native Messaging
 // Only used to communicate between the Extension Bridge process and the Main App.
 const PIPE_NAME = '\\\\.\\pipe\\aegis-vault-pipe';
+let bridgeSessionToken = null;
+
+function getBridgeToken() {
+  if (bridgeSessionToken) return bridgeSessionToken;
+  const tokenPath = path.join(app.getPath('userData'), '.bridge_token');
+  try {
+    bridgeSessionToken = crypto.randomBytes(32).toString('hex');
+    fs.writeFileSync(tokenPath, bridgeSessionToken, { mode: 0o600 });
+    return bridgeSessionToken;
+  } catch (e) {
+    console.error('Failed to create bridge token:', e);
+    return null;
+  }
+}
 
 // Helper for shared logging
 function logMain(msg) {
@@ -402,6 +416,14 @@ function setupBridgeServer() {
       for (const chunk of chunks) {
         try {
           const msg = JSON.parse(chunk);
+
+          // SECURITY: Handshake Verification
+          if (msg.token !== getBridgeToken()) {
+            logMain("CRITICAL: Invalid or missing bridge token!");
+            socket.write(JSON.stringify({ success: false, error: "UNAUTHORIZED_BRIDGE" }) + '\n');
+            return;
+          }
+
           logMain("Received Message: " + msg.type);
           // Process the message (Search, Sign, etc.)
           await handleExtensionMessage(socket, msg);
@@ -577,6 +599,9 @@ function setupNativeMessagingHost() {
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
   logMain("Native Host manifest written to: " + manifestPath);
   logMain("Bridge batch file written to: " + batchPath);
+
+  // Trigger token generation so it's ready for the bridge
+  getBridgeToken();
 
   if (process.platform === 'win32') {
     const regKey = `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${hostName}`;

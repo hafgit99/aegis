@@ -11,6 +11,38 @@ const path = require('path');
 const os = require('os');
 
 const PIPE_NAME = '\\\\.\\pipe\\aegis-vault-pipe';
+let sessionToken = null;
+
+// Read session token from secure file
+function getSessionToken() {
+    if (sessionToken) return sessionToken;
+    try {
+        // Path matches setupPortablePaths in main.js
+        let userDataPath;
+        const appName = 'aegis-vault'; // Use the appId or name from package.json if possible
+
+        // On Windows, the token is in AppData/Roaming/aegis-vault or equivalent portable path
+        // For simplicity and reliability in both portable and installed mode, 
+        // we check the standard locations.
+        const possiblePaths = [
+            path.join(path.dirname(process.execPath), 'aegis-data', '.bridge_token'), // Portable Next to EXE
+            path.join(os.homedir(), 'AppData', 'Roaming', 'aegis-vault', '.bridge_token'), // Standard AppData
+            path.join(os.homedir(), 'AppData', 'Local', 'aegis-vault', '.bridge_token') // Local AppData
+        ];
+
+        for (const p of possiblePaths) {
+            if (fs.existsSync(p)) {
+                sessionToken = fs.readFileSync(p, 'utf8').trim();
+                log('Token found at: ' + p);
+                return sessionToken;
+            }
+        }
+        log('WARNING: Session token not found in any standard path');
+    } catch (e) {
+        log('Token read error: ' + e.message);
+    }
+    return null;
+}
 
 // Log to Desktop for debugging
 const logPath = path.join(os.homedir(), 'Desktop', 'bridge_debug.log');
@@ -79,7 +111,16 @@ function connectToPipe(retries = 30) {
                 inputBuffer = inputBuffer.subarray(4 + msgLen);
 
                 log('From Chrome: ' + payload.substring(0, 100));
-                socket.write(payload + '\n');
+
+                // Inject Session Token into message
+                try {
+                    const msgObj = JSON.parse(payload);
+                    msgObj.token = getSessionToken();
+                    socket.write(JSON.stringify(msgObj) + '\n');
+                } catch (e) {
+                    log('Malformed JSON from Chrome, forwarding anyway');
+                    socket.write(payload + '\n');
+                }
             } else {
                 break;
             }
