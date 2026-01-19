@@ -33,6 +33,7 @@ Aegis Vault is an offline-first, portable, and ultra-secure password manager des
 - 🇬🇧 [Technical Security Architecture Report (English)](AEGIS_VAULT_WHITEPAPER_EN.md) - Comprehensive technical security whitepaper in English
 - 🇹🇷 [Aegis Vault: Dijital Kale (Sunum)](docs/Aegis_Vault_Dijital_Kale_TR.pdf) - PDF presentation in Turkish
 - 🇬🇧 [Aegis Vault: Hardened Security (Presentation)](docs/Aegis_Vault_Hardened_Security_EN.pdf) - PDF presentation in English
+- 🌐 [Aegis Vault: Browser Extension Guide (EN/TR)](BROWSER_EXTENSION_GUIDE.md) - Installation and usage guide for browser integration
 
 ### Why choose Aegis Vault?
 
@@ -150,6 +151,8 @@ To enable Autofill and Passkey support in your browser:
 4. Select the `browser-extension` folder from your Aegis Vault directory
 5. Verify the extension ID is `pjjmjgibliobepbjbghmipfpiljgogii`
 6. Make sure the Aegis Vault desktop app is open to allow communication
+
+👉 **[View Detailed Extension Setup Guide](BROWSER_EXTENSION_GUIDE.md)**
 
 ## 💡 First-Time Setup
 
