@@ -701,7 +701,22 @@ export const translations = {
     webdav_config: "WebDAV Configuration",
     google_drive_connected: "Google Drive Connected",
     cloud_sync_success: "Cloud synchronization successful!",
-    cloud_sync_error: "Sync failed. Check your connection/credentials."
+    cloud_sync_error: "Sync failed. Check your connection/credentials.",
+
+    // Tag System
+    tag_filter_title: "Filter by Tags",
+    tag_filter_desc: "Select tags to filter entries",
+    tag_no_tags: "No tags found",
+    tag_add_hint: "Type and press Enter to add tag",
+    tag_select_all: "All Tags",
+    tag_clear_filter: "Clear Filter",
+    tag_popular: "Popular Tags",
+    tag_show_all: "Show All Tags",
+    tag_matching_entries: "{count} entries tagged",
+    tag_empty_state: "No entries with this tag yet",
+    tag_chip_remove: "Remove tag",
+    tag_filter_selected: "Filtered by: {tags}",
+    tag_results: "{count} entries"
   },
   tr: {
     app_name: "Aegis Vault",
@@ -1313,6 +1328,21 @@ export const translations = {
     webdav_config: "WebDAV Yapılandırması",
     google_drive_connected: "Google Drive Bağlandı",
     cloud_sync_success: "Bulut senkronizasyonu başarılı!",
-    cloud_sync_error: "Eşitleme başarısız. Bağlantınızı/bilgilerinizi kontrol edin."
+    cloud_sync_error: "Eşitleme başarısız. Bağlantınızı/bilgilerinizi kontrol edin.",
+
+    // Etiket Sistemi
+    tag_filter_title: "Etikete Göre Filtrele",
+    tag_filter_desc: "Girişleri filtrelemek için etiket seçin",
+    tag_no_tags: "Etiket bulunamadı",
+    tag_add_hint: "Etiket eklemek için yazın ve Enter'a basın",
+    tag_select_all: "Tüm Etiketler",
+    tag_clear_filter: "Filtreyi Temizle",
+    tag_popular: "Popüler Etiketler",
+    tag_show_all: "Tüm Etiketleri Göster",
+    tag_matching_entries: "{count} giriş etiketlendi",
+    tag_empty_state: "Henüz bu etikete sahip giriş yok",
+    tag_chip_remove: "Etiketi kaldır",
+    tag_filter_selected: "Filtre: {tags}",
+    tag_results: "{count} giriş"
   }
 };

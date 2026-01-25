@@ -8,7 +8,7 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-green?style=for-the-badge&logo=linux)
 ![License](https://img.shields.io/badge/License-Commercial-red?style=for-the-badge)
 ![Security Score](https://img.shields.io/badge/Security%20Score-99%2F100-brightgreen?style=for-the-badge&logo=security)
-![Version](https://img.shields.io/badge/Version-2.3.0-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-2.3.1-blue?style=for-the-badge)
 <table align="center" border="0">
   <tr>
     <td align="center">
@@ -59,7 +59,19 @@ Aegis Vault is an offline-first, portable, and ultra-secure password manager des
 - **64MB Memory Cost**: GPU-resistant password hashing
 - **Zero-Knowledge Architecture**: Your master key never leaves your device
 
-### 📱 **NEW: v2.3.0 - Offline Breach Monitoring**
+### 🏷️ **NEW: v2.3.1 - Advanced Tagging System**
+- ✅ **Flexible Tagging**: Add unlimited tags to any entry independent of folders
+- ✅ **Visual Tag Chips**: Color-coded badges with 12 distinct color schemes
+- ✅ **Tag Filtering**: Filter entries by single or multiple tags (OR/AND logic)
+- ✅ **Popular Tags**: Quick access to most frequently used tags
+- ✅ **Tag Management**: Rename or remove tags across all entries
+- ✅ **Smart Icons**: Suggested icons for common tag categories (iş, email, bank, kripto, etc.)
+- ✅ **Case-Insensitive**: Case-insensitive tag matching and normalization
+- ✅ **Tag Input UX**: Enter key to add, Backspace to remove, visual feedback
+- ✅ **Tag Display**: Show first 3 tags on card with "N+ more" indicator
+- ✅ **i18n Support**: Full Turkish and English translations
+
+### 📱 **v2.3.0 - Offline Breach Monitoring**
 - ✅ **100% Offline Breach Detection**: Check passwords against 2000+ leaked passwords without internet
 - ✅ **SHA-1 Hash Database**: Fast local lookup with cryptographic security
 - ✅ **IndexedDB Caching**: High performance after first load
