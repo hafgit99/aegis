@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Shield, Star, ShieldAlert, Settings, LogOut,
@@ -8,36 +8,37 @@ import {
   Smartphone, Key, Zap, Languages, Database, CreditCard, FileText, Download, Fingerprint, Moon, Sun,
   ChevronUp, SortAsc, SortDesc, Filter, CheckSquare, Square, Check, Copy, Loader2, ShieldCheck,
   RotateCcw, Flame, Clock, Calendar, ShieldX, Crown, Gem, Award, ChevronRight, Eye, MoreVertical, SlidersHorizontal, RefreshCw, Folder, BookOpen, Hourglass, Wallet, Cpu,
-  Cloud, QrCode
+  Cloud, QrCode, Hash
 } from 'lucide-react';
-import { VaultEntry, SensitiveData, Category } from '../types.ts';
-import { AutoLockStatus } from '../hooks/useAutoLock.ts';
-import ImageBrandIcon from './ImageBrandIcon.tsx';
-import EntryForm from './EntryForm.tsx';
-import SecurityAudit from './SecurityAudit.tsx';
-import TwoFactorSetup from './TwoFactorSetup.tsx';
-import EmergencyAccess from './EmergencyAccess.tsx';
-import PortabilityWizard from './PortabilityWizard.tsx';
-import BackupSettings from './BackupSettings.tsx';
-import PasswordGenerator from './PasswordGenerator.tsx';
-import PasswordCard from './PasswordCard.tsx';
-import SkeletonCard from './SkeletonCard.tsx';
-import LicensingView from './LicensingView.tsx';
-import ChangeMasterKeyModal from './ChangeMasterKeyModal.tsx';
-import LegalModal from './LegalModal.tsx';
-import UserGuideModal from './UserGuideModal.tsx';
-import CloudBridgeView from './CloudBridgeView.tsx';
-import ScanModal from './ScanModal.tsx';
-import ImportSharedEntryModal from './ImportSharedEntryModal.tsx';
-import { useLanguage } from '../contexts/LanguageContext.tsx';
-import { useVault } from '../hooks/useVault.ts';
-import { useAuth } from '../contexts/AuthContext.tsx';
-import { LicensingService } from '../services/licensingService.ts';
-import { BiometricService } from '../services/biometricService.ts';
-import { RecoveryService } from '../services/recoveryService.ts';
-import { useTheme } from '../contexts/ThemeContext.tsx';
-import { db } from '../db.ts';
-import { VaultService } from '../services/vaultService.ts';
+import { VaultEntry, SensitiveData, Category } from '../../types';
+import { AutoLockStatus } from '../../hooks/useAutoLock';
+import ImageBrandIcon from './ImageBrandIcon';
+import EntryForm from './EntryForm';
+import SecurityAudit from './SecurityAudit';
+import TwoFactorSetup from './TwoFactorSetup';
+import EmergencyAccess from './EmergencyAccess';
+import PortabilityWizard from './PortabilityWizard';
+import BackupSettings from './BackupSettings';
+import PasswordGenerator from './PasswordGenerator';
+import PasswordCard from './PasswordCard';
+import SkeletonCard from './SkeletonCard';
+import LicensingView from './LicensingView';
+import ChangeMasterKeyModal from './ChangeMasterKeyModal';
+import LegalModal from './LegalModal';
+import UserGuideModal from './UserGuideModal';
+import CloudBridgeView from './CloudBridgeView';
+import ScanModal from './ScanModal';
+import ImportSharedEntryModal from './ImportSharedEntryModal';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useVault } from '../../hooks/useVault';
+import { useAuth } from '../../contexts/AuthContext';
+import { LicensingService } from '../../services/licensingService';
+import { BiometricService } from '../../services/biometricService';
+import { RecoveryService } from '../../services/recoveryService';
+import { useTheme } from '../../contexts/ThemeContext';
+import { db } from '../../db';
+import { VaultService } from '../../services/vaultService';
+import { TagService } from '../../services/tagService';
 
 type SortOrder = 'title_asc' | 'title_desc' | 'recent';
 
@@ -452,7 +453,7 @@ const DuressModeSetup: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
-const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }> = ({ onLogout, lockStatus }) => {
+const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
   const { t, lang, setLang } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { entries: vaultEntries, folders: vaultFolders, saveEntry, deleteEntry, restoreEntry, permanentDelete, decryptData, loadEntries, toggleFavorite } = useVault();
@@ -467,6 +468,8 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
   const [settingsTab, setSettingsTab] = useState<'general' | 'security' | 'data'>('general');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [showTagFilter, setShowTagFilter] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [editingEntry, setEditingEntry] = useState<{ entry: VaultEntry; sensitive: SensitiveData } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -506,15 +509,16 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
   const [autoLockDuration, setAutoLockDuration] = useState(parseInt(localStorage.getItem('aegis_autolock_ms') || '900000'));
 
   // Secure Licensing State (loaded from backend)
+  // SECURITY: Start with safe defaults until backend confirms actual status
   const [licenseStatus, setLicenseStatus] = useState<{
     isPro: boolean;
     remainingDays: number;
     isExpired: boolean;
     timeManipulated: boolean;
   }>({
-    isPro: LicensingService.isPro(),
-    remainingDays: LicensingService.getRemainingTrialDays(),
-    isExpired: LicensingService.isTrialExpired(),
+    isPro: false,           // Default to false - will be updated by backend
+    remainingDays: 3,       // Default trial days - will be updated by backend  
+    isExpired: false,       // Default to not expired - will be updated by backend
     timeManipulated: false
   });
 
@@ -733,6 +737,10 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
   // Performansı artırmak için arama sorgusunu ertele
   const deferredQuery = React.useDeferredValue(searchQuery);
 
+  // Tüm benzersiz etiketleri hesapla
+  const allTags = useMemo(() => TagService.getUniqueTags(entries), [entries]);
+  const popularTags = useMemo(() => TagService.getPopularTags(entries, 8), [entries]);
+
   const processedEntries = useMemo(() => {
     // 1. Temel Filtreleme (Trash vs Active)
     let list = entries.filter(e => activeTab === 'trash' ? e.deletedAt !== undefined : e.deletedAt === undefined);
@@ -814,6 +822,11 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
       filtered = filtered.filter(e => !e.folderId);
     }
 
+    // Etiket Filtresi (Seçili etiketlere göre filtrele)
+    if (selectedTags.length > 0) {
+      filtered = TagService.filterByTags(filtered, selectedTags, false);
+    }
+
     // Klasik Sıralama
     filtered.sort((a, b) => {
       if (sortOrder === 'title_asc') return (a.title || '').localeCompare(b.title || '');
@@ -822,7 +835,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
     });
 
     return filtered;
-  }, [entries, activeTab, activeCat, currentFolderId, deferredQuery, sortOrder, isDuressActive]);
+  }, [entries, activeTab, activeCat, currentFolderId, deferredQuery, sortOrder, isDuressActive, selectedTags]);
 
   const [visibleCount, setVisibleCount] = useState(24);
   const observerTarget = React.useRef(null);
@@ -848,7 +861,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
   // Reset pagination on tab/filter/category changes
   useEffect(() => {
     setVisibleCount(24);
-  }, [activeTab, searchQuery, activeCat, sortOrder, currentFolderId]);
+  }, [activeTab, searchQuery, activeCat, sortOrder, currentFolderId, selectedTags]);
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-main text-main transition-colors duration-500">
@@ -885,14 +898,20 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
         </div>
 
         <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
-          <button onClick={() => { setActiveTab('vault'); setActiveCat('All'); }} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'vault' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
+          <button key="sb-btn-vault" onClick={() => { setActiveTab('vault'); setActiveCat('All'); }} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'vault' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
             <Shield size={20} className={activeTab === 'vault' ? 'text-blue-500' : ''} />
             {!isSidebarCollapsed && <span className="text-sm font-bold">{t('vault')}</span>}
           </button>
 
           <AnimatePresence>
             {activeTab === 'vault' && !isSidebarCollapsed && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="pl-10 space-y-1 overflow-hidden flex flex-col gap-1 pb-4">
+              <motion.div
+                key="vault-categories"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="pl-10 space-y-1 overflow-hidden flex flex-col gap-1 pb-4"
+              >
                 <button onClick={() => setActiveCat('All')} className={`w-full text-left py-2 px-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeCat === 'All' ? 'text-blue-500 bg-blue-500/5' : 'text-zinc-600 hover:text-zinc-400'}`}>
                   {t('filter_all')}
                 </button>
@@ -903,8 +922,8 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                   { id: Category.FILE, icon: Download, label: t('cat_file') },
                   { id: Category.CRYPTO, icon: Wallet, label: t('cat_crypto') },
                   { id: Category.PASSKEY, icon: Fingerprint, label: t('cat_passkey') }
-                ].map(cat => (
-                  <button key={cat.id} onClick={() => setActiveCat(cat.id)} className={`w-full flex items-center gap-3 py-2 px-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeCat === cat.id ? 'text-blue-500 bg-blue-500/5' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                ].map((cat, idx) => (
+                  <button key={`sidebar-cat-${cat.id}-${idx}`} onClick={() => setActiveCat(cat.id)} className={`w-full flex items-center gap-3 py-2 px-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${activeCat === cat.id ? 'text-blue-500 bg-blue-500/5' : 'text-zinc-600 hover:text-zinc-400'}`}>
                     <cat.icon size={14} />
                     <span>{cat.label}</span>
                   </button>
@@ -913,25 +932,25 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
             )}
           </AnimatePresence>
 
-          <button onClick={() => setActiveTab('favorites')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'favorites' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
+          <button key="sb-btn-favorites" onClick={() => setActiveTab('favorites')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'favorites' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
             <Star size={20} className={activeTab === 'favorites' ? 'text-amber-500' : ''} />
             {!isSidebarCollapsed && <span className="text-sm font-bold">{t('favorites')}</span>}
           </button>
-          <button onClick={() => setActiveTab('audit')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'audit' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
+          <button key="sb-btn-audit" onClick={() => setActiveTab('audit')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'audit' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
             <ShieldAlert size={20} className={activeTab === 'audit' ? 'text-blue-500' : ''} />
             {!isSidebarCollapsed && <span className="text-sm font-bold">{t('audit')}</span>}
           </button>
-          <button onClick={() => setActiveTab('generator')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'generator' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
+          <button key="sb-btn-generator" onClick={() => setActiveTab('generator')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'generator' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
             <Zap size={20} className={activeTab === 'generator' ? 'text-blue-500' : ''} />
             {!isSidebarCollapsed && <span className="text-sm font-bold">{t('generator')}</span>}
           </button>
 
           <div className="pt-6 pb-2 px-4 text-[9px] font-black text-zinc-700 uppercase tracking-widest">{t('settings')}</div>
-          <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'settings' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
+          <button key="sb-btn-settings" onClick={() => setActiveTab('settings')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'settings' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
             <Settings size={20} className={activeTab === 'settings' ? 'text-blue-500' : ''} />
             {!isSidebarCollapsed && <span className="text-sm font-bold">{t('settings')}</span>}
           </button>
-          <button onClick={() => setActiveTab('trash')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'trash' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
+          <button key="sb-btn-trash" onClick={() => setActiveTab('trash')} className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all ${activeTab === 'trash' ? 'bg-zinc-900/10 text-main shadow-lg' : 'text-zinc-500 hover:text-main'}`}>
             <Trash2 size={20} className={activeTab === 'trash' ? 'text-red-500' : ''} />
             {!isSidebarCollapsed && <span className="text-sm font-bold">{t('trash')}</span>}
           </button>
@@ -965,6 +984,20 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Tag Filter Button */}
+              <button
+                onClick={() => setShowTagFilter(!showTagFilter)}
+                className={`p-3 rounded-2xl border transition-all relative ${showTagFilter || selectedTags.length > 0 ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-600/20' : 'bg-black/20 border-main text-zinc-500 hover:text-main'}`}
+                title={t('tag_filter_title')}
+              >
+                <Hash size={18} />
+                {selectedTags.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full text-[10px] font-bold flex items-center justify-center">
+                    {selectedTags.length}
+                  </span>
+                )}
+              </button>
+
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
                 className={`p-3 rounded-2xl border transition-all ${isFilterOpen ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20' : 'bg-black/20 border-main text-zinc-500 hover:text-main'}`}
@@ -987,6 +1020,113 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
             </div>
 
             <AnimatePresence>
+              {showTagFilter && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="absolute top-[calc(100%+12px)] left-0 right-0 glass border border-purple-500/20 rounded-[2.5rem] shadow-2xl p-8 z-50"
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <Hash className="text-purple-500" size={20} />
+                      <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{t('tag_filter_title')}</h4>
+                    </div>
+                    {selectedTags.length > 0 && (
+                      <button
+                        onClick={() => setSelectedTags([])}
+                        className="px-3 py-1.5 bg-zinc-500/10 hover:bg-zinc-500/20 text-zinc-400 text-[9px] font-black uppercase tracking-wider rounded-lg border border-zinc-500/20 transition-all"
+                      >
+                        {t('tag_clear_filter')}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Popular Tags */}
+                  {popularTags.length > 0 && (
+                    <div className="mb-6">
+                      <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mb-3">{t('tag_popular')}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {popularTags.filter(tag => tag && tag.trim()).map((tag, index) => {
+                          const isSelected = selectedTags.includes(tag);
+                          const colorClass = TagService.getTagColor(tag);
+                          return (
+                            <button
+                              key={`popular-${tag}-${index}`}
+                              onClick={() => {
+                                setSelectedTags(prev =>
+                                  prev.includes(tag)
+                                    ? prev.filter(t => t !== tag)
+                                    : [...prev, tag]
+                                );
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-all ${isSelected ? 'ring-2 ring-purple-500' : ''} ${colorClass}`}
+                            >
+                              #{tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* All Tags */}
+                  <div>
+                    <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider mb-3">
+                      {t('tag_show_all')} ({allTags.length})
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                      {allTags.length > 0 ? (
+                        allTags.filter(tag => tag && tag.trim()).map((tag, index) => {
+                          const isSelected = selectedTags.includes(tag);
+                          const colorClass = TagService.getTagColor(tag);
+                          return (
+                            <button
+                              key={`all-${tag}-${index}`}
+                              onClick={() => {
+                                setSelectedTags(prev =>
+                                  prev.includes(tag)
+                                    ? prev.filter(t => t !== tag)
+                                    : [...prev, tag]
+                                );
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border transition-all flex items-center justify-between ${isSelected ? 'ring-2 ring-purple-500' : ''} ${colorClass}`}
+                            >
+                              <span className="truncate flex-1 text-left">#{tag}</span>
+                              {isSelected && <Check size={12} />}
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <p className="text-[9px] text-zinc-500 italic col-span-2 text-center py-4">{t('tag_no_tags')}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Selected Tags Summary */}
+                  {selectedTags.length > 0 && (
+                    <div className="mt-6 pt-6 border-t border-white/5">
+                      <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider mb-2">
+                        {t('tag_filter_selected').replace('{tags}', selectedTags.join(', '))}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedTags.filter(tag => tag && tag.trim()).map((tag, index) => {
+                          const colorClass = TagService.getTagColor(tag);
+                          return (
+                            <span
+                              key={`selected-${tag}-${index}`}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider border ${colorClass}`}
+                            >
+                              #{tag}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
               {isFilterOpen && (
                 <motion.div
                   initial={{ opacity: 0, y: -20 }}
@@ -1001,9 +1141,9 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                         { id: 'recent', label: t('sort_recent'), icon: Clock },
                         { id: 'title_asc', label: t('sort_title_asc'), icon: SortAsc },
                         { id: 'title_desc', label: t('sort_title_desc'), icon: SortDesc }
-                      ].map(opt => (
+                      ].map((opt, idx) => (
                         <button
-                          key={opt.id}
+                          key={`sort-opt-${opt.id}-${idx}`}
                           onClick={() => { setSortOrder(opt.id as any); setIsFilterOpen(false); }}
                           className={`flex items-center justify-between px-5 py-3 rounded-xl transition-all ${sortOrder === opt.id ? 'bg-blue-600 text-white' : 'hover:bg-white/5 text-zinc-400'}`}
                         >
@@ -1039,7 +1179,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
         <section ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar relative">
           <AnimatePresence mode="popLayout">
             <motion.div
-              key={activeTab}
+              key={`main-tab-content-${activeTab}`}
               initial={{ opacity: 0, scale: 0.99 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.99 }}
@@ -1063,9 +1203,9 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{t('trash_desc')}</p>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8 pb-32">
-                    {processedEntries.map(entry => (
+                    {processedEntries.filter(entry => entry && entry.id).map((entry, idx) => (
                       <PasswordCard
-                        key={entry.id}
+                        key={`trash-${entry.id}-${idx}`}
                         entry={entry}
                         onEdit={() => { }}
                         onDelete={() => { }}
@@ -1086,8 +1226,8 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
               {activeTab === 'settings' && (
                 <div className="max-w-4xl mx-auto space-y-4 pb-20">
                   <div className="flex gap-2 p-1.5 bg-black/40 rounded-[1.5rem] border border-white/5 w-fit mx-auto mb-4">
-                    {(['general', 'security', 'data'] as const).map(tab => (
-                      <button key={tab} onClick={() => setSettingsTab(tab)} className={`px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${settingsTab === tab ? 'bg-blue-600 text-white shadow-xl' : 'text-zinc-600 hover:text-white'}`}>
+                    {(['general', 'security', 'data'] as const).map((tab, idx) => (
+                      <button key={`settings-tab-${tab}-${idx}`} onClick={() => setSettingsTab(tab)} className={`px-10 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${settingsTab === tab ? 'bg-blue-600 text-white shadow-xl' : 'text-zinc-600 hover:text-white'}`}>
                         {t(`${tab}_tab` as any)}
                       </button>
                     ))}
@@ -1544,9 +1684,9 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                   )}
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-8">
-                    {!isLoading && !currentFolderId && relevantFolders.map(folder => (
+                    {!isLoading && !currentFolderId && relevantFolders.filter(folder => folder && folder.id).map((folder, idx) => (
                       <motion.div
-                        key={folder.id}
+                        key={`folder-asset-id-${folder.id || 'missing'}-${idx}`}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         whileHover={{ y: -5 }}
@@ -1566,8 +1706,8 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
                       </motion.div>
                     ))}
 
-                    {isLoading ? Array(12).fill(0).map((_, i) => <SkeletonCard key={i} />) : processedEntries.slice(0, visibleCount).map(entry => (
-                      <PasswordCard key={entry.id} entry={entry} onEdit={() => handleEditEntry(entry)} onDelete={() => deleteEntry(entry.id)} onToggleFavorite={() => toggleFavorite(entry.id)} onDecrypt={() => decryptData(entry)} />
+                    {isLoading ? Array(12).fill(0).map((_, i) => <SkeletonCard key={`skeleton-card-v2-${i}`} />) : processedEntries.filter(entry => entry && entry.id).slice(0, visibleCount).map((entry, idx) => (
+                      <PasswordCard key={`entry-item-v2-${entry.id}-${idx}`} entry={entry} onEdit={() => handleEditEntry(entry)} onDelete={() => deleteEntry(entry.id)} onToggleFavorite={() => toggleFavorite(entry.id)} onDecrypt={() => decryptData(entry)} />
                     ))}
 
                     {processedEntries.length > visibleCount && (
@@ -1630,10 +1770,11 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
               <div className="w-full max-w-4xl"><EntryForm entry={editingEntry?.entry} sensitive={editingEntry?.sensitive} onSave={async (p) => { await saveEntry(p); setIsAdding(false); }} onClose={() => setIsAdding(false)} /></div>
             </div>
           )}
-          <LegalModal isOpen={showLegalModal} onClose={() => setShowLegalModal(false)} docType={legalDocType} />
-          <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} />
+          <LegalModal key="main-legal-modal" isOpen={showLegalModal} onClose={() => setShowLegalModal(false)} docType={legalDocType} />
+          <UserGuideModal key="main-user-guide-modal" isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} />
           {isScanModalOpen && (
             <ScanModal
+              key="main-scan-modal"
               onClose={() => setIsScanModalOpen(false)}
               onScanComplete={(payload) => {
                 setScannedPayload(payload);
@@ -1643,6 +1784,7 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
           )}
           {scannedPayload && (
             <ImportSharedEntryModal
+              key="main-import-shared-modal"
               payload={scannedPayload}
               onClose={() => setScannedPayload(null)}
               onImportSuccess={() => {
@@ -1656,6 +1798,6 @@ const Dashboard: React.FC<{ onLogout: () => void; lockStatus?: AutoLockStatus; }
       </main>
     </div>
   );
-};
+});
 
 export default Dashboard;

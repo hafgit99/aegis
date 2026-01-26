@@ -1,17 +1,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, Cpu, CheckCircle2, Shield, Fingerprint, Info, X, Key, RotateCcw, Loader2, AlertCircle, Clock, Eye, EyeOff } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext.tsx';
-import { useAuth } from '../contexts/AuthContext.tsx';
-import { RecoveryService } from '../services/recoveryService.ts';
-import { BiometricService } from '../services/biometricService.ts';
-import { BruteForceService } from '../services/bruteForceService.ts';
-import { useTheme } from '../contexts/ThemeContext.tsx';
-import ImageBrandIcon from './ImageBrandIcon.tsx';
-import EULAView from './EULAView.tsx';
-import { CryptoService } from '../services/cryptoService.ts';
-import { TwoFactorService } from '../services/twoFactorService.ts';
-import { PasswordPolicy } from '../utils/passwordPolicy.ts';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { RecoveryService } from '../../services/recoveryService';
+import { BiometricService } from '../../services/biometricService';
+import { BruteForceService } from '../../services/bruteForceService';
+import { useTheme } from '../../contexts/ThemeContext';
+import ImageBrandIcon from './ImageBrandIcon';
+import EULAView from './EULAView';
+import { CryptoService } from '../../services/cryptoService';
+import { TwoFactorService } from '../../services/twoFactorService';
+import { PasswordPolicy } from '../../utils/passwordPolicy';
 
 interface AuthPageProps {
   isInitialized: boolean;

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Shield, Lock, Calendar, FileText, Printer } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface EmergencySheetProps {
   fileName: string;

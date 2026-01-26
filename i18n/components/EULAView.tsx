@@ -1,6 +1,6 @@
 import React from 'react';
 import { Shield, Lock, AlertCircle, Scale, Fingerprint, Database, EyeOff, Globe, HardDrive, FileCheck } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const EULAView: React.FC = () => {
   const { lang } = useLanguage();

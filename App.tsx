@@ -1,28 +1,28 @@
 
 import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useVault } from './hooks/useVault.ts';
-import { useAutoLock } from './hooks/useAutoLock.ts';
-import { AuthProvider, useAuth } from './contexts/AuthContext.tsx';
-import { VaultProvider } from './contexts/VaultContext.tsx';
-import AuthPage from './components/AuthPage.tsx';
-import Dashboard from './components/Dashboard.tsx';
-import TitleBar from './components/TitleBar.tsx';
-import { VaultService } from './services/vaultService.ts';
-import { PasskeyService } from './services/passkeyService.ts';
-import { CryptoService } from './services/cryptoService.ts';
-import { BiometricService } from './services/biometricService.ts';
+import { useVault } from './hooks/useVault';
+import { useAutoLock } from './hooks/useAutoLock';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { VaultProvider } from './contexts/VaultContext';
+import AuthPage from './i18n/components/AuthPage';
+import Dashboard from './i18n/components/Dashboard';
+import TitleBar from './i18n/components/TitleBar';
+import { VaultService } from './services/vaultService';
+import { PasskeyService } from './services/passkeyService';
+import { CryptoService } from './services/cryptoService';
+import { BiometricService } from './services/biometricService';
 
 const AppContent: React.FC = () => {
   const {
     unlock,
     lock,
     setup,
-    isInitialized
+    isInitialized,
+    entries
   } = useVault();
 
-  const { isAuthenticated, masterKey } = useAuth();
-  const { entries } = useVault();
+  const { isAuthenticated, masterKey, setKey } = useAuth();
 
   // Listen for OS-level lock triggers (sleep/lock screen)
   React.useEffect(() => {
@@ -172,7 +172,7 @@ const AppContent: React.FC = () => {
   }, [entries, masterKey]);
 
   return (
-    <div className="h-full w-full bg-[#050505] text-zinc-50 overflow-hidden flex flex-col">
+    <div className="h-screen w-screen bg-[#050505] text-zinc-50 overflow-hidden flex flex-col">
       {/* TitleBar is now part of flex flow */}
       <TitleBar />
 
@@ -181,7 +181,7 @@ const AppContent: React.FC = () => {
         <AnimatePresence mode="wait">
           {!isAuthenticated ? (
             <motion.div
-              key="auth"
+              key="app-auth-container"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -191,12 +191,15 @@ const AppContent: React.FC = () => {
               <AuthPage
                 isInitialized={isInitialized}
                 onUnlock={unlock}
-                onSetup={setup}
+                onSetup={async (password) => {
+                  await setup(password);
+                  // setup internally calls setKey through VaultContext, but let's ensure Auth state is updated
+                }}
               />
             </motion.div>
           ) : (
             <motion.div
-              key="dashboard"
+              key="app-dashboard-container"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -205,7 +208,6 @@ const AppContent: React.FC = () => {
             >
               <Dashboard
                 onLogout={lock}
-                lockStatus={lockStatus}
               />
             </motion.div>
           )}

@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ShieldAlert, ShieldCheck, ShieldX, Info, 
-  RotateCw, AlertTriangle, CheckCircle2, 
-  Activity, ArrowRight, Shield, Zap, Lightbulb, 
+import {
+  ShieldAlert, ShieldCheck, ShieldX, Info,
+  RotateCw, AlertTriangle, CheckCircle2,
+  Activity, ArrowRight, Shield, Zap, Lightbulb,
   Target, Fingerprint, Globe, Search
 } from 'lucide-react';
-import { VaultEntry } from '../types';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useVault } from '../hooks/useVault';
-import { useSecurityAudit, AuditIssue } from '../hooks/useSecurityAudit';
+import { VaultEntry } from '../../types';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useVault } from '../../hooks/useVault';
+import { useSecurityAudit, AuditIssue } from '../../hooks/useSecurityAudit';
 
 interface SecurityAuditProps {
   entries: VaultEntry[];
@@ -41,26 +41,26 @@ const SecurityAudit: React.FC<SecurityAuditProps> = ({ entries, onEditEntry }) =
     <div className="max-w-6xl mx-auto space-y-10 pb-24">
       <AnimatePresence>
         {isScanning ? (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050505]/90 backdrop-blur-2xl"
           >
             <div className="relative w-80 h-80 flex items-center justify-center">
               {[1, 2, 3].map(i => (
-                <motion.div 
+                <motion.div
                   key={i}
                   animate={{ scale: [1, 1.5], opacity: [0.3, 0] }}
                   transition={{ duration: 3, repeat: Infinity, delay: i * 0.8 }}
                   className="absolute inset-0 border border-blue-500/30 rounded-full"
                 />
               ))}
-              <motion.div 
+              <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
                 className="absolute inset-0 border-[1px] border-blue-500/20 rounded-full bg-gradient-to-t from-blue-500/10 via-transparent to-transparent"
               />
               <div className="absolute inset-0 overflow-hidden rounded-full border border-white/5">
-                <motion.div 
+                <motion.div
                   animate={{ y: [-320, 320] }}
                   transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
                   className="w-full h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-50 shadow-[0_0_20px_rgba(59,130,246,0.8)]"
@@ -87,7 +87,7 @@ const SecurityAudit: React.FC<SecurityAuditProps> = ({ entries, onEditEntry }) =
                   <svg className="w-full h-full -rotate-90">
                     <circle cx="112" cy="112" r={radius + 15} fill="transparent" stroke="currentColor" strokeWidth="2" className="text-zinc-900" strokeDasharray="5 5" />
                     <circle cx="112" cy="112" r={radius} fill="transparent" stroke="currentColor" strokeWidth="16" className="text-zinc-900/50" />
-                    <motion.circle 
+                    <motion.circle
                       cx="112" cy="112" r={radius} fill="transparent" stroke="currentColor" strokeWidth="16"
                       strokeDasharray={circumference}
                       initial={{ strokeDashoffset: circumference }}
@@ -130,10 +130,10 @@ const SecurityAudit: React.FC<SecurityAuditProps> = ({ entries, onEditEntry }) =
                     <h3 className="text-xs font-black text-white uppercase tracking-widest">{t('smart_tips')}</h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {tips.map(tip => {
+                    {tips.map((tip, idx) => {
                       const Icon = tipIcons[tip.id === 'length_boost' ? 'Zap' : tip.id === 'unique_keys' ? 'Key' : 'RotateCw'] || Zap;
                       return (
-                        <div key={tip.id} className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col h-full hover:bg-white/[0.04] transition-all">
+                        <div key={`audit-tip-${tip.id}-${idx}`} className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col h-full hover:bg-white/[0.04] transition-all">
                           <div className="flex justify-between items-start mb-4">
                             <Icon className="text-blue-500" size={20} />
                             <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-500 text-[8px] font-black uppercase tracking-widest">{tip.improvementKey}</span>
@@ -157,9 +157,9 @@ const SecurityAudit: React.FC<SecurityAuditProps> = ({ entries, onEditEntry }) =
                   </span>
                 </div>
                 <div className="flex gap-2 p-1.5 bg-black/40 rounded-2xl border border-white/5">
-                  {(['all', 'critical', 'warning'] as const).map(f => (
-                    <button 
-                      key={f} onClick={() => setActiveFilter(f)}
+                  {(['all', 'critical', 'warning'] as const).map((f, idx) => (
+                    <button
+                      key={`filter-${f}-${idx}`} onClick={() => setActiveFilter(f)}
                       className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeFilter === f ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-zinc-600 hover:text-white'}`}
                     >
                       {t(`filter_${f}` as any)}
@@ -171,7 +171,7 @@ const SecurityAudit: React.FC<SecurityAuditProps> = ({ entries, onEditEntry }) =
               <div className="grid grid-cols-1 gap-4">
                 <AnimatePresence mode="popLayout">
                   {filteredIssues.length > 0 ? filteredIssues.map((issue, idx) => (
-                    <motion.div 
+                    <motion.div
                       key={`${issue.entry.id}-${idx}`}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -188,19 +188,19 @@ const SecurityAudit: React.FC<SecurityAuditProps> = ({ entries, onEditEntry }) =
                           <div className="flex items-center gap-3">
                             <h4 className="font-bold text-white text-lg">{issue.entry.title}</h4>
                             <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${issue.severity === 'critical' ? 'bg-red-500 text-white' : 'bg-amber-500 text-black'}`}>
-                                {issue.severity.toUpperCase()}
+                              {issue.severity.toUpperCase()}
                             </span>
                           </div>
                           <div className="flex items-center gap-3 mt-1.5">
                             <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{issue.entry.username}</span>
                             <div className="w-1 h-1 bg-zinc-800 rounded-full" />
                             <span className="text-[10px] font-bold text-zinc-400 italic">
-                                {t(issue.messageKey as any)}
+                              {t(issue.messageKey as any)}
                             </span>
                           </div>
                         </div>
                       </div>
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); onEditEntry(issue.entry); }}
                         className="flex items-center gap-4 pl-8 group/btn"
                       >

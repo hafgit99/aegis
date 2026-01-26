@@ -15,12 +15,12 @@ import {
   Category,
   VaultEntry,
   SensitiveData
-} from '../types';
-import { ShareService } from '../services/shareService';
-import { VaultService } from '../services/vaultService';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useAuth } from '../contexts/AuthContext';
-import { useVault } from '../hooks/useVault';
+} from '../../types';
+import { ShareService } from '../../services/shareService';
+import { VaultService } from '../../services/vaultService';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useVault } from '../../hooks/useVault';
 
 interface ImportSharedEntryModalProps {
   payload: QRSharePayload;

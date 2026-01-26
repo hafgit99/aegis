@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldAlert, Zap, FileText, Download, Activity, Lock, AlertTriangle } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { motion } from 'framer-motion';
 
 interface EmergencyAccessProps {

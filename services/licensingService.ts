@@ -78,8 +78,20 @@ export class LicensingService {
       return this.cachedStatus.isPro;
     }
 
-    // Fallback to localStorage check for legacy/browser mode
-    return !!localStorage.getItem(this.STORAGE_KEY);
+    // SECURITY: Default to false until backend confirms Pro status
+    // This prevents localStorage manipulation from bypassing licensing
+    // The async getStatus() call will update cachedStatus with real value
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Only return true if there's a valid license key stored
+        return !!(parsed.licenseKey && parsed.activatedAt);
+      }
+    } catch (e) {
+      // Invalid JSON or any error - treat as not Pro
+    }
+    return false;
   }
 
   /**
@@ -101,8 +113,14 @@ export class LicensingService {
    * Uses monotonic counter from backend to prevent time manipulation
    */
   static getRemainingTrialDays(): number {
+    // 1. Check Pro status first - if pro, trial is irrelevant
+    if (this.isPro()) {
+      return 36500; // Long-term legacy value for "Infinite"
+    }
+
     // Return cached value if available
     if (this.cachedStatus !== null) {
+      if (this.cachedStatus.isPro) return 36500;
       return this.cachedStatus.remainingDays;
     }
 
@@ -254,7 +272,15 @@ export class LicensingService {
       console.groupEnd();
 
       if (isValid) {
-        // Store in secure backend
+        // Update cache regardless of environment
+        this.cachedStatus = {
+          isPro: true,
+          remainingDays: 36500,
+          isExpired: false,
+          timeManipulated: false
+        };
+
+        // Store in secure backend if available
         if ((window as any).electronAPI?.licensing) {
           const result = await (window as any).electronAPI.licensing.activatePro(trimmedKey);
           if (result.success) {

@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Check, Mail, QrCode } from 'lucide-react';
 import QRCode from 'qrcode';
-import { useLanguage } from '../contexts/LanguageContext';
-import { CRYPTO_COINS, PAYMENT_EMAIL, PAYMENT_PRICE_EUR } from '../utils/cryptoCoins';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { CRYPTO_COINS, PAYMENT_EMAIL, PAYMENT_PRICE_EUR } from '../../utils/cryptoCoins';
 
 interface CryptoPaymentModalProps {
     onClose: () => void;

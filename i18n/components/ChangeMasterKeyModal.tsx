@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Lock, AlertTriangle, CheckCircle2, Loader2, Eye, EyeOff, Zap } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { ChangeMasterKeyService, ChangePasswordProgress } from '../services/changeMasterKeyService';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { ChangeMasterKeyService, ChangePasswordProgress } from '../../services/changeMasterKeyService';
 
 interface ChangeMasterKeyModalProps {
   onClose: () => void;
@@ -228,15 +228,14 @@ const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, on
                     <div className="flex-1 h-2 bg-black/40 rounded-full overflow-hidden">
                       <motion.div
                         animate={{ width: `${strength.score}%` }}
-                        className={`h-full transition-colors ${
-                          strength.score >= 80
+                        className={`h-full transition-colors ${strength.score >= 80
                             ? 'bg-emerald-500'
                             : strength.score >= 60
-                            ? 'bg-blue-500'
-                            : strength.score >= 40
-                            ? 'bg-amber-500'
-                            : 'bg-red-500'
-                        }`}
+                              ? 'bg-blue-500'
+                              : strength.score >= 40
+                                ? 'bg-amber-500'
+                                : 'bg-red-500'
+                          }`}
                       />
                     </div>
                     <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500">
@@ -362,8 +361,8 @@ const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, on
 
             {/* Stage Indicators */}
             <div className="w-full space-y-2">
-              {['validating', 'decrypting', 'encrypting', 'saving'].map((s) => (
-                <div key={s} className="flex items-center gap-3">
+              {['validating', 'decrypting', 'encrypting', 'saving'].map((s, idx) => (
+                <div key={`cmk-stage-${s}-${idx}`} className="flex items-center gap-3">
                   {progress.stage === s && progress.stage !== 'complete' ? (
                     <Loader2 size={16} className="text-blue-500 animate-spin" />
                   ) : ['validating', 'decrypting', 'encrypting', 'saving'].indexOf(s) < ['validating', 'decrypting', 'encrypting', 'saving'].indexOf(progress.stage) ||

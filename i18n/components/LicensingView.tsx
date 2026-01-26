@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 // Added Loader2 to the imports from lucide-react
 import { X, Crown, ShieldCheck, Key, Copy, Check, Award, Cpu, Smartphone, AlertTriangle, Loader2, Coins } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { LicensingService } from '../services/licensingService';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { LicensingService } from '../../services/licensingService';
 import CryptoPaymentModal from './CryptoPaymentModal';
 
 const LicensingView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
@@ -30,7 +30,10 @@ const LicensingView: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const success = await LicensingService.activateLicense(licenseKey);
     if (success) {
       setStatus('success');
-      setTimeout(onClose, 2000);
+      setTimeout(() => {
+        onClose();
+        window.location.reload(); // Refresh to finalize all security state
+      }, 2000);
     } else {
       setStatus('error');
       setTimeout(() => setStatus('idle'), 3000);

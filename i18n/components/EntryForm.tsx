@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { VaultEntry, Category, SensitiveData, CustomField, Folder } from '../types';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useAuth } from '../contexts/AuthContext';
-import { usePasswordGenerator } from '../hooks/usePasswordGenerator';
-import { PasskeyService } from '../services/passkeyService';
+import { VaultEntry, Category, SensitiveData, CustomField, Folder } from '../../types';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { usePasswordGenerator } from '../../hooks/usePasswordGenerator';
+import { PasskeyService } from '../../services/passkeyService';
+import { TagService } from '../../services/tagService';
 // Added Check icon to imports from lucide-react
-import { FileUp, File, X, AlertCircle, Loader2, Plus, Trash2, Eye, EyeOff, Lock, Globe, CreditCard, FileText, Download, ChevronRight, Wand2, Check, Wallet, Fingerprint } from 'lucide-react';
+import { FileUp, File, X, AlertCircle, Loader2, Plus, Trash2, Eye, EyeOff, Lock, Globe, CreditCard, FileText, Download, ChevronRight, Wand2, Check, Wallet, Fingerprint, Hash } from 'lucide-react';
 
 interface EntryFormProps {
   entry?: VaultEntry;
@@ -29,8 +30,35 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
     category: entry?.category || Category.LOGIN,
     isFavorite: entry?.isFavorite || false,
     fileSize: entry?.fileSize || 0,
-    tags: entry?.tags?.join(', ') || ''
+    tags: entry?.tags || []
   });
+
+  const [tagInput, setTagInput] = useState('');
+
+  // Etiket ekleme (Enter tuşu veya buton ile)
+  const handleAddTag = () => {
+    const trimmedTag = tagInput.trim();
+    if (trimmedTag && !formData.tags.includes(trimmedTag)) {
+      setFormData({ ...formData, tags: [...formData.tags, trimmedTag] });
+      setTagInput('');
+    }
+  };
+
+  // Etiket kaldırma
+  const handleRemoveTag = (tagToRemove: string) => {
+    setFormData({ ...formData, tags: formData.tags.filter(t => t !== tagToRemove) });
+  };
+
+  // Etiket input'unda Enter tuşuna basıldığında
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddTag();
+    } else if (e.key === 'Backspace' && !tagInput && formData.tags.length > 0) {
+      // Backspace ile son etiketi kaldır
+      handleRemoveTag(formData.tags[formData.tags.length - 1]);
+    }
+  };
 
   const [sensitiveData, setSensitiveData] = useState<SensitiveData>(sensitive || {
     password: '',
@@ -148,7 +176,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
         onSave({
           ...formData,
           id: entry?.id,
-          tags: formData.tags.split(',').map(s => s.trim()).filter(Boolean),
+          tags: formData.tags,
           sensitive: sensitiveData
         });
       }}>
@@ -175,7 +203,46 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
 
           <div className="space-y-3 col-span-2 md:col-span-1">
             <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest block pl-1">{t('tags')}</label>
-            <input value={formData.tags} onChange={e => setFormData({ ...formData, tags: e.target.value })} className="w-full px-6 py-5 bg-black/60 border border-white/5 rounded-[1.5rem] text-white outline-none focus:border-blue-500/50 font-bold select-text" placeholder={t('placeholder_tags')} />
+            <div className="w-full px-4 py-3 bg-black/60 border border-white/5 rounded-[1.5rem] focus-within:border-blue-500/50 transition-all">
+              {/* Tag Chips */}
+              {formData.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  <AnimatePresence mode="popLayout">
+                    {formData.tags.filter(tag => tag && tag.trim()).map((tag, index) => {
+                      const colorClass = TagService.getTagColor(tag);
+                      return (
+                        <motion.span
+                          key={`form-tag-${tag}-${index}`}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.8 }}
+                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${colorClass}`}
+                        >
+                          <Hash size={10} />
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTag(tag)}
+                            className="ml-1 hover:opacity-70 transition-opacity"
+                          >
+                            <X size={12} />
+                          </button>
+                        </motion.span>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              )}
+              {/* Tag Input */}
+              <input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                onBlur={handleAddTag}
+                className="w-full bg-transparent text-white outline-none font-bold select-text placeholder:text-zinc-600"
+                placeholder={formData.tags.length === 0 ? t('placeholder_tags') : t('tag_add_hint')}
+              />
+            </div>
           </div>
 
           {formData.category === Category.LOGIN && (

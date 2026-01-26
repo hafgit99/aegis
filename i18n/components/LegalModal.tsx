@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext.tsx';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 type LegalDocType = 'terms' | 'privacy';
 

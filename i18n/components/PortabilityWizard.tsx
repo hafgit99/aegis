@@ -6,13 +6,13 @@ import {
   Shield, Lock, FileCode, Check, ChevronLeft, Filter, History, Trash2,
   Eye, FileText, Info, Key, Server, CreditCard, Wallet
 } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useAuth } from '../contexts/AuthContext';
-import { useVault } from '../hooks/useVault';
-import { ExportService, ExportFormat } from '../services/exportService';
-import { ImportService, ImportConflict } from '../services/importService';
-import { VaultService } from '../services/vaultService';
-import { VaultEntry, SensitiveData, Category } from '../types';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useVault } from '../../hooks/useVault';
+import { ExportService, ExportFormat } from '../../services/exportService';
+import { ImportService, ImportConflict } from '../../services/importService';
+import { VaultService } from '../../services/vaultService';
+import { VaultEntry, SensitiveData, Category } from '../../types';
 
 type WizardTab = 'import' | 'export';
 type WizardStep = 'select' | 'processing' | 'preview' | 'conflicts' | 'success' | 'backup_password';
@@ -236,9 +236,9 @@ const PortabilityWizard: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
             >
               {/* Tab Selector */}
               <div className="flex p-1.5 bg-black/40 border border-white/5 rounded-2xl">
-                {(['import', 'export'] as const).map((tab) => (
+                {(['import', 'export'] as const).map((tab, idx) => (
                   <button
-                    key={tab}
+                    key={`wizard-tab-${tab}-${idx}`}
                     onClick={() => setActiveTab(tab)}
                     className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all relative ${activeTab === tab ? 'text-white' : 'text-zinc-500 hover:text-zinc-400'
                       }`}
@@ -335,7 +335,7 @@ const PortabilityWizard: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {Object.values(Category).map(cat => {
+                      {Object.values(Category).map((cat, idx) => {
                         const Icon = CATEGORY_ICONS[cat] || Key;
                         const isSelected = selectedCategories.includes(cat);
                         const count = entries.filter(e => e.category === cat).length;
@@ -343,7 +343,7 @@ const PortabilityWizard: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
 
                         return (
                           <button
-                            key={cat}
+                            key={`cat-filter-${cat}-${idx}`}
                             onClick={() => toggleCategory(cat)}
                             className={`px-4 py-2.5 rounded-xl border flex items-center gap-3 transition-all ${isSelected
                               ? 'bg-white/10 border-white/20 text-white'

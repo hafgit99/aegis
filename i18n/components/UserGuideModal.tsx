@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronDown, ChevronUp, BookOpen, Shield, Lock, Key, Folder, Tag, Search, Download, Upload, Eye, Smartphone, AlertTriangle, Settings, HelpCircle, ShieldCheck, Fingerprint, QrCode } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext.tsx';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface GuideSection {
   id: string;
@@ -1116,9 +1116,9 @@ Hemen 16 Kurtarma Sözcüğü oluşturun ve güvenle saklayın. Ana Şifrenizi u
 
             {/* Content */}
             <div className="p-8 space-y-4">
-              {sections.map((section) => (
+              {sections.map((section, idx) => (
                 <motion.div
-                  key={section.id}
+                  key={`guide-section-${section.id}-${idx}`}
                   className="glass border border-blue-500/10 rounded-2xl overflow-hidden hover:border-blue-500/30 transition-all"
                 >
                   <button

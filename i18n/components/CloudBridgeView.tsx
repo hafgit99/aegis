@@ -5,9 +5,9 @@ import {
     AlertTriangle, Loader2, RefreshCw, Upload, Download,
     Settings, X, ShieldCheck, Database, Link, ExternalLink
 } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useAuth } from '../contexts/AuthContext';
-import { CloudSyncService } from '../services/cloud/CloudSyncService';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { CloudSyncService } from '../../services/cloud/CloudSyncService';
 
 const CloudBridgeView: React.FC<{ onRefresh?: () => Promise<void> }> = ({ onRefresh }) => {
     const { t, lang } = useLanguage();

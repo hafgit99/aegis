@@ -285,7 +285,7 @@ function createWindow() {
     show: false,
     center: true,
     backgroundColor: '#050505',
-    titleBarStyle: 'hidden',
+    frame: false, // Arka plan çerçevesini tamamen kaldır
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
       preload: app.isPackaged
@@ -293,11 +293,10 @@ function createWindow() {
         : path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true, // Changed to true for better security
+      sandbox: false,
       webSecurity: true,
       enableRemoteModule: false
     },
-    frame: true,
     resizable: true
   });
 
@@ -311,6 +310,12 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
   }
+
+  // Cleanup mainWindow reference when window is closed
+  mainWindow.on('closed', () => {
+    console.log('[MainWindow] Window closed, clearing reference');
+    mainWindow = null;
+  });
 
   // SECURITY: Setup response headers
   mainWindow.webContents.session.webRequest.onHeadersReceived(
@@ -348,30 +353,12 @@ function createWindow() {
     // DevTools'u otomatik aç (migration debug için)
     // mainWindow.webContents.openDevTools();
   });
+
+  // Prevent navigation and handle window lifecycle properly
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[MainWindow] Failed to load:', errorCode, errorDescription);
+  });
 }
-
-app.whenReady().then(async () => {
-  // SECURITY: Load keytar module
-  await loadKeytar();
-
-  // SECURITY: Setup portable paths before creating window and initializing data
-  const userDataPath = setupPortablePaths();
-  console.log('User data path:', userDataPath);
-
-  createWindow();
-
-  // SECURITY: Initialize Bridge Server (Main Process Side)
-  setupBridgeServer();
-
-  // SECURITY: Native Messaging Setup
-  // Automatically register host on startup (Safe, HKCU path)
-  setupNativeMessagingHost();
-
-  // If launched as a messaging host, start listener
-  if (process.argv.includes('--native-messaging-host') || process.argv.includes('com.aegis.vault.json')) {
-    startNativeMessagingListener();
-  }
-});
 
 // SECURITY: Dedicated Bridge Server for Native Messaging
 // Only used to communicate between the Extension Bridge process and the Main App.
@@ -404,10 +391,30 @@ function logMain(msg) {
 }
 
 // 1. MAIN PROCESS: Listen for Bridge connections
+let bridgeServer = null;
 function setupBridgeServer() {
+  // Prevent duplicate server creation
+  if (bridgeServer) {
+    logMain("Bridge Server already exists, skipping setup.");
+    return bridgeServer;
+  }
+
   logMain("Setting up Bridge Server on: " + PIPE_NAME);
+
   // If pipe exists, remove it (cleanup)
-  const server = net.createServer((socket) => {
+  try {
+    if (fs.existsSync(PIPE_NAME.replace('\\\\.\\pipe\\', ''))) {
+      // Try to clean up old pipe
+      const client = net.createConnection(PIPE_NAME, () => {
+        client.destroy();
+      });
+      client.on('error', () => { });
+    }
+  } catch (e) {
+    // Ignore cleanup errors
+  }
+
+  bridgeServer = net.createServer((socket) => {
     logMain("Bridge connection accepted from Native Host process.");
 
     socket.on('data', async (data) => {
@@ -434,15 +441,15 @@ function setupBridgeServer() {
     });
   });
 
-  server.listen(PIPE_NAME, () => {
+  bridgeServer.listen(PIPE_NAME, () => {
     logMain("Bridge Server listening successfully.");
   });
 
-  server.on('error', (err) => {
+  bridgeServer.on('error', (err) => {
     logMain("Bridge Server Error: " + err.message);
   });
 
-  return server;
+  return bridgeServer;
 }
 
 // 2. BRIDGE PROCESS (Native Messaging Host): Forward Chrome <-> Main App
@@ -634,7 +641,7 @@ if (isNativeHost) {
   } else {
     app.on('second-instance', (event, commandLine, workingDirectory) => {
       // Someone tried to run a second instance, we should focus our window.
-      if (mainWindow) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
         if (mainWindow.isMinimized()) mainWindow.restore();
         mainWindow.focus();
       }
@@ -685,10 +692,8 @@ async function handleExtensionMessage(socketOrStdout, msg) {
           response.error = "VAULT_LOCKED";
           break;
         }
-        // Metadata is encrypted, so we need to request search from the Renderer process
-        // or decrypt in Main if we have the keys cached.
-        // For now, we'll send a search request to the main window's renderer.
-        if (mainWindow) {
+        // Check if mainWindow exists and is not destroyed
+        if (mainWindow && !mainWindow.isDestroyed()) {
           const results = await new Promise((resolve) => {
             const requestId = Math.random().toString(36).substring(7);
             ipcMain.once(`extension:search-result-${requestId}`, (event, data) => resolve(data));
@@ -696,6 +701,8 @@ async function handleExtensionMessage(socketOrStdout, msg) {
           });
           response.success = true;
           response.data = results;
+        } else {
+          response.error = "WINDOW_NOT_AVAILABLE";
         }
         break;
       case 'GET_CREDENTIALS':
@@ -703,8 +710,8 @@ async function handleExtensionMessage(socketOrStdout, msg) {
           response.error = "VAULT_LOCKED";
           break;
         }
-        // Decrypt requested entry
-        if (mainWindow) {
+        // Check if mainWindow exists and is not destroyed
+        if (mainWindow && !mainWindow.isDestroyed()) {
           const creds = await new Promise((resolve) => {
             const requestId = Math.random().toString(36).substring(7);
             ipcMain.once(`extension:cred-result-${requestId}`, (event, data) => resolve(data));
@@ -712,6 +719,8 @@ async function handleExtensionMessage(socketOrStdout, msg) {
           });
           response.success = true;
           response.data = creds;
+        } else {
+          response.error = "WINDOW_NOT_AVAILABLE";
         }
         break;
       case 'PASSKEY_SIGN':
@@ -719,7 +728,8 @@ async function handleExtensionMessage(socketOrStdout, msg) {
           response.error = "VAULT_LOCKED";
           break;
         }
-        if (mainWindow) {
+        // Check if mainWindow exists and is not destroyed
+        if (mainWindow && !mainWindow.isDestroyed()) {
           const assertion = await new Promise((resolve) => {
             const requestId = Math.random().toString(36).substring(7);
             ipcMain.once(`extension:passkey-result-${requestId}`, (event, data) => resolve(data));
@@ -731,13 +741,18 @@ async function handleExtensionMessage(socketOrStdout, msg) {
           });
           response.success = true;
           response.data = assertion;
+        } else {
+          response.error = "WINDOW_NOT_AVAILABLE";
         }
         break;
       case 'OPEN_POPUP':
-        if (mainWindow) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          if (mainWindow.isMinimized()) mainWindow.restore();
           mainWindow.show();
           mainWindow.focus();
           response.success = true;
+        } else {
+          response.error = "WINDOW_NOT_AVAILABLE";
         }
         break;
       default:
@@ -770,7 +785,7 @@ ipcMain.on('clipboard:write', (event, text, duration = 45000) => {
     // Sadece eğer pano hala bizim kopyaladığımız metni içeriyorsa temizle
     if (clipboard.readText() === lastCopiedText) {
       clipboard.writeText('');
-      if (mainWindow) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('clipboard:cleared');
       }
     }
@@ -914,41 +929,36 @@ function scheduleBruteForceSave() {
 // Load state on app start
 loadBruteForceState();
 
-ipcMain.handle('vault:set-key', (event, keyRaw, verifier) => {
-  sessionKey = Buffer.from(keyRaw);
-
-  // SECURITY: Lock memory immediately to prevent swapping
-  if (nativeSecurity) {
-    try {
-      const locked = nativeSecurity.lockMemory(sessionKey);
-      console.log(`[Security] Session key locked in RAM: ${locked}`);
-    } catch (e) {
-      console.error('[Security] Failed to lock session key:', e.message);
-    }
-  }
-
-  // If verifier is provided, update the global verifierBlob
-  if (verifier) {
-    verifierBlob = verifier;
-    if (nativeSecurity && verifierBlob.salt) {
-      // Optional: Could lock salt too, but master key is the priority
-    }
-  }
-
-  // SECURITY: Initialize SQLite/SQLCipher Database
+ipcMain.handle('vault:set-key', async (event, keyRaw, verifier) => {
   try {
+    sessionKey = Buffer.from(keyRaw);
+
+    // SECURITY: Lock memory immediately to prevent swapping
+    if (nativeSecurity) {
+      try {
+        const locked = nativeSecurity.lockMemory(sessionKey);
+        console.log(`[Security] Session key locked in RAM: ${locked}`);
+      } catch (e) {
+        console.error('[Security] Failed to lock session key:', e.message);
+      }
+    }
+
+    // If verifier is provided, update the global verifierBlob
+    if (verifier) {
+      verifierBlob = verifier;
+    }
+
+    // SECURITY: Initialize SQLite/SQLCipher Database
     const hwSecret = getHardwareBoundSecret();
     const combinedKey = crypto.createHmac('sha256', hwSecret).update(sessionKey).digest('hex');
 
     databaseService.init(app.getPath('userData'), combinedKey);
 
-    // SECURITY: Clean up combinedKey from local scope
-    // (Hex string is harder to wipe, but we'll try to minimize lifetime)
     // PERSIST Metadata for CLI access
     if (verifierBlob && verifierBlob.salt) {
       const meta = {
         salt: verifierBlob.salt,
-        iterations: verifierBlob.iterations || 20 // Default to Argon2id professional standard
+        iterations: verifierBlob.iterations || 20
       };
       const metaPath = path.join(app.getPath('userData'), 'vault_meta.json');
       fs.writeFileSync(metaPath, JSON.stringify(meta));
@@ -956,11 +966,12 @@ ipcMain.handle('vault:set-key', (event, keyRaw, verifier) => {
       databaseService.setConfig('vault_salt', verifierBlob.salt);
       databaseService.setConfig('vault_iterations', verifierBlob.iterations?.toString() || '20');
     }
+
+    return true;
   } catch (e) {
     console.error('[Database] Initialization failed:', e.message);
+    throw e; // Standard IPC error return
   }
-
-  return true;
 });
 
 ipcMain.handle('vault:clear-key', () => {
@@ -1297,7 +1308,7 @@ ipcMain.handle('backup:save', async (event, { filePath, data, encrypted }) => {
 });
 
 ipcMain.handle('backup:select-directory', async () => {
-  if (!mainWindow) return null;
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory', 'createDirectory']
   });

@@ -51,6 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const setKey = async (key: CryptoKey | null, rawKey?: Uint8Array) => {
+    console.log('[AuthContext] setKey called, key:', !!key, 'rawKey:', !!rawKey);
     setMasterKey(key);
 
     if (key && rawKey) {
@@ -60,12 +61,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Memory Shield: Push key to Main Process (Privileged RAM)
       if ((window as any).electronAPI?.vault) {
         try {
+          console.log('[AuthContext] Pushing key to main process via IPC...');
           await (window as any).electronAPI.vault.setKey(rawKey);
+          console.log('[AuthContext] Key pushed to main process successfully');
           // Note: We keep rawMasterKeyRef for recovery setup operations that need it
           // SecureMemory.wipe(rawKey); // Do not wipe yet if we want to allow recovery setup without re-auth
         } catch (e) {
-          console.error("Secure Key Push Failed", e);
+          console.error("[AuthContext] Secure Key Push Failed", e);
+          throw e; // Re-throw to let the caller know something failed
         }
+      } else {
+        console.warn('[AuthContext] electronAPI.vault not available, key not pushed to main process');
       }
     } else if (!key) {
       // Clear

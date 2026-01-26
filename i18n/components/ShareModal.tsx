@@ -8,9 +8,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, QrCode, Download, Shield, Clock, AlertCircle, Check, Lock, Eye, EyeOff, Loader2, Copy
 } from 'lucide-react';
-import { VaultEntry, SensitiveData, QRSharePayload } from '../types';
-import { ShareService } from '../services/shareService';
-import { useLanguage } from '../contexts/LanguageContext';
+import { VaultEntry, SensitiveData, QRSharePayload } from '../../types';
+import { ShareService } from '../../services/shareService';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface ShareModalProps {
   entry: VaultEntry;

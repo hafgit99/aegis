@@ -8,11 +8,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, QrCode, Camera, Upload, AlertCircle, Loader2, Scan, Image as ImageIcon, StopCircle
 } from 'lucide-react';
-import { QRSharePayload, ShareErrorType } from '../types';
-import { ShareService } from '../services/shareService';
-import { CryptoService } from '../services/cryptoService';
-import { useLanguage } from '../contexts/LanguageContext';
-import useQRScanner from '../hooks/useQRScanner';
+import { QRSharePayload, ShareErrorType } from '../../types';
+import { ShareService } from '../../services/shareService';
+import { CryptoService } from '../../services/cryptoService';
+import { useLanguage } from '../../contexts/LanguageContext';
+import useQRScanner from '../../hooks/useQRScanner';
 
 interface ScanModalProps {
   onClose: () => void;

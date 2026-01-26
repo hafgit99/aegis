@@ -12,7 +12,8 @@ export const db = new Dexie('AegisVaultDB') as Dexie & {
 // Version 4: Full Record Encryption (Metadata included)
 // Everything except the ID is moved into the encrypted binary blob
 // Version 5: Added 'title' index to support conflict detection during import
-db.version(5).stores({
-  vault: 'id, title, category, updatedAt, isFavorite, folderId',
+// Version 6: Added 'tags' array field for flexible entry organization
+db.version(6).stores({
+  vault: 'id, title, category, updatedAt, isFavorite, folderId, tags',
   folders: 'id, parentId'
 });

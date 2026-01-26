@@ -1,6 +1,6 @@
 {
   "name": "aegis-vault",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "type": "module",
   "description": "Premium, Offline-First, Zero-Knowledge Password Manager - Security Hardened Edition (98/100 Security Score)",
   "main": "main.js",
@@ -9,10 +9,10 @@
   "scripts": {
     "dev": "vite",
     "start": "npx electron .",
-    "prebuild": "powershell -Command \"Remove-Item -Path dist_out, dist_electron_obfuscated -Recurse -Force -ErrorAction SilentlyContinue\"",
-    "build": "npx vite build && npm run obfuscate && npx electron-builder build --win && npm run postbuild",
+    "prebuild": "node -e \"const fs = require('fs'); ['dist_out', 'dist_electron_obfuscated', 'dist'].forEach(d => fs.rmSync(d, {recursive: true, force: true}))\"",
+    "build": "npm run prebuild && npx vite build && npm run obfuscate && npx electron-builder build --win && npm run postbuild",
     "obfuscate": "node scripts/obfuscate.js",
-    "postbuild": "node copy-node-cli.cjs && powershell -Command \"Copy-Item -Path 'native-host-bridge.cjs' -Destination 'dist_out/win-unpacked/resources/' -Force; $out = 'dist_out'; $unpackedDir = Join-Path $out 'win-unpacked'; $version = (Get-Content 'package.json' | ConvertFrom-Json).version; $zipName = \\\"Aegis Vault-$version-x64.zip\\\"; $zipPath = Join-Path $out $zipName; if (Test-Path $zipPath) { Remove-Item $zipPath -Force }; Write-Host '[Build] Recreating ZIP with all files...'; Compress-Archive -Path (Join-Path $unpackedDir '*') -DestinationPath $zipPath -Force; Write-Host \\\"[Build] ZIP recreated: $zipName\\\"; Remove-Item -Path (Join-Path $out 'SHA256SUMS.txt') -ErrorAction SilentlyContinue; Get-ChildItem -Path $out -Filter '*.zip' | ForEach-Object { $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash; \\\"$hash  $($_.Name)\\\" | Out-File (Join-Path $out 'SHA256SUMS.txt') -Append -Encoding utf8; Write-Host \\\"[Security] Checksum created for $($_.Name)\\\" }\"",
+    "postbuild": "node copy-node-cli.cjs && powershell -ExecutionPolicy Bypass -File scripts/postbuild.ps1",
     "rebuild-native": "electron-rebuild -f -w aegis_security",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -60,6 +60,7 @@
     "rollup-plugin-javascript-obfuscator": "^1.0.4",
     "sharp": "0.34.5",
     "tailwindcss": "4.1.18",
+    "terser": "^5.46.0",
     "vite": "6.4.1",
     "vitest": "4.0.17",
     "webpack-cli": "6.0.1"
@@ -106,15 +107,14 @@
       ],
       "icon": "assets/build-resources/icons/app_icon_v2.ico",
       "verifyUpdateCodeSignature": true,
-      "forceCodeSigning": false,
-      "certificateFile": null,
-      "certificatePassword": null,
       "signtoolOptions": {
         "publisherName": "Aegis Security",
         "signingHashAlgorithms": [
           "sha256"
         ],
-        "rfc3161TimeStampServer": "http://timestamp.digicert.com"
+        "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+        "certificateFile": "build-resources/aegis-cert.pfx",
+        "certificatePassword": "AegisVault2024!"
       },
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },

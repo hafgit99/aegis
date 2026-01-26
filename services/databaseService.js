@@ -12,23 +12,29 @@ class DatabaseService {
     init(userDataPath, masterKeyHex) {
         if (this.db) return;
 
-        this.dbPath = path.join(userDataPath, 'vault.db');
+        try {
+            this.dbPath = path.join(userDataPath, 'vault.db');
 
-        // SECURITY: Open with SQLCipher encryption
-        this.db = new Database(this.dbPath);
+            // SECURITY: Open with SQLCipher encryption
+            this.db = new Database(this.dbPath);
 
-        // Configure SQLCipher
-        // PRAGMA key = 'password' must be the first operation
-        this.db.pragma(`key = '${masterKeyHex}'`);
+            // Configure SQLCipher
+            // PRAGMA key = 'password' must be the first operation
+            this.db.pragma(`key = '${masterKeyHex}'`);
 
-        // Optimize for concurrent access (CLI and Desktop App)
-        this.db.pragma('journal_mode = WAL');
-        this.db.pragma('synchronous = NORMAL');
+            // Optimize for concurrent access (CLI and Desktop App)
+            this.db.pragma('journal_mode = WAL');
+            this.db.pragma('synchronous = NORMAL');
 
-        // Initialize Tables
-        this.createTables();
+            // Initialize Tables
+            this.createTables();
 
-        console.log('[Database] SQLite/SQLCipher initialized in WAL mode at', this.dbPath);
+            console.log('[Database] SQLite/SQLCipher initialized in WAL mode at', this.dbPath);
+        } catch (e) {
+            console.error('[Database] Failed to initialize:', e);
+            this.db = null;
+            throw e; // Rethrow to be caught in main.js
+        }
     }
 
     createTables() {
@@ -59,6 +65,7 @@ class DatabaseService {
 
     // --- Entries ---
     saveEntry(entry) {
+        if (!this.db) throw new Error("Database not initialized");
         const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO entries (id, category, folder_id, payload, iv, tag, is_favorite, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -77,10 +84,12 @@ class DatabaseService {
     }
 
     deleteEntry(id) {
+        if (!this.db) return;
         return this.db.prepare('DELETE FROM entries WHERE id = ?').run(id);
     }
 
     getEntry(id) {
+        if (!this.db) return null;
         const row = this.db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
         if (!row) return null;
         return {
@@ -94,6 +103,7 @@ class DatabaseService {
     }
 
     getAllEntries() {
+        if (!this.db) return [];
         const rows = this.db.prepare('SELECT * FROM entries').all();
         // Convert Blobs to Base64 for safe IPC transfer
         return rows.map(row => ({
@@ -107,6 +117,7 @@ class DatabaseService {
     }
 
     bulkSaveEntries(entries) {
+        if (!this.db) throw new Error("Database not initialized");
         const insert = this.db.prepare(`
             INSERT OR REPLACE INTO entries (id, category, folder_id, payload, iv, tag, is_favorite, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -132,6 +143,7 @@ class DatabaseService {
 
     // --- Folders ---
     saveFolder(folder) {
+        if (!this.db) throw new Error("Database not initialized");
         const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO folders (id, name, updated_at)
       VALUES (?, ?, ?)
@@ -140,29 +152,46 @@ class DatabaseService {
     }
 
     deleteFolder(id) {
+        if (!this.db) return;
         return this.db.prepare('DELETE FROM folders WHERE id = ?').run(id);
     }
 
     getAllFolders() {
+        if (!this.db) return [];
         return this.db.prepare('SELECT * FROM folders').all();
     }
 
     // --- Config ---
     setConfig(key, value) {
+        if (!this.db) return;
         const stmt = this.db.prepare('INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)');
         return stmt.run(key, value);
     }
 
     getConfig(key) {
-        const row = this.db.prepare('SELECT value FROM config WHERE key = ?').get(key);
-        return row ? row.value : null;
+        if (!this.db) return null;
+        try {
+            const row = this.db.prepare('SELECT value FROM config WHERE key = ?').get(key);
+            return row ? row.value : null;
+        } catch (e) {
+            return null;
+        }
     }
 
     close() {
         if (this.db) {
-            this.db.close();
+            try {
+                this.db.close();
+            } catch (e) {
+                console.error('[Database] Close error:', e);
+            }
             this.db = null;
         }
+    }
+
+    // Safety check helper
+    isReady() {
+        return this.db !== null;
     }
 }
 

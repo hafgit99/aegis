@@ -2,9 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, Copy, Check, X, Shield, Hash, Type, History, Info, BookOpen, Layers } from 'lucide-react';
-import { usePasswordGenerator, GeneratorOptions } from '../hooks/usePasswordGenerator';
-import { analyzeStrength } from '../utils/passwordStrength';
-import { useLanguage } from '../contexts/LanguageContext';
+import { usePasswordGenerator, GeneratorOptions } from '../../hooks/usePasswordGenerator';
+import { analyzeStrength } from '../../utils/passwordStrength';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const PasswordGenerator: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { t } = useLanguage();

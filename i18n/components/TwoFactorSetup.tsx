@@ -5,10 +5,10 @@ import {
   ChevronRight, RefreshCw, Key, AlertCircle, Loader2
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useAuth } from '../contexts/AuthContext';
-import { TwoFactorService } from '../services/twoFactorService';
-import { CryptoService } from '../services/cryptoService';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { TwoFactorService } from '../../services/twoFactorService';
+import { CryptoService } from '../../services/cryptoService';
 
 interface TwoFactorSetupProps {
   onClose: () => void;

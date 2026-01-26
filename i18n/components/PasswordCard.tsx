@@ -4,12 +4,13 @@ import React, { useState, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Star, Trash2, Copy, Check, Eye, EyeOff, Globe, CreditCard,
-  FileText, Download, CheckSquare, Square, RotateCcw, ShieldAlert, Wallet, Fingerprint, Shield, Share as ShareIcon
+  FileText, Download, CheckSquare, Square, RotateCcw, ShieldAlert, Wallet, Fingerprint, Shield, Share as ShareIcon, Hash
 } from 'lucide-react';
-import { VaultEntry, SensitiveData, Category } from '../types';
-import { useLanguage } from '../contexts/LanguageContext';
-import { PasskeyService } from '../services/passkeyService';
-import { BiometricService } from '../services/biometricService';
+import { VaultEntry, SensitiveData, Category } from '../../types';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { PasskeyService } from '../../services/passkeyService';
+import { BiometricService } from '../../services/biometricService';
+import { TagService } from '../../services/tagService';
 import ShareModal from './ShareModal';
 
 interface PasswordCardProps {
@@ -276,6 +277,28 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
                         entry.category === Category.PASSKEY ? t('cat_passkey') : '---'
             )}
           </p>
+          {/* Tags Display */}
+          {entry.tags && entry.tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {entry.tags.filter(tag => tag && tag.trim()).slice(0, 3).map((tag, index) => {
+                const colorClass = TagService.getTagColor(tag);
+                return (
+                  <span
+                    key={`tag-${tag}-${index}`}
+                    className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[7px] font-bold uppercase tracking-wider border ${colorClass}`}
+                  >
+                    <Hash size={8} />
+                    {tag}
+                  </span>
+                );
+              })}
+              {entry.tags.filter(tag => tag && tag.trim()).length > 3 && (
+                <span className="text-[7px] font-bold uppercase tracking-wider text-zinc-500">
+                  +{entry.tags.filter(tag => tag && tag.trim()).length - 3}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="mt-6 flex items-center justify-between z-10 border-t border-white/5 pt-4">

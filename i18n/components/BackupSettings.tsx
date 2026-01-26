@@ -5,10 +5,10 @@ import {
     ExternalLink, Download, AlertTriangle, CheckCircle2,
     Calendar, Settings2, FolderOpen, Loader2, Save
 } from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useAuth } from '../contexts/AuthContext';
-import { BackupService } from '../services/backupService';
-import { BackupSchedule, BackupMetadata } from '../types';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { BackupService } from '../../services/backupService';
+import { BackupSchedule, BackupMetadata } from '../../types';
 
 const BackupSettings: React.FC = () => {
     const { t, lang } = useLanguage();
