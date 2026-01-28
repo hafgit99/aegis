@@ -288,7 +288,7 @@ export class ShareService {
       // 4. Decrypt entry data using ephemeral key
       const ephemeralKey = await window.crypto.subtle.importKey(
         'raw',
-        ephemeralKeyRaw,
+        ephemeralKeyRaw as any,
         { name: 'AES-GCM', length: 256 },
         false,
         ['encrypt', 'decrypt']

@@ -292,7 +292,7 @@ export class OfflineBreachService {
    * Open IndexedDB
    */
   private static openIndexedDB(): Promise<IDBDatabase | null> {
-    return new Promise((resolve, reject) => {
+    return new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
 
       request.onerror = () => reject(request.error);
