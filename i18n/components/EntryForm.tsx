@@ -156,6 +156,8 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
     }
   };
 
+  const [isSaving, setIsSaving] = useState(false);
+
   return (
     <div className="bg-[#0c0c0e] border border-white/5 rounded-[3rem] overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
       <div className="p-10 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
@@ -171,14 +173,23 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
         <button onClick={onClose} className="p-3 text-zinc-500 hover:text-white transition-all bg-white/5 rounded-2xl"><X size={24} /></button>
       </div>
 
-      <form className="p-10 space-y-8" onSubmit={(e) => {
+      <form className="p-10 space-y-8" onSubmit={async (e) => {
         e.preventDefault();
-        onSave({
-          ...formData,
-          id: entry?.id,
-          tags: formData.tags,
-          sensitive: sensitiveData
-        });
+        if (isSaving) return;
+
+        setIsSaving(true);
+        try {
+          await onSave({
+            ...formData,
+            id: entry?.id,
+            tags: formData.tags,
+            sensitive: sensitiveData
+          });
+        } catch (err) {
+          console.error("Save failed:", err);
+          alert(lang === 'tr' ? "Kaydetme hatası: " + (err as Error).message : "Save failed: " + (err as Error).message);
+          setIsSaving(false);
+        }
       }}>
         <div className="grid grid-cols-2 gap-8">
           <div className="space-y-3 col-span-2">
@@ -320,7 +331,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
                     rows={3}
                     value={sensitiveData.cryptoDetails?.seed || ''}
                     onChange={e => setSensitiveData({ ...sensitiveData, cryptoDetails: { ...sensitiveData.cryptoDetails!, seed: e.target.value, walletName: formData.title, network: sensitiveData.cryptoDetails?.network || '', address: sensitiveData.cryptoDetails?.address || '' } })}
-                    className={`w - full px - 6 py - 5 bg - black / 60 border border - amber - 500 / 20 rounded - [1.5rem] text - white outline - none focus: border - amber - 500 / 50 font - mono text - sm resize - none select - text ${!showPassword ? 'text-security-disc' : ''} `}
+                    className={`w-full px-6 py-5 bg-black/60 border border-amber-500/20 rounded-[1.5rem] text-white outline-none focus:border-amber-500/50 font-mono text-sm resize-none select-text ${!showPassword ? 'text-security-disc' : ''}`}
                     placeholder={showPassword ? t('crypto_seed_placeholder_shown') : t('crypto_seed_placeholder_hidden')}
                     style={!showPassword ? { WebkitTextSecurity: 'disc' } : {}}
                   />
@@ -408,12 +419,12 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
           {formData.category === Category.FILE && (
             <AnimatePresence mode="wait">
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="col-span-2">
-                <div className={`relative border - 2 border - dashed rounded - [2rem] p - 12 flex flex - col items - center justify - center transition - all group / file ${sensitiveData.fileBlob ? 'bg-emerald-500/5 border-emerald-500/30' : 'border-white/10 hover:bg-white/[0.02] hover:border-blue-500/30'} `}>
+                <div className={`relative border-2 border-dashed rounded-[2rem] p-12 flex flex-col items-center justify-center transition-all group/file ${sensitiveData.fileBlob ? 'bg-emerald-500/5 border-emerald-500/30' : 'border-white/10 hover:bg-white/[0.02] hover:border-blue-500/30'}`}>
                   <input type="file" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
-                  <div className={`w - 16 h - 16 rounded - 2xl flex items - center justify - center mb - 4 group - hover / file: scale - 110 transition - transform ${sensitiveData.fileBlob ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-600/10 text-blue-500'} `}>
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 group-hover/file:scale-110 transition-transform ${sensitiveData.fileBlob ? 'bg-emerald-500/10 text-emerald-500' : 'bg-blue-600/10 text-blue-500'}`}>
                     {isProcessingFile ? <Loader2 className="animate-spin" size={32} /> : sensitiveData.fileBlob ? <Check size={32} /> : <FileUp size={32} />}
                   </div>
-                  <span className={`text - xs font - black uppercase tracking - widest ${sensitiveData.fileBlob ? 'text-emerald-500' : 'text-white'} `}>
+                  <span className={`text-xs font-black uppercase tracking-widest ${sensitiveData.fileBlob ? 'text-emerald-500' : 'text-white'}`}>
                     {sensitiveData.fileName || t('drop_file')}
                   </span>
                   {sensitiveData.fileBlob && (
@@ -462,7 +473,18 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
 
         <div className="pt-10 flex gap-6">
           <button type="button" onClick={onClose} className="flex-1 py-5 text-zinc-500 font-black uppercase tracking-widest hover:text-white transition-colors">{t('abort')}</button>
-          <button type="submit" className="flex-[2] py-5 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-[0.2em] rounded-[1.5rem] shadow-2xl shadow-blue-600/20 active:scale-[0.98] transition-all">{t('commit')}</button>
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="flex-[2] py-5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black uppercase tracking-[0.2em] rounded-[1.5rem] shadow-2xl shadow-blue-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="animate-spin" size={20} />
+                {lang === 'tr' ? 'KAYDEDİLİYOR...' : 'SAVING...'}
+              </>
+            ) : t('commit')}
+          </button>
         </div>
       </form>
     </div>

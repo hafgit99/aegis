@@ -55,8 +55,8 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
     }, [logout]);
 
-    const loadEntries = useCallback(async () => {
-        setIsLoading(true);
+    const loadEntries = useCallback(async (silent = false) => {
+        if (!silent) setIsLoading(true);
         try {
             let data: VaultEntry[] = [];
             const electronDB = (window as any).electronAPI?.db;
@@ -98,9 +98,10 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                                 title: '[Decryption Error]',
                                 username: '[Decryption Error]',
                                 category: entry.category,
-                                folderId: undefined,
-                                isFavorite: false,
-                                deletedAt: undefined,
+                                folderId: entry.folderId,
+                                updatedAt: entry.updatedAt,
+                                isFavorite: entry.isFavorite,
+                                deletedAt: entry.deletedAt,
                                 fileSize: entry.fileSize
                             };
                         }
@@ -125,9 +126,9 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 setEntries(data.sort((a, b) => b.updatedAt - a.updatedAt));
             }
         } catch (error) {
-            console.error("[VaultContext] Critical load error:", error);
+            console.error("[VaultContext] Load failed:", error);
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     }, [masterKey]);
 
@@ -197,24 +198,24 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const saveEntry = useCallback(async (plain: Partial<VaultEntry> & { sensitive: SensitiveData }) => {
         if (!masterKey) throw new Error("Vault locked");
         await VaultService.saveEntry(plain, masterKey);
-        await loadEntries();
+        await loadEntries(true);
     }, [masterKey, loadEntries]);
 
     const deleteEntry = useCallback(async (id: string) => {
         if (!masterKey) throw new Error("Vault locked");
         await VaultService.updateEntryMetadata(id, { deletedAt: Date.now() }, masterKey);
-        await loadEntries();
+        await loadEntries(true);
     }, [masterKey, loadEntries]);
 
     const restoreEntry = useCallback(async (id: string) => {
         if (!masterKey) throw new Error("Vault locked");
         await VaultService.updateEntryMetadata(id, { deletedAt: undefined }, masterKey);
-        await loadEntries();
+        await loadEntries(true);
     }, [masterKey, loadEntries]);
 
     const permanentDelete = useCallback(async (id: string) => {
         await VaultService.deleteEntry(id);
-        await loadEntries();
+        await loadEntries(true);
     }, [loadEntries]);
 
     const decryptData = useCallback(async (entry: VaultEntry) => {
@@ -227,13 +228,13 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const entry = entries.find(e => e.id === id);
         if (!entry) return;
         await VaultService.updateEntryMetadata(id, { isFavorite: !entry.isFavorite }, masterKey);
-        await loadEntries();
+        await loadEntries(true);
     }, [entries, masterKey, loadEntries]);
 
     const createFolder = useCallback(async (name: string, color: string, icon: string, parentId?: string) => {
         if (!masterKey) return;
         await FolderService.createFolder(name, color, icon, parentId, masterKey);
-        await loadEntries();
+        await loadEntries(true);
     }, [masterKey, loadEntries]);
 
     const resetVault = async () => {

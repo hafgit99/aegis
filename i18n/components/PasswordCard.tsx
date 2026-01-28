@@ -1,6 +1,7 @@
 
 // Fixed missing React namespace import
 import React, { useState, useMemo, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Star, Trash2, Copy, Check, Eye, EyeOff, Globe, CreditCard,
@@ -85,10 +86,15 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
       a.download = sensitive.fileName || `aegis_secure_file_${entry.id}.bin`;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
+
+      // Cleanup with delay to ensure download starts
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err: any) {
       console.error("Download failed:", err);
+      alert(lang === 'tr' ? `Dosya indirme başarısız: ${err.message}` : `Download failed: ${err.message}`);
     } finally {
       setIsDownloading(false);
     }
@@ -570,19 +576,22 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
           )}
         </AnimatePresence>
 
-        {/* Share Modal */}
-        <AnimatePresence>
-          {isShareModalOpen && shareSensitiveData && (
-            <ShareModal
-              entry={entry}
-              decryptedData={shareSensitiveData}
-              onClose={() => {
-                setIsShareModalOpen(false);
-                setShareSensitiveData(null);
-              }}
-            />
-          )}
-        </AnimatePresence>
+        {/* Share Modal - Rendered via Portal to bypass perspective-1000 constraint */}
+        {typeof document !== 'undefined' && createPortal(
+          <AnimatePresence>
+            {isShareModalOpen && shareSensitiveData && (
+              <ShareModal
+                entry={entry}
+                decryptedData={shareSensitiveData}
+                onClose={() => {
+                  setIsShareModalOpen(false);
+                  setShareSensitiveData(null);
+                }}
+              />
+            )}
+          </AnimatePresence>,
+          document.body
+        )}
       </div>
     </motion.div>
   );

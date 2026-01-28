@@ -229,9 +229,23 @@ export class VaultService {
         category: entry.category,
         folderId: entry.folderId,
         payload: entry.encryptedData,
-        iv: CryptoService.arrayBufferToBase64(entry.iv.buffer),
-        tag: CryptoService.arrayBufferToBase64(entry.tag.buffer),
-        isFavorite: entry.isFavorite ? 1 : 0
+        iv: CryptoService.arrayBufferToBase64(entry.iv),
+        tag: CryptoService.arrayBufferToBase64(entry.tag),
+        isFavorite: entry.isFavorite ? 1 : 0,
+        deletedAt: entry.deletedAt || 0,
+        fileSize: entry.fileSize,
+        encryptedFile: entry.encryptedFile,
+        fileIv: entry.fileIv ? CryptoService.arrayBufferToBase64(entry.fileIv) : null,
+        fileTag: entry.fileTag ? CryptoService.arrayBufferToBase64(entry.fileTag) : null,
+        encryptedTitle: entry.encryptedTitle,
+        titleIv: entry.titleIv ? CryptoService.arrayBufferToBase64(entry.titleIv) : null,
+        titleTag: entry.titleTag ? CryptoService.arrayBufferToBase64(entry.titleTag) : null,
+        encryptedUsername: entry.encryptedUsername,
+        usernameIv: entry.usernameIv ? CryptoService.arrayBufferToBase64(entry.usernameIv) : null,
+        usernameTag: entry.usernameTag ? CryptoService.arrayBufferToBase64(entry.usernameTag) : null,
+        encryptedMetadata: entry.encryptedMetadata,
+        metadataIv: entry.metadataIv ? CryptoService.arrayBufferToBase64(entry.metadataIv) : null,
+        metadataTag: entry.metadataTag ? CryptoService.arrayBufferToBase64(entry.metadataTag) : null
       });
     }
 
@@ -253,44 +267,12 @@ export class VaultService {
       const rows = await electronDB.getAllEntries();
       console.log(`[VaultService] Raw rows received from SQLite: ${rows.length}`);
 
-      if (rows.length > 0) {
-        console.log('[VaultService] First row sample:', rows[0]);
-      }
-
       const mapped = rows.map((row: any) => {
         try {
-          return {
-            id: row.id,
-            category: row.category,
-            folderId: row.folder_id,
-            // Payload is now Base64 string from IPC
-            encryptedData: new Uint8Array(CryptoService.base64ToArrayBuffer(row.payload)),
-            iv: new Uint8Array(CryptoService.base64ToArrayBuffer(row.iv)),
-            tag: new Uint8Array(CryptoService.base64ToArrayBuffer(row.tag)),
-            isFavorite: !!row.is_favorite,
-            updatedAt: row.updated_at,
-
-            // Metadata Encryption Fields (Base64 -> Uint8Array)
-            encryptedTitle: row.encrypted_title ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_title)) : undefined,
-            titleIv: row.title_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.title_iv)) : undefined,
-            titleTag: row.title_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.title_tag)) : undefined,
-
-            encryptedUsername: row.encrypted_username ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_username)) : undefined,
-            usernameIv: row.username_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.username_iv)) : undefined,
-            usernameTag: row.username_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.username_tag)) : undefined,
-
-            encryptedMetadata: row.encrypted_metadata ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_metadata)) : undefined,
-            metadataIv: row.metadata_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.metadata_iv)) : undefined,
-            metadataTag: row.metadata_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.metadata_tag)) : undefined,
-
-            // Binary Attachment Fields (Base64 -> Uint8Array)
-            encryptedFile: row.encrypted_file ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_file)) : undefined,
-            fileIv: row.file_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.file_iv)) : undefined,
-            fileTag: row.file_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.file_tag)) : undefined
-          };
+          return this.mapRowToEntry(row);
         } catch (err) {
           console.error('[VaultService] Error mapping row:', row.id, err);
-          return null; // Filtrelemek için null döndür
+          return null;
         }
       });
 
@@ -298,9 +280,45 @@ export class VaultService {
       console.log(`[VaultService] Successfully mapped ${valid.length} entries.`);
       return valid;
     } catch (e) {
-      console.error('[VaultService] Critical error loading from SQLite:', e);
+      console.error('[VaultService] SQLite Load failed:', e);
       return [];
     }
+  }
+
+  /**
+   * Helper to map a raw SQLite row (with Base64 strings from IPC) back to a VaultEntry
+   */
+  private static mapRowToEntry(row: any): VaultEntry {
+    return {
+      id: row.id,
+      category: (row.encrypted_file && row.category === Category.LOGIN) ? Category.FILE : row.category,
+      folderId: row.folder_id,
+      encryptedData: new Uint8Array(CryptoService.base64ToArrayBuffer(row.payload)),
+      iv: new Uint8Array(CryptoService.base64ToArrayBuffer(row.iv)),
+      tag: new Uint8Array(CryptoService.base64ToArrayBuffer(row.tag)),
+      isFavorite: !!row.is_favorite,
+      updatedAt: row.updated_at,
+      deletedAt: row.deleted_at || undefined,
+
+      // Metadata Encryption Fields (Base64 -> Uint8Array)
+      encryptedTitle: row.encrypted_title ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_title)) : new Uint8Array(0),
+      titleIv: row.title_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.title_iv)) : new Uint8Array(0),
+      titleTag: row.title_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.title_tag)) : new Uint8Array(0),
+
+      encryptedUsername: row.encrypted_username ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_username)) : new Uint8Array(0),
+      usernameIv: row.username_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.username_iv)) : new Uint8Array(0),
+      usernameTag: row.username_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.username_tag)) : new Uint8Array(0),
+
+      encryptedMetadata: row.encrypted_metadata ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_metadata)) : new Uint8Array(0),
+      metadataIv: row.metadata_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.metadata_iv)) : new Uint8Array(0),
+      metadataTag: row.metadata_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.metadata_tag)) : new Uint8Array(0),
+
+      // Binary Attachment Fields (Base64 -> Uint8Array)
+      encryptedFile: row.encrypted_file ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.encrypted_file)) : undefined,
+      fileIv: row.file_iv ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.file_iv)) : undefined,
+      fileTag: row.file_tag ? new Uint8Array(CryptoService.base64ToArrayBuffer(row.file_tag)) : undefined,
+      fileSize: row.file_size || 0
+    };
   }
 
   private static calculateStrength(password: string): number {
@@ -364,16 +382,38 @@ export class VaultService {
     const packageJson = JSON.stringify(fullPackage);
     let ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array;
 
+    // Separate Metadata for fast loading
+    const metadataPayload = JSON.stringify({
+      category: fullPackage.category,
+      folderId: fullPackage.folderId,
+      updatedAt: fullPackage.updatedAt,
+      isFavorite: fullPackage.isFavorite,
+      fileSize: fullPackage.fileSize,
+      deletedAt: (fullPackage as any).deletedAt
+    });
+
+    let encryptedMetadata: Uint8Array, metadataIv: Uint8Array, metadataTag: Uint8Array;
+
     if (electronVault) {
       const result = await electronVault.encrypt(packageJson);
       ciphertext = new Uint8Array(result.ciphertext);
       iv = new Uint8Array(result.iv);
       tag = new Uint8Array(result.tag);
+
+      const mResult = await electronVault.encrypt(metadataPayload);
+      encryptedMetadata = new Uint8Array(mResult.ciphertext);
+      metadataIv = new Uint8Array(mResult.iv);
+      metadataTag = new Uint8Array(mResult.tag);
     } else {
       const result = await CryptoService.encrypt(packageJson, masterKey);
       ciphertext = result.ciphertext;
       iv = result.iv;
       tag = result.tag;
+
+      const mResult = await CryptoService.encrypt(metadataPayload, masterKey);
+      encryptedMetadata = mResult.ciphertext;
+      metadataIv = mResult.iv;
+      metadataTag = mResult.tag;
     }
 
     const securityScore = plainEntry.category === Category.PASSKEY ? 100 : this.calculateStrength(plainEntry.sensitive.password || '');
@@ -387,9 +427,9 @@ export class VaultService {
       encryptedUsername: new Uint8Array(0),
       usernameIv: new Uint8Array(0),
       usernameTag: new Uint8Array(0),
-      encryptedMetadata: new Uint8Array(0),
-      metadataIv: new Uint8Array(0),
-      metadataTag: new Uint8Array(0),
+      encryptedMetadata: encryptedMetadata,
+      metadataIv: metadataIv,
+      metadataTag: metadataTag,
 
       // Store everything in the main data blob
       encryptedData: ciphertext,
@@ -419,9 +459,23 @@ export class VaultService {
         category: entry.category,
         folderId: entry.folderId,
         payload: entry.encryptedData,
-        iv: CryptoService.arrayBufferToBase64(entry.iv.buffer),
-        tag: CryptoService.arrayBufferToBase64(entry.tag.buffer),
-        isFavorite: entry.isFavorite ? 1 : 0
+        iv: CryptoService.arrayBufferToBase64(entry.iv),
+        tag: CryptoService.arrayBufferToBase64(entry.tag),
+        isFavorite: entry.isFavorite ? 1 : 0,
+        deletedAt: entry.deletedAt || 0,
+        fileSize: entry.fileSize,
+        encryptedFile: entry.encryptedFile,
+        fileIv: entry.fileIv ? CryptoService.arrayBufferToBase64(entry.fileIv) : null,
+        fileTag: entry.fileTag ? CryptoService.arrayBufferToBase64(entry.fileTag) : null,
+        encryptedTitle: entry.encryptedTitle,
+        titleIv: entry.titleIv ? CryptoService.arrayBufferToBase64(entry.titleIv) : null,
+        titleTag: entry.titleTag ? CryptoService.arrayBufferToBase64(entry.titleTag) : null,
+        encryptedUsername: entry.encryptedUsername,
+        usernameIv: entry.usernameIv ? CryptoService.arrayBufferToBase64(entry.usernameIv) : null,
+        usernameTag: entry.usernameTag ? CryptoService.arrayBufferToBase64(entry.usernameTag) : null,
+        encryptedMetadata: entry.encryptedMetadata,
+        metadataIv: entry.metadataIv ? CryptoService.arrayBufferToBase64(entry.metadataIv) : null,
+        metadataTag: entry.metadataTag ? CryptoService.arrayBufferToBase64(entry.metadataTag) : null
       });
     } else {
       await db.vault.put(entry);
@@ -592,7 +646,21 @@ export class VaultService {
           iv: CryptoService.arrayBufferToBase64(entry.iv),
           tag: CryptoService.arrayBufferToBase64(entry.tag),
           isFavorite: entry.isFavorite ? 1 : 0,
-          updatedAt: entry.updatedAt
+          updatedAt: entry.updatedAt,
+          deletedAt: entry.deletedAt || 0,
+          fileSize: entry.fileSize,
+          encryptedFile: entry.encryptedFile,
+          fileIv: entry.fileIv ? CryptoService.arrayBufferToBase64(entry.fileIv) : null,
+          fileTag: entry.fileTag ? CryptoService.arrayBufferToBase64(entry.fileTag) : null,
+          encryptedTitle: entry.encryptedTitle,
+          titleIv: entry.titleIv ? CryptoService.arrayBufferToBase64(entry.titleIv) : null,
+          titleTag: entry.titleTag ? CryptoService.arrayBufferToBase64(entry.titleTag) : null,
+          encryptedUsername: entry.encryptedUsername,
+          usernameIv: entry.usernameIv ? CryptoService.arrayBufferToBase64(entry.usernameIv) : null,
+          usernameTag: entry.usernameTag ? CryptoService.arrayBufferToBase64(entry.usernameTag) : null,
+          encryptedMetadata: entry.encryptedMetadata,
+          metadataIv: entry.metadataIv ? CryptoService.arrayBufferToBase64(entry.metadataIv) : null,
+          metadataTag: entry.metadataTag ? CryptoService.arrayBufferToBase64(entry.metadataTag) : null
         }));
         await electronDB.bulkSaveEntries(sqliteEntries);
       } else {
@@ -624,13 +692,18 @@ export class VaultService {
       }
 
       // Memory Optimized: If a separate binary file exists, decrypt it directly
-      if (entry.encryptedFile && entry.fileIv && entry.fileTag) {
-        if (electronVault) {
-          const decryptedBuffer = await electronVault.decryptBinary(entry.encryptedFile, entry.fileIv, entry.fileTag);
-          sensitive.fileBlob = new Uint8Array(decryptedBuffer);
-        } else {
-          const decryptedFile = await CryptoService.decryptBinary(entry.encryptedFile, masterKey, entry.fileIv, entry.fileTag);
-          sensitive.fileBlob = decryptedFile;
+      if (entry.encryptedFile && entry.encryptedFile.length > 0 && entry.fileIv && entry.fileTag) {
+        try {
+          if (electronVault) {
+            const decryptedBuffer = await electronVault.decryptBinary(entry.encryptedFile, entry.fileIv, entry.fileTag);
+            sensitive.fileBlob = new Uint8Array(decryptedBuffer);
+          } else {
+            const decryptedFile = await CryptoService.decryptBinary(entry.encryptedFile, masterKey, entry.fileIv, entry.fileTag);
+            sensitive.fileBlob = decryptedFile;
+          }
+        } catch (fileErr) {
+          console.error("[VaultService] Failed to decrypt binary attachment:", fileErr);
+          // Don't throw here, allow the rest of the entry to be seen/edited
         }
       }
 
@@ -654,65 +727,78 @@ export class VaultService {
   }> {
     try {
       const electronVault = (window as any).electronAPI?.vault;
+      let metadata: any = {};
 
-      // Handle Full Encryption Package (v4+)
-      // If encryptedTitle is empty, it's a v4+ entry
-      if (!entry.encryptedTitle || entry.encryptedTitle.length === 0) {
-        let packageJson = "";
-        if (electronVault) {
-          packageJson = await electronVault.decrypt(entry.encryptedData, entry.iv, entry.tag);
-        } else {
-          packageJson = await CryptoService.decrypt(entry.encryptedData, masterKey, entry.iv, entry.tag);
-        }
-        const fullPackage = JSON.parse(packageJson);
-        return {
-          title: fullPackage.title || 'Unnamed Entry',
-          username: fullPackage.username || '',
-          category: fullPackage.category,
-          folderId: fullPackage.folderId,
-          updatedAt: fullPackage.updatedAt,
-          isFavorite: fullPackage.isFavorite,
-          deletedAt: fullPackage.deletedAt,
-          fileSize: fullPackage.fileSize
-        };
-      }
-
-      // Legacy Decryption (v3 and below)
-      let decryptedTitle = "";
-      let decryptedUsername = "";
-
-      if (electronVault) {
-        decryptedTitle = await electronVault.decrypt(entry.encryptedTitle, entry.titleIv, entry.titleTag);
-        decryptedUsername = await electronVault.decrypt(entry.encryptedUsername, entry.usernameIv, entry.usernameTag);
-      } else {
-        decryptedTitle = await CryptoService.decrypt(entry.encryptedTitle, masterKey, entry.titleIv, entry.titleTag);
-        decryptedUsername = await CryptoService.decrypt(entry.encryptedUsername, masterKey, entry.usernameIv, entry.usernameTag);
-      }
-
-      let extendedMeta: any = {};
+      // 1. Try Separate Metadata Blob (Priority for updates and performance)
       if (entry.encryptedMetadata && entry.encryptedMetadata.length > 0 && entry.metadataIv && entry.metadataTag) {
         let metaJson = "";
-        if (electronVault) {
-          metaJson = await electronVault.decrypt(entry.encryptedMetadata, entry.metadataIv, entry.metadataTag);
-        } else {
-          metaJson = await CryptoService.decrypt(entry.encryptedMetadata, masterKey, entry.metadataIv, entry.metadataTag);
+        try {
+          if (electronVault) {
+            metaJson = await electronVault.decrypt(entry.encryptedMetadata, entry.metadataIv, entry.metadataTag);
+          } else {
+            metaJson = await CryptoService.decrypt(entry.encryptedMetadata, masterKey, entry.metadataIv, entry.metadataTag);
+          }
+          metadata = JSON.parse(metaJson);
+        } catch (e) {
+          console.warn("[VaultService] Failed to decrypt separate metadata for", entry.id, e);
         }
-        extendedMeta = JSON.parse(metaJson);
-      } else {
-        extendedMeta = {
-          category: entry.category,
-          folderId: entry.folderId,
-          updatedAt: entry.updatedAt,
-          isFavorite: entry.isFavorite,
-          deletedAt: entry.deletedAt,
-          fileSize: entry.fileSize
-        };
+      }
+
+      // 2. Handle Titles / Usernames
+      let title = metadata.title || "";
+      let username = metadata.username || "";
+
+      if (entry.encryptedTitle && entry.encryptedTitle.length > 0) {
+        // v3 legacy or hybrid
+        try {
+          if (electronVault) {
+            title = await electronVault.decrypt(entry.encryptedTitle, entry.titleIv, entry.titleTag);
+            username = await electronVault.decrypt(entry.encryptedUsername, entry.usernameIv, entry.usernameTag);
+          } else {
+            title = await CryptoService.decrypt(entry.encryptedTitle, masterKey, entry.titleIv, entry.titleTag);
+            username = await CryptoService.decrypt(entry.encryptedUsername, masterKey, entry.usernameIv, entry.usernameTag);
+          }
+        } catch (e) {
+          console.warn("[VaultService] Failed to decrypt legacy title for", entry.id, e);
+        }
+      } else if (!title) {
+        // v4 fallback - must decrypt main package to get title/username
+        try {
+          let packageJson = "";
+          if (electronVault) {
+            packageJson = await electronVault.decrypt(entry.encryptedData, entry.iv, entry.tag);
+          } else {
+            packageJson = await CryptoService.decrypt(entry.encryptedData, masterKey, entry.iv, entry.tag);
+          }
+          const fullPackage = JSON.parse(packageJson);
+          title = fullPackage.title || 'Unnamed Entry';
+          username = fullPackage.username || '';
+
+          // If metadata wasn't found in separate blob, use the one from fullPackage
+          if (!metadata.category) {
+            metadata = {
+              category: fullPackage.category,
+              folderId: fullPackage.folderId,
+              updatedAt: fullPackage.updatedAt,
+              isFavorite: fullPackage.isFavorite,
+              deletedAt: fullPackage.deletedAt,
+              fileSize: fullPackage.fileSize
+            };
+          }
+        } catch (e) {
+          console.error("[VaultService] Failed to decrypt v4 package for", entry.id, e);
+        }
       }
 
       return {
-        ...extendedMeta,
-        title: decryptedTitle || 'Unnamed Entry',
-        username: decryptedUsername || ''
+        ...metadata,
+        title: title || 'Unnamed Entry',
+        username: username || '',
+        // Ensure explicit columns from SQLite take priority if they are newer/defined
+        isFavorite: metadata.isFavorite ?? entry.isFavorite,
+        deletedAt: metadata.deletedAt ?? entry.deletedAt,
+        category: metadata.category ?? entry.category,
+        folderId: metadata.folderId ?? entry.folderId
       };
     } catch (e) {
       console.error("Metadata Decryption Error for entry", entry.id, ":", e);
@@ -740,11 +826,10 @@ export class VaultService {
     let entry: VaultEntry | undefined;
 
     if (electronDB) {
-      // SQLite'dan entry'i bulmak için helper lazım, ama şimdilik hafızadaki listeden veya yeniden çekerek bulalım
-      // Performans için tekil get olmalıydı ama electronDB.getAllEntries() var şimdilik
-      // TODO: electronDB.getEntry(id) eklenmeli
-      const allEntries = await electronDB.getAllEntries();
-      entry = allEntries.find((e: any) => e.id === id);
+      const row = await electronDB.getEntry(id);
+      if (row) {
+        entry = this.mapRowToEntry(row);
+      }
     } else {
       entry = await db.vault.get(id);
     }
@@ -798,14 +883,29 @@ export class VaultService {
     if (electronDB) {
       // In SQLite, we store the same encryptedData blob, but we might need to update isFavorite etc.
       // Since our current SQLite schema stores is_favorite explicitly, we update that.
+      // IMPORTANT: We must preserve all other fields to avoid nulling them out.
       await electronDB.saveEntry({
         id: entry.id,
         category: entry.category,
-        folderId: changes.folderId !== undefined ? changes.folderId : entry.folderId,
+        folderId: 'folderId' in changes ? (changes.folderId || null) : entry.folderId,
         payload: entry.encryptedData,
-        iv: CryptoService.arrayBufferToBase64(entry.iv.buffer),
-        tag: CryptoService.arrayBufferToBase64(entry.tag.buffer),
-        isFavorite: changes.isFavorite !== undefined ? (changes.isFavorite ? 1 : 0) : (entry.isFavorite ? 1 : 0)
+        iv: CryptoService.arrayBufferToBase64(entry.iv),
+        tag: CryptoService.arrayBufferToBase64(entry.tag),
+        isFavorite: 'isFavorite' in changes ? (changes.isFavorite ? 1 : 0) : (entry.isFavorite ? 1 : 0),
+        deletedAt: 'deletedAt' in changes ? (changes.deletedAt || 0) : (entry.deletedAt || 0),
+        fileSize: entry.fileSize,
+        encryptedFile: entry.encryptedFile,
+        fileIv: entry.fileIv ? CryptoService.arrayBufferToBase64(entry.fileIv) : null,
+        fileTag: entry.fileTag ? CryptoService.arrayBufferToBase64(entry.fileTag) : null,
+        encryptedTitle: entry.encryptedTitle,
+        titleIv: entry.titleIv ? CryptoService.arrayBufferToBase64(entry.titleIv) : null,
+        titleTag: entry.titleTag ? CryptoService.arrayBufferToBase64(entry.titleTag) : null,
+        encryptedUsername: entry.encryptedUsername,
+        usernameIv: entry.usernameIv ? CryptoService.arrayBufferToBase64(entry.usernameIv) : null,
+        usernameTag: entry.usernameTag ? CryptoService.arrayBufferToBase64(entry.usernameTag) : null,
+        encryptedMetadata: encryptedMetadata, // Use the NEWLY encrypted metadata
+        metadataIv: CryptoService.arrayBufferToBase64(metadataIv),
+        metadataTag: CryptoService.arrayBufferToBase64(metadataTag)
       });
     } else {
       await db.vault.update(id, {
@@ -943,7 +1043,7 @@ export class VaultService {
       encryptedMetadata: metaRes.ciphertext,
       metadataIv: metaRes.iv,
       metadataTag: metaRes.tag,
-      category: Category.LOGIN,
+      category: plainEntry.category || Category.LOGIN,
       updatedAt: Date.now(),
       isFavorite: plainEntry.isFavorite || false,
       folderId: plainEntry.folderId,
