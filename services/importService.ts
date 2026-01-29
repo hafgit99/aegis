@@ -2,6 +2,10 @@ import { db } from '../db';
 import { VaultEntry, Category, SensitiveData } from '../types';
 import { CryptoService } from './cryptoService';
 import Papa from 'papaparse';
+import { BitwardenImporter } from './import/bitwardenImporter';
+import { LastPassImporter } from './import/lastpassImporter';
+import { KeePassImporter } from './import/keepassImporter';
+import { OnePasswordImporter } from './import/onePasswordImporter';
 
 export interface ImportEntry extends Partial<VaultEntry> {
   title?: string;
@@ -51,8 +55,16 @@ export class ImportService {
     } catch (e: any) {
       if (e.message === "INVALID_FORMAT") throw e;
       if (e.message === "AUTH_FAILED") throw e;
+
+      // Web Crypto API throws "OperationError" for tag mismatch (wrong password/key)
+      if (e.name === "OperationError" || e.message.includes("OperationError")) {
+        throw new Error("AUTH_FAILED");
+      }
+
       console.error("[Import] Backup decryption error:", e.message || e);
-      throw new Error("AUTH_FAILED");
+      // Don't blanket mask everything as AUTH_FAILED anymore, let real errors surface if possible
+      // but usually decryption issues ARE auth issues.
+      throw new Error(`IMPORT_DECRYPT_ERROR: ${e.message}`);
     }
   }
 
@@ -65,6 +77,8 @@ export class ImportService {
       text = text.replace(/^\uFEFF/, '').trim();
       const data = JSON.parse(text);
 
+      console.log("[Import] Backup file parsed. Hint:", data.hint, "Has salt:", !!data.salt, "Iterations:", data.iterations);
+
       // Relax format check: if it has payload and iv, it's likely a backup even if hint is missing
       if (data.hint !== "AEGIS_VAULT_BACKUP" && data.hint !== "AEGIS_VAULT_CSV_BACKUP" && !(data.payload && data.iv)) {
         throw new Error("INVALID_FORMAT");
@@ -74,20 +88,26 @@ export class ImportService {
       const iv = new Uint8Array(CryptoService.base64ToArrayBuffer(data.iv));
       const tag = new Uint8Array(CryptoService.base64ToArrayBuffer(data.tag || ""));
 
+      console.log("[Import] Ciphertext length:", ciphertext.length, "IV length:", iv.length, "Tag length:", tag.length);
+
       let importKey: CryptoKey;
 
       // If the backup has its own salt/iterations, use them!
       if (data.salt && data.iterations) {
+        console.log("[Import] Using backup's own salt and iterations:", data.iterations);
         const saltBytes = new Uint8Array(CryptoService.base64ToArrayBuffer(data.salt));
         importKey = await CryptoService.deriveKeyFromPassword(password, saltBytes, data.iterations);
       } else {
         // Legacy fallback: Use current vault parameters
+        console.log("[Import] Backup has no salt/iterations, using vault's current parameters");
         try {
           const currentMeta = JSON.parse(localStorage.getItem('aegis_vault_metadata') || '{}');
           const salt = currentMeta.salt ? new Uint8Array(CryptoService.base64ToArrayBuffer(currentMeta.salt)) : new Uint8Array(16);
-          const iterations = currentMeta.iterations || 15;
+          const iterations = currentMeta.iterations || 20;
+          console.log("[Import] Using vault salt, iterations:", iterations);
           importKey = await CryptoService.deriveKeyFromPassword(password, salt, iterations);
-        } catch {
+        } catch (legacyError) {
+          console.error("[Import] Legacy fallback failed:", legacyError);
           throw new Error("AUTH_FAILED");
         }
       }
@@ -102,15 +122,19 @@ export class ImportService {
       }
 
       try {
+        console.log("[Import] Attempting decryption with derived key...");
         const decryptedStr = await CryptoService.decrypt(ciphertextBytes, importKey, iv, tagBytes);
+        console.log("[Import] Decryption successful, decrypted length:", decryptedStr.length);
 
         if (data.hint === "AEGIS_VAULT_CSV_BACKUP") {
           return this.parseCSVText(decryptedStr);
         }
 
         const bundle = JSON.parse(decryptedStr);
+        console.log("[Import] Bundle parsed, entries count:", bundle.entries?.length || 0);
         return bundle.entries || [];
       } catch (decryptErr: any) {
+        console.error("[Import] Primary decryption failed:", decryptErr.name, decryptErr.message);
         // SECONDARY FALLBACK: If standard salt fails for an OLD backup
         if (!data.salt) {
           console.log("[Import] Standard decryption failed, trying legacy fallbacks...");
@@ -143,8 +167,11 @@ export class ImportService {
         throw decryptErr;
       }
     } catch (e: any) {
-      console.error("[Import] Backup password-based decryption failed:", e.message || e);
-      throw new Error("AUTH_FAILED");
+      console.error("[Import] Backup password-based decryption specific error:", e);
+      if (e.name === "OperationError" || e.message?.includes("operation failed") || e.message?.includes("Tag mismatch")) {
+        throw new Error("AUTH_FAILED");
+      }
+      throw e;
     }
   }
 
@@ -340,26 +367,28 @@ export class ImportService {
   static async parseJSON(file: File): Promise<ImportEntry[]> {
     try {
       let text = await file.text();
-      // Remove BOM and trim
       text = text.replace(/^\uFEFF/, '').trim();
-
       const data = JSON.parse(text);
 
-      // Aegis backup dosyası yanlışlıkla .json olarak seçilmiş olabilir
       if (data.hint === "AEGIS_VAULT_BACKUP" || (data.payload && data.iv)) {
         throw new Error("USE_SECURE_IMPORT");
+      }
+
+      // Bitwarden detection
+      if (data.items && Array.isArray(data.items) && data.folders) {
+        return BitwardenImporter.parseJSON(data);
+      }
+
+      // 1Password detection
+      if (data.accounts && Array.isArray(data.accounts)) {
+        return OnePasswordImporter.parseJSON(data);
       }
 
       const list = Array.isArray(data) ? data : (data.entries || data.items || [data]);
       return list.map((item: any) => this.mapToAegisEntry(item));
     } catch (e: any) {
       if (e.message === "USE_SECURE_IMPORT") throw e;
-
-      // JSON parse hatalarını kullanıcı dostu hale getir
       console.error("JSON Parse Error Details:", e);
-      if (e.message.toLowerCase().includes('exponent')) {
-        throw new Error("INVALID_JSON_NUMBER");
-      }
       throw new Error("JSON_PARSE_ERROR");
     }
   }
@@ -367,6 +396,17 @@ export class ImportService {
   static async parseCSV(file: File): Promise<ImportEntry[]> {
     const text = await file.text();
     const cleanText = text.replace(/^\uFEFF/, '').trim();
+
+    // Peek at headers to detect format
+    const firstLine = cleanText.split('\n')[0].toLowerCase();
+
+    if (firstLine.includes('grouping') && firstLine.includes('extra')) {
+      return LastPassImporter.parseCSV(file);
+    }
+
+    if (firstLine.includes('group') && firstLine.includes('title') && firstLine.includes('notes')) {
+      return KeePassImporter.parseCSV(file);
+    }
 
     return this.parseCSVText(cleanText);
   }

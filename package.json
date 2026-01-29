@@ -17,7 +17,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:penetration": "vitest run tests/penetration.test.ts",
+    "test:memory": "vitest run tests/memory.test.ts",
+    "test:timing": "vitest run tests/timing.test.ts",
+    "test:fuzz": "vitest run tests/fuzz.test.ts",
+    "test:e2e": "vitest run tests/e2e.test.ts",
+    "test:integration": "vitest run tests/integration.test.ts",
+    "test:performance": "vitest run tests/performance.test.ts",
+    "test:emergency": "vitest run tests/emergency.test.ts"
   },
   "dependencies": {
     "@types/papaparse": "5.5.2",

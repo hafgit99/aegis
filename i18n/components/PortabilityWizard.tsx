@@ -133,7 +133,11 @@ const PortabilityWizard: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
       setStep('preview');
     } catch (err: any) {
       console.error("Backup unlock error:", err);
-      setError(t('wrong_password_backup') || t('wrong_password'));
+      if (err.message === "AUTH_FAILED") {
+        setError(t('wrong_password_backup') || t('wrong_password'));
+      } else {
+        setError(err.message || "Import Error");
+      }
       setStep('select');
     }
   };
@@ -162,7 +166,13 @@ const PortabilityWizard: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
       setProgress(100);
       setStep('success');
     } catch (err: any) {
-      setError(lang === 'tr' ? "İçe aktarma sırasında bir hata oluştu." : "Error during import process.");
+      console.error("Finalize Import Error:", err);
+      // Show actual error message to user for debugging
+      const errorMessage = lang === 'tr'
+        ? (err.message === "IMPORT_NO_VALID_ENTRIES" ? "Geçerli veri bulunamadı." : `İçe aktarma hatası: ${err.message}`)
+        : (err.message === "IMPORT_NO_VALID_ENTRIES" ? "No valid entries header found." : `Import failed: ${err.message}`);
+
+      setError(errorMessage);
       setStep('select');
     }
   };

@@ -31,12 +31,12 @@ if (!global.crypto) {
 }
 
 // Mock Electron API
+let hasKeyInMemory = false;
 (window as any).electronAPI = {
     vault: {
-        setKey: vi.fn().mockResolvedValue(undefined),
+        setKey: vi.fn().mockImplementation(() => { hasKeyInMemory = true; return Promise.resolve(); }),
         setVerifier: vi.fn().mockResolvedValue(undefined),
         encrypt: vi.fn().mockImplementation(async (data: string) => {
-            // Simulate encryption result structure
             return {
                 ciphertext: new TextEncoder().encode(data).buffer,
                 iv: new Uint8Array(12).fill(0).buffer,
@@ -56,7 +56,8 @@ if (!global.crypto) {
         decryptBinary: vi.fn().mockImplementation(async (ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array) => {
             return ciphertext.buffer;
         }),
-        clearKey: vi.fn().mockResolvedValue(undefined),
+        clearKey: vi.fn().mockImplementation(() => { hasKeyInMemory = false; return Promise.resolve(); }),
+        hasKey: vi.fn().mockImplementation(() => Promise.resolve(hasKeyInMemory)),
     },
     db: {
         getConfig: vi.fn(),

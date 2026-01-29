@@ -4,7 +4,7 @@ import {
   ShieldAlert, ShieldCheck, ShieldX, Info,
   RotateCw, AlertTriangle, CheckCircle2,
   Activity, ArrowRight, Shield, Zap, Lightbulb,
-  Target, Fingerprint, Globe, Search
+  Target, Fingerprint, Globe, Search, Key
 } from 'lucide-react';
 import { VaultEntry } from '../../types';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -13,10 +13,11 @@ import { useSecurityAudit, AuditIssue } from '../../hooks/useSecurityAudit';
 
 interface SecurityAuditProps {
   entries: VaultEntry[];
-  onEditEntry: (entry: VaultEntry) => void; // Düzenleme için eklenen prop
+  onEditEntry: (entry: VaultEntry) => void;
+  onRotateKey: () => void;
 }
 
-const SecurityAudit: React.FC<SecurityAuditProps> = ({ entries, onEditEntry }) => {
+const SecurityAudit: React.FC<SecurityAuditProps> = ({ entries, onEditEntry, onRotateKey }) => {
   const { t } = useLanguage();
   const { decryptData } = useVault();
   const { runAudit, isScanning, issues, stats, tips } = useSecurityAudit(entries, decryptData);
@@ -147,6 +148,42 @@ const SecurityAudit: React.FC<SecurityAuditProps> = ({ entries, onEditEntry }) =
                 </div>
               </div>
             </div>
+
+            {stats.masterKeyStatus && (
+              <div className={`glass rounded-[2.5rem] p-8 border ${stats.masterKeyStatus.isOld ? 'border-red-500/30 bg-red-500/5' : 'border-white/5'} transition-all`}>
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="flex items-center gap-6">
+                    <div className={`p-5 rounded-[1.5rem] ${stats.masterKeyStatus.isOld ? 'bg-red-500/10 text-red-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                      <Key size={32} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h4 className="text-xl font-black text-white uppercase tracking-tighter">
+                          {t('master_key_status')}
+                        </h4>
+                        {stats.masterKeyStatus.isOld && (
+                          <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black uppercase tracking-widest rounded">
+                            {t('rotation_required')}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">
+                        {t('last_rotated')}: {new Date(stats.masterKeyStatus.lastRotated).toLocaleDateString()} ({stats.masterKeyStatus.ageDays} {t('days_ago')})
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={onRotateKey}
+                    className={`px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl ${stats.masterKeyStatus.isOld
+                      ? 'bg-red-600 hover:bg-red-500 text-white shadow-red-600/20'
+                      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20'
+                      }`}
+                  >
+                    {t('rotate_master_key')}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-6">
               <div className="flex items-center justify-between px-6">

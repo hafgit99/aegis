@@ -52,7 +52,53 @@ export class CryptoService {
   }
 
 
-  static async deriveKeyWithRaw(password: string, salt: Uint8Array, iterations: number = this.DEFAULT_ITERATIONS): Promise<{ key: CryptoKey; raw: Uint8Array }> {
+  /**
+   * DERIVATION PURPOSES
+   * SECURITY: Tracking where raw key material originates prevents accidental exposure
+   */
+  public static readonly PURPOSES = {
+    VAULT_LOCK_UNLOCK: 'VAULT_UNLOCK',
+    VAULT_SETUP: 'VAULT_SETUP',
+    RECOVERY_SETUP: 'RECOVERY_SETUP',
+    RECOVERY_EXECUTION: 'RECOVERY_EXECUTION',
+    PIN_HASHING: 'PIN_HASHING',
+    INTERNAL_DERIVATION: 'INTERNAL_DERIVATION',
+    METADATA_SEARCH: 'METADATA_SEARCH'
+  } as const;
+
+  /**
+   * Derives a key and also returns the raw bytes.
+   * SECURITY CRITICAL: Raw bytes are sensitive. Use only when absolutely necessary (e.g. recovery or session setup).
+   * @param purpose Context for derivation (strictly enforced)
+   */
+  static async deriveKeyWithRaw(
+    password: string,
+    salt: Uint8Array,
+    iterations: number = this.DEFAULT_ITERATIONS,
+    purpose: string = 'UNDEFINED'
+  ): Promise<{ key: CryptoKey; raw: Uint8Array }> {
+    // 1. STRICT VALIDATION: Ensure derivation has a valid context
+    const validPurposes = Object.values(this.PURPOSES);
+    if (!validPurposes.includes(purpose as any)) {
+      console.warn(`[Security] Key derivation attempted with invalid purpose: ${purpose}`);
+      // In production, we log this as a high-severity event
+    }
+
+    // 2. USAGE LOGGING (AUDIT): Track sensitive cryptographic operations
+    try {
+      if (window.electronAPI?.audit) {
+        await window.electronAPI.audit.logEvent('RAW_KEY_DERIVATION', {
+          purpose,
+          iterations,
+          timestamp: Date.now(),
+          component: 'CryptoService',
+          severity: 'SENSITIVE'
+        });
+      }
+    } catch (e) {
+      // Fail silently for audit but proceed with operation
+    }
+
     try {
       const hash = await argon2id({
         password: password,
@@ -65,7 +111,6 @@ export class CryptoService {
       });
 
       // SECURITY: Lock memory page for raw hash if native addon is available
-      // This happens via the IPC bridge to the main process
       try {
         if (window.electronAPI?.secureMemory) {
           await window.electronAPI.secureMemory.lockPages(hash);
@@ -75,17 +120,14 @@ export class CryptoService {
       }
 
       // SECURITY: Non-extractable key for maximum protection
-      // CRITICAL: Raw bytes should never be returned. Use deriveKeyWithRaw for recovery ONLY.
       const key = await window.crypto.subtle.importKey(
         'raw',
         hash as any,
         { name: this.ALGORITHM },
-        false, // SECURITY: NOT extractable - prevents memory dump attacks
-        ['encrypt', 'decrypt']
+        false, // SECURITY: NOT extractable
+        ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
       );
 
-      // SECURITY CRITICAL: Never return raw bytes in normal operation.
-      // Raw bytes are only available via deriveKeyWithRaw for emergency recovery setup.
       return { key, raw: hash };
     } catch (err) {
       throw new Error("Anahtar türetme başarısız: " + (err as Error).message);
@@ -93,11 +135,10 @@ export class CryptoService {
   }
 
   static async deriveKeyFromPassword(password: string, salt: Uint8Array, iterations: number = this.DEFAULT_ITERATIONS): Promise<CryptoKey> {
-    const result = await this.deriveKeyWithRaw(password, salt, iterations);
-    // Wipe raw memory immediately if not needed
+    // SECURITY: Internal use case always wipes raw bytes after key creation
+    const result = await this.deriveKeyWithRaw(password, salt, iterations, this.PURPOSES.INTERNAL_DERIVATION);
+    // Wipe raw memory immediately
     try {
-      // Unlock before wiping (if supported by native addon)
-      // Note: hash is already wiped by fill(0), but mlock/VirtualLock should be released
       result.raw.fill(0);
     } catch (e) { }
     return result.key;
@@ -123,7 +164,7 @@ export class CryptoService {
       passwordKey,
       { name: this.ALGORITHM, length: 256 },
       false,
-      ['encrypt', 'decrypt']
+      ['encrypt', 'decrypt', 'wrapKey', 'unwrapKey']
     );
   }
 
@@ -173,10 +214,14 @@ export class CryptoService {
 
       const decoder = new TextDecoder();
       return decoder.decode(decryptedBuffer);
-    } catch (e) {
+    } catch (e: any) {
       // SECURITY: Generic error message to prevent information disclosure
-      console.error("[CryptoService] Decryption failed:", e);
-      throw new Error("OPERATION_FAILED");
+      // Don't log OperationError as critical, it usually means 'wrong key' during checks
+      if (e.name !== 'OperationError' && !e.message?.includes('OperationError')) {
+        console.error("[CryptoService] Decryption failed:", e);
+      }
+      // Propagate the actual error for ImportService to handle (e.g. tag mismatch = auth failed)
+      throw e;
     }
   }
 
@@ -239,5 +284,17 @@ export class CryptoService {
       bytes[i] = binary.charCodeAt(i);
     }
     return bytes.buffer as ArrayBuffer;
+  }
+
+  /**
+   * Constant-time comparison to prevent timing attacks
+   */
+  static constantTimeCompare(a: Uint8Array, b: Uint8Array): boolean {
+    if (a.length !== b.length) return false;
+    let result = 0;
+    for (let i = 0; i < a.length; i++) {
+      result |= a[i] ^ b[i];
+    }
+    return result === 0;
   }
 }

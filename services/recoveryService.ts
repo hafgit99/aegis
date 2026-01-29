@@ -141,7 +141,7 @@ async function hashRecoveryPIN(pin: string): Promise<string> {
 
   try {
     // Use Argon2id via CryptoService (memory-hard, GPU-resistant)
-    const { raw: hashBytes } = await CryptoService.deriveKeyWithRaw(pin, salt, 3);
+    const { raw: hashBytes } = await CryptoService.deriveKeyWithRaw(pin, salt, 3, CryptoService.PURPOSES.PIN_HASHING);
 
     // Return JSON with new Argon2id format
     return JSON.stringify({
@@ -750,7 +750,7 @@ export class RecoveryService {
         const deviceId = await getDeviceIdFromElectron();
         const combined = words.map(w => w.trim().toLowerCase()).join(' ');
         const salt = encoder.encode(`aegis_vault_recovery_device_${deviceId}_argon2id_${RECOVERY_VERSION}_secure`);
-        const { key: recoveryKey } = await CryptoService.deriveKeyWithRaw(combined, salt, 3);
+        const { key: recoveryKey } = await CryptoService.deriveKeyWithRaw(combined, salt, 3, CryptoService.PURPOSES.RECOVERY_EXECUTION);
 
         const decryptedRawKeyB64 = await CryptoService.decrypt(
           new Uint8Array(ciphertext),

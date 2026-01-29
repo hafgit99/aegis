@@ -364,18 +364,58 @@ function createWindow() {
 // Only used to communicate between the Extension Bridge process and the Main App.
 const PIPE_NAME = '\\\\.\\pipe\\aegis-vault-pipe';
 let bridgeSessionToken = null;
+let bridgeRotationTimer = null;
 
-function getBridgeToken() {
-  if (bridgeSessionToken) return bridgeSessionToken;
+/**
+ * SECURITY: Generates and manages the Bridge Session Token.
+ * Implements: 1. OS-level storage, 2. File permissions, 3. Rotation
+ */
+async function getBridgeToken(forceRotate = false) {
+  if (bridgeSessionToken && !forceRotate) return bridgeSessionToken;
+
   const tokenPath = path.join(app.getPath('userData'), '.bridge_token');
   try {
+    // 1. Generate new 256-bit high-entropy token
     bridgeSessionToken = crypto.randomBytes(32).toString('hex');
+
+    // 2. OS-LEVEL SECURE STORAGE: Store in Keychain/Credential Manager
+    if (keytar) {
+      try {
+        await keytar.setPassword('AegisVault', 'BridgeSessionToken', bridgeSessionToken);
+      } catch (e) {
+        console.warn('[Security] Failed to store bridge token in OS vault:', e.message);
+      }
+    }
+
+    // 3. FILE PERMISSIONS: Write with 0600 (Owner Read/Write Only)
     fs.writeFileSync(tokenPath, bridgeSessionToken, { mode: 0o600 });
+
+    // 4. TOKEN ROTATION: Scheduled rotation every 30 minutes
+    if (!bridgeRotationTimer) {
+      bridgeRotationTimer = setInterval(() => {
+        console.log('[Security] Rotating bridge session token...');
+        getBridgeToken(true);
+      }, 30 * 60 * 1000);
+    }
+
     return bridgeSessionToken;
   } catch (e) {
-    console.error('Failed to create bridge token:', e);
+    console.error('[Security] Failed to create bridge token:', e);
     return null;
   }
+}
+
+/**
+ * SECURITY: Cleanup bridge artifacts to prevent persistent token exposure
+ */
+async function cleanupBridgeToken() {
+  const tokenPath = path.join(app.getPath('userData'), '.bridge_token');
+  try {
+    if (fs.existsSync(tokenPath)) fs.unlinkSync(tokenPath);
+    if (keytar) await keytar.deletePassword('AegisVault', 'BridgeSessionToken');
+    bridgeSessionToken = null;
+    if (bridgeRotationTimer) clearInterval(bridgeRotationTimer);
+  } catch (e) { }
 }
 
 // Helper for shared logging
@@ -424,10 +464,11 @@ function setupBridgeServer() {
         try {
           const msg = JSON.parse(chunk);
 
-          // SECURITY: Handshake Verification
-          if (msg.token !== getBridgeToken()) {
+          // SECURITY: Handshake Verification (Constant-time check to prevent timing attacks)
+          const currentToken = bridgeSessionToken; // Use cached sync value
+          if (!msg.token || !currentToken || !crypto.timingSafeEqual(Buffer.from(msg.token), Buffer.from(currentToken))) {
             logMain("CRITICAL: Invalid or missing bridge token!");
-            socket.write(JSON.stringify({ success: false, error: "UNAUTHORIZED_BRIDGE" }) + '\n');
+            socket.write(JSON.stringify({ success: false, error: "UNAUTHORIZED_BRIDGE" }) + "\n");
             return;
           }
 
@@ -568,7 +609,7 @@ function sendToExtension(socketOrStdout, message) {
  * Registers this application as a Native Messaging Host in the OS.
  * Uses a standalone Node.js bridge script (not the Electron app) to avoid lifecycle conflicts.
  */
-function setupNativeMessagingHost() {
+async function setupNativeMessagingHost() {
   const hostName = 'com.aegis.vault';
 
   // Path to the standalone bridge script
@@ -608,7 +649,7 @@ function setupNativeMessagingHost() {
   logMain("Bridge batch file written to: " + batchPath);
 
   // Trigger token generation so it's ready for the bridge
-  getBridgeToken();
+  await getBridgeToken();
 
   if (process.platform === 'win32') {
     const regKey = `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${hostName}`;
@@ -665,7 +706,7 @@ if (isNativeHost) {
       setupBridgeServer();
 
       // Register Host Manifest (So Chrome knows where to find us)
-      setupNativeMessagingHost();
+      await setupNativeMessagingHost();
     });
   }
 }
@@ -853,6 +894,9 @@ ipcMain.on('window:close', () => {
       console.error('[IPC] Failed to save brute force state:', e);
     }
 
+    // Clear bridge session
+    cleanupBridgeToken();
+
     mainWindow.close();
 
     // Quit the application on all platforms
@@ -871,6 +915,7 @@ ipcMain.on('vault:panic', () => {
 
 // --- Secure Vault Engine (Node.js Side) ---
 let sessionKey = null; // Master Key stays in Main process RAM
+let rotationSessionKey = null; // Staged key for vault re-encryption during rotation
 let verifierBlob = null; // Master Verifier stays in Main process RAM (SECURE)
 
 // --- Brute Force Protection (Server-side, tamper-proof with persistence) ---
@@ -928,6 +973,52 @@ function scheduleBruteForceSave() {
 
 // Load state on app start
 loadBruteForceState();
+
+ipcMain.handle('vault:prepare-rotation', async (event, newKeyRaw) => {
+  try {
+    rotationSessionKey = Buffer.from(newKeyRaw);
+    console.log('[Security] Vault rotation prepared. Re-encryption will use the new key.');
+    return true;
+  } catch (e) {
+    console.error('[Security] Failed to prepare rotation:', e.message);
+    throw e;
+  }
+});
+
+ipcMain.handle('vault:rotate-key', async (event, newKeyRaw, newVerifier) => {
+  try {
+    // Favor the rotationSessionKey if it was prepared
+    const newSessionKey = rotationSessionKey || Buffer.from(newKeyRaw);
+    const hwSecret = getHardwareBoundSecret();
+    const newCombinedKey = crypto.createHmac('sha256', hwSecret).update(newSessionKey).digest('hex');
+
+    // 1. Rekey the database
+    databaseService.rekey(newCombinedKey);
+
+    // 2. Update session key in memory
+    sessionKey = newSessionKey;
+    rotationSessionKey = null; // Clear staged key
+
+    if (nativeSecurity) {
+      nativeSecurity.lockMemory(sessionKey);
+    }
+
+    // 3. Update verifier and metadata
+    if (newVerifier) {
+      verifierBlob = newVerifier;
+      if (verifierBlob.salt) {
+        databaseService.setConfig('vault_salt', verifierBlob.salt);
+        databaseService.setConfig('vault_iterations', verifierBlob.iterations?.toString() || '20');
+      }
+    }
+
+    console.log('[Security] Vault master key rotated successfully in Electron.');
+    return true;
+  } catch (e) {
+    console.error('[Security] Vault key rotation failed in Electron:', e.message);
+    throw e;
+  }
+});
 
 ipcMain.handle('vault:set-key', async (event, keyRaw, verifier) => {
   try {
@@ -1015,10 +1106,11 @@ ipcMain.handle('vault:get-verifier', async (event) => {
 });
 
 ipcMain.handle('vault:encrypt', async (event, text) => {
-  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  const activeKey = rotationSessionKey || sessionKey;
+  if (!activeKey) throw new Error("VAULT_LOCKED");
 
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', sessionKey, iv);
+  const cipher = crypto.createCipheriv('aes-256-gcm', activeKey, iv);
 
   let encrypted = cipher.update(text, 'utf8');
   encrypted = Buffer.concat([encrypted, cipher.final()]);
@@ -1044,9 +1136,11 @@ ipcMain.handle('vault:decrypt', async (event, ciphertext, iv, tag) => {
 });
 
 ipcMain.handle('vault:encrypt-binary', async (event, buffer) => {
-  if (!sessionKey) throw new Error("VAULT_LOCKED");
+  const activeKey = rotationSessionKey || sessionKey;
+  if (!activeKey) throw new Error("VAULT_LOCKED");
+
   const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', sessionKey, iv);
+  const cipher = crypto.createCipheriv('aes-256-gcm', activeKey, iv);
   const encrypted = Buffer.concat([cipher.update(Buffer.from(buffer)), cipher.final()]);
   return {
     ciphertext: encrypted,

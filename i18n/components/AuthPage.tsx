@@ -205,7 +205,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ isInitialized, onUnlock, onSetup })
       if (err.message === "BRUTE_FORCE_LOCKED") {
         setErrorMessage(t('brute_force_lockout').replace('{seconds}', lockoutTimer.toString()));
       } else {
-        setErrorMessage(err.message || t('access_denied'));
+        // Try to translate the error key, if not found use original message or fallback
+        const translated = t(err.message as any);
+        setErrorMessage(translated || err.message || t('access_denied'));
       }
 
       setTimeout(() => setStatus('idle'), 2000);

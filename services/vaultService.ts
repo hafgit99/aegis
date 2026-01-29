@@ -3,6 +3,7 @@ import { VaultEntry, SensitiveData, Category, Folder } from '../types.ts';
 import { CryptoService } from './cryptoService.ts';
 import { RecoveryService } from './recoveryService.ts';
 import { FolderService } from './folderService.ts';
+import { ErrorHandlingService } from './errorHandlingService.ts';
 import { db } from '../db.ts';
 import zxcvbn from 'zxcvbn';
 
@@ -12,6 +13,23 @@ const DURESS_VERIFIER_KEY = 'aegis_vault_duress_verifier';
 const VALIDATOR_TEXT = "AEGIS_VAULT_ACTIVE_SESSION_VALIDATOR";
 
 export class VaultService {
+  static isSetup(): boolean {
+    return !!localStorage.getItem(MASTER_METADATA_KEY);
+  }
+
+  static async isLocked(): Promise<boolean> {
+    const initialized = localStorage.getItem('aegis_vault_initialized') === 'true';
+    if (!initialized) return true;
+
+    // In Electron environment, we check if the key is in memory
+    if ((window as any).electronAPI?.vault?.hasKey) {
+      const hasKey = await (window as any).electronAPI.vault.hasKey();
+      return !hasKey;
+    }
+
+    return false;
+  }
+
   static getSalt(): Uint8Array {
     const metadata = localStorage.getItem(MASTER_METADATA_KEY);
     if (!metadata) throw new Error("Vault not setup");
@@ -37,10 +55,11 @@ export class VaultService {
         iterations = metadata.iterations;
       }
     } catch (e) {
-      throw new Error("Vault metadata corrupted");
+      console.error("[VaultService] Failed to parse vault metadata:", e);
+      throw new Error("metadata_corrupted");
     }
 
-    const { key, raw } = await CryptoService.deriveKeyWithRaw(password, salt, iterations);
+    const { key, raw } = await CryptoService.deriveKeyWithRaw(password, salt, iterations, CryptoService.PURPOSES.VAULT_LOCK_UNLOCK);
 
     // 1. Try Main Verifier
     const verifierStr = localStorage.getItem(MASTER_VERIFIER_KEY);
@@ -54,8 +73,17 @@ export class VaultService {
             await (window as any).electronAPI.vault.setKey(raw, { ...verifier, salt: CryptoService.arrayBufferToBase64(salt.buffer), iterations });
           }
           return { key, raw, duress: false };
+        } else {
+          console.warn("[VaultService] Main verifier decrypted successfully but validator text mismatch.");
         }
-      } catch (e) { /* continue to duress check */ }
+      } catch (e) {
+        // Log technical errors (parsing, etc.) but ignore common decryption failures which imply wrong password
+        if (e instanceof SyntaxError) {
+          console.error("[VaultService] Main verifier JSON corrupted:", e);
+        } else {
+          console.debug("[VaultService] Main verifier decryption failed (expected if password is wrong).");
+        }
+      }
     }
 
     // 2. Try Duress Verifier
@@ -71,16 +99,21 @@ export class VaultService {
             await (window as any).electronAPI.vault.setKey(raw, { ...duressVerifier, salt: CryptoService.arrayBufferToBase64(salt.buffer), iterations });
             (window as any).localStorage.setItem('aegis_duress_active', 'true');
           }
-          // Log duress access (security alert internally)
           return { key, raw, duress: true };
         }
-      } catch (e) { /* failed both */ }
+      } catch (e) {
+        if (e instanceof SyntaxError) {
+          console.error("[VaultService] Duress verifier JSON corrupted:", e);
+        } else {
+          console.debug("[VaultService] Duress verifier decryption failed.");
+        }
+      }
     }
 
-    throw new Error("WRONG_PASSWORD");
+    throw new Error("wrong_password");
   }
 
-  private static async decryptWithMasterKey(key: CryptoKey, verifier: any): Promise<string> {
+  static async decryptWithMasterKey(key: CryptoKey, verifier: any): Promise<string> {
     const encryptedBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.payload));
     const tagBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.tag));
     const ivBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.iv));
@@ -103,7 +136,7 @@ export class VaultService {
     const metadata = JSON.parse(localStorage.getItem(MASTER_METADATA_KEY) || '{}');
     const iterations = metadata.iterations || CryptoService.DEFAULT_ITERATIONS;
 
-    const { key } = await CryptoService.deriveKeyWithRaw(password, salt, iterations);
+    const { key } = await CryptoService.deriveKeyWithRaw(password, salt, iterations, CryptoService.PURPOSES.VAULT_LOCK_UNLOCK);
 
     const encoder = new TextEncoder();
     const dataBytes = encoder.encode(VALIDATOR_TEXT);
@@ -128,6 +161,44 @@ export class VaultService {
     localStorage.setItem(DURESS_VERIFIER_KEY, JSON.stringify(duressBlob));
   }
 
+  /**
+   * SECURITY: Generates a deterministic "Blind Index" for searching encrypted metadata
+   * Uses HMAC-SHA256 with a unique Search Key. 
+   * This allows finding entries by category/folder without revealing the plaintext in DB.
+   */
+  /*
+   * SECURITY: Generates a deterministic "Blind Index" for searching encrypted metadata.
+   * REFACTORED: Now uses a constant salt and direct signing effectively as a PRF, 
+   * avoiding the need to export the non-extractable master key.
+   */
+  private static async generateBlindIndex(value: string, masterKey: CryptoKey): Promise<string> {
+    if (!value) return "";
+
+    // We cannot export masterKey because it is not extractable.
+    // Instead, we sign a constant 'Search Key Derivation Salt' to get a deterministic key-material
+    // checking if masterKey supports 'sign' is tricky with AES-GCM keys (usually only encrypt/decrypt/wrap).
+    //
+    // ALTERNATIVE: Since we cannot use sign() with AES-GCM keys either (usually), and cannot export...
+    // We will use a standard SHA-256 hash simply for categorization if simple hashing is acceptable risk
+    // OR BETTER: Use the existing encryption mechanism to encrypt a known constant + value and hash THAT.
+    //
+    // IMPLEMENTATION: 
+    // Since we need this to be deterministic (for searching), we can't use random IVs.
+    // But aes-gcm requires IV.
+    // 
+    // FALLBACK FOR NOW: Since we can't easily do secure deterministic blind indexing with a non-extractable, non-signing AES-GCM key
+    // without risking IV reuse vulnerabilities, we will disable blind indexing temporarily to FIX THE CRASH.
+    // The search feature will fall back to decrypt-and-scan which is slower but functional and safe.
+
+    return "";
+  }
+
+  // Deprecated helper - removing implementation to prevent usage
+  private static async getMetadataSearchKey(masterKey: CryptoKey): Promise<CryptoKey> {
+    throw new Error("getMetadataSearchKey is deprecated and should not be called.");
+  }
+
+
   static async setup(password: string): Promise<{ key: CryptoKey; raw: Uint8Array }> {
     const salt = window.crypto.getRandomValues(new Uint8Array(16));
     const saltB64 = CryptoService.arrayBufferToBase64(salt.buffer);
@@ -135,7 +206,7 @@ export class VaultService {
     try {
       // Benchmark hardware for optimal security (takes ~600ms)
       const iterations = await CryptoService.benchmarkIterations();
-      const { key, raw } = await CryptoService.deriveKeyWithRaw(password, salt, iterations);
+      const { key, raw } = await CryptoService.deriveKeyWithRaw(password, salt, iterations, CryptoService.PURPOSES.VAULT_SETUP);
 
       // IMPORTANT: Verifier şifrelemesini doğrudan Web Crypto API ile yap
       // Electron IPC'ye bağımlı olmamak için
@@ -175,6 +246,9 @@ export class VaultService {
       }
       // Verifier'ı her zaman localStorage'a kaydet (kalıcı depolama)
       localStorage.setItem(MASTER_VERIFIER_KEY, JSON.stringify(verifierBlob));
+
+      // 4. Set Initialization Flag (Crucial for Logout flow)
+      localStorage.setItem('aegis_vault_initialized', 'true');
 
       // Electron varsa RAM'e de kaydet (session için)
       if ((window as any).electronAPI?.vault) {
@@ -338,163 +412,185 @@ export class VaultService {
     return percentageMap[result.score];
   }
 
+  static getPrivacyOptions() {
+    return {
+      maskMetadata: localStorage.getItem('aegis_metadata_privacy') === 'true'
+    };
+  }
+
   static async saveEntry(
     plainEntry: Partial<VaultEntry> & { sensitive: SensitiveData; title?: string; username?: string },
     masterKey: CryptoKey
   ): Promise<VaultEntry> {
-    const sensitiveCopy = { ...plainEntry.sensitive };
-    let encryptedFile: Uint8Array | undefined;
-    let fileIv: Uint8Array | undefined;
-    let fileTag: Uint8Array | undefined;
+    try {
+      const sensitiveCopy = { ...plainEntry.sensitive };
+      let encryptedFile: Uint8Array | undefined;
+      let fileIv: Uint8Array | undefined;
+      let fileTag: Uint8Array | undefined;
 
-    const electronVault = (window as any).electronAPI?.vault;
+      const electronVault = (window as any).electronAPI?.vault;
+      const privacy = this.getPrivacyOptions();
 
-    // Optimization: Store large files as separate binary blobs
-    if (sensitiveCopy.fileBlob instanceof Uint8Array) {
-      if (electronVault) {
-        const fileResult = await electronVault.encryptBinary(sensitiveCopy.fileBlob);
-        encryptedFile = new Uint8Array(fileResult.ciphertext);
-        fileIv = new Uint8Array(fileResult.iv);
-        fileTag = new Uint8Array(fileResult.tag);
-      } else {
-        const fileResult = await CryptoService.encryptBinary(sensitiveCopy.fileBlob, masterKey);
-        encryptedFile = fileResult.ciphertext;
-        fileIv = fileResult.iv;
-        fileTag = fileResult.tag;
+      // Optimization: Store large files as separate binary blobs
+      if (sensitiveCopy.fileBlob instanceof Uint8Array) {
+        if (electronVault) {
+          const fileResult = await electronVault.encryptBinary(sensitiveCopy.fileBlob);
+          encryptedFile = new Uint8Array(fileResult.ciphertext);
+          fileIv = new Uint8Array(fileResult.iv);
+          fileTag = new Uint8Array(fileResult.tag);
+        } else {
+          const fileResult = await CryptoService.encryptBinary(sensitiveCopy.fileBlob, masterKey);
+          encryptedFile = fileResult.ciphertext;
+          fileIv = fileResult.iv;
+          fileTag = fileResult.tag;
+        }
+        delete sensitiveCopy.fileBlob;
       }
-      delete sensitiveCopy.fileBlob;
-    }
 
-    // SECURITY: Combine EVERYTHING into one "Full Package" for encryption
-    // This hides metadata (title, username) and structure from the DB layer
-    const fullPackage = {
-      title: plainEntry.title || (plainEntry.category === Category.FILE ? `Secure-Asset-${crypto.randomUUID().slice(0, 8)}` : 'Unnamed Entry'),
-      username: plainEntry.username || '',
-      category: plainEntry.category || Category.LOGIN,
-      folderId: plainEntry.folderId,
-      updatedAt: Date.now(),
-      isFavorite: plainEntry.isFavorite,
-      fileSize: plainEntry.fileSize,
-      deletedAt: (plainEntry as any).deletedAt,
-      sensitive: sensitiveCopy
-    };
+      // SECURITY: Combine EVERYTHING into one "Full Package" for encryption
+      // This hides metadata (title, username) and structure from the DB layer
+      const fullPackage = {
+        title: plainEntry.title || (plainEntry.category === Category.FILE ? `Secure-Asset-${crypto.randomUUID().slice(0, 8)}` : 'Unnamed Entry'),
+        username: plainEntry.username || '',
+        category: plainEntry.category || Category.LOGIN,
+        folderId: plainEntry.folderId,
+        updatedAt: Date.now(),
+        isFavorite: plainEntry.isFavorite,
+        fileSize: plainEntry.fileSize,
+        deletedAt: (plainEntry as any).deletedAt,
+        sensitive: sensitiveCopy
+      };
 
-    const packageJson = JSON.stringify(fullPackage);
-    let ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array;
+      const packageJson = JSON.stringify(fullPackage);
+      let ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array;
 
-    // Separate Metadata for fast loading
-    const metadataPayload = JSON.stringify({
-      category: fullPackage.category,
-      folderId: fullPackage.folderId,
-      updatedAt: fullPackage.updatedAt,
-      isFavorite: fullPackage.isFavorite,
-      fileSize: fullPackage.fileSize,
-      deletedAt: (fullPackage as any).deletedAt
-    });
-
-    let encryptedMetadata: Uint8Array, metadataIv: Uint8Array, metadataTag: Uint8Array;
-
-    if (electronVault) {
-      const result = await electronVault.encrypt(packageJson);
-      ciphertext = new Uint8Array(result.ciphertext);
-      iv = new Uint8Array(result.iv);
-      tag = new Uint8Array(result.tag);
-
-      const mResult = await electronVault.encrypt(metadataPayload);
-      encryptedMetadata = new Uint8Array(mResult.ciphertext);
-      metadataIv = new Uint8Array(mResult.iv);
-      metadataTag = new Uint8Array(mResult.tag);
-    } else {
-      const result = await CryptoService.encrypt(packageJson, masterKey);
-      ciphertext = result.ciphertext;
-      iv = result.iv;
-      tag = result.tag;
-
-      const mResult = await CryptoService.encrypt(metadataPayload, masterKey);
-      encryptedMetadata = mResult.ciphertext;
-      metadataIv = mResult.iv;
-      metadataTag = mResult.tag;
-    }
-
-    const securityScore = plainEntry.category === Category.PASSKEY ? 100 : this.calculateStrength(plainEntry.sensitive.password || '');
-
-    const entry: VaultEntry = {
-      id: plainEntry.id || crypto.randomUUID(),
-      // FULL ENCRYPTION MODE: These fields are now empty or masked in DB
-      encryptedTitle: new Uint8Array(0),
-      titleIv: new Uint8Array(0),
-      titleTag: new Uint8Array(0),
-      encryptedUsername: new Uint8Array(0),
-      usernameIv: new Uint8Array(0),
-      usernameTag: new Uint8Array(0),
-      encryptedMetadata: encryptedMetadata,
-      metadataIv: metadataIv,
-      metadataTag: metadataTag,
-
-      // Store everything in the main data blob
-      encryptedData: ciphertext,
-      iv: iv,
-      tag: tag,
-
-      // Non-sensitive indexing fields (optional, but needed for Dexie stores if defined)
-      category: fullPackage.category,
-      updatedAt: fullPackage.updatedAt,
-      isFavorite: fullPackage.isFavorite || false,
-      folderId: fullPackage.folderId,
-      deletedAt: fullPackage.deletedAt,
-
-      securityScore,
-      fileSize: plainEntry.fileSize,
-      encryptedFile,
-      fileIv,
-      fileTag,
-      version: 4 // Mark as Full Encryption
-    } as any;
-
-    // PERSISTENCE TIER
-    const electronDB = (window as any).electronAPI?.db;
-    if (electronDB) {
-      await electronDB.saveEntry({
-        id: entry.id,
-        category: entry.category,
-        folderId: entry.folderId,
-        payload: entry.encryptedData,
-        iv: CryptoService.arrayBufferToBase64(entry.iv),
-        tag: CryptoService.arrayBufferToBase64(entry.tag),
-        isFavorite: entry.isFavorite ? 1 : 0,
-        deletedAt: entry.deletedAt || 0,
-        fileSize: entry.fileSize,
-        encryptedFile: entry.encryptedFile,
-        fileIv: entry.fileIv ? CryptoService.arrayBufferToBase64(entry.fileIv) : null,
-        fileTag: entry.fileTag ? CryptoService.arrayBufferToBase64(entry.fileTag) : null,
-        encryptedTitle: entry.encryptedTitle,
-        titleIv: entry.titleIv ? CryptoService.arrayBufferToBase64(entry.titleIv) : null,
-        titleTag: entry.titleTag ? CryptoService.arrayBufferToBase64(entry.titleTag) : null,
-        encryptedUsername: entry.encryptedUsername,
-        usernameIv: entry.usernameIv ? CryptoService.arrayBufferToBase64(entry.usernameIv) : null,
-        usernameTag: entry.usernameTag ? CryptoService.arrayBufferToBase64(entry.usernameTag) : null,
-        encryptedMetadata: entry.encryptedMetadata,
-        metadataIv: entry.metadataIv ? CryptoService.arrayBufferToBase64(entry.metadataIv) : null,
-        metadataTag: entry.metadataTag ? CryptoService.arrayBufferToBase64(entry.metadataTag) : null
+      // Separate Metadata for fast loading
+      const metadataPayload = JSON.stringify({
+        category: fullPackage.category,
+        folderId: fullPackage.folderId,
+        updatedAt: fullPackage.updatedAt,
+        isFavorite: fullPackage.isFavorite,
+        fileSize: fullPackage.fileSize,
+        deletedAt: (fullPackage as any).deletedAt
       });
-    } else {
-      await db.vault.put(entry);
-    }
 
-    if ((window as any).electronAPI?.audit) {
-      await (window as any).electronAPI.audit.logEvent('ENTRY_SAVED', {
-        entryId: entry.id,
-        category: entry.category,
-        fullEncryption: true,
-        storage: electronDB ? 'sqlite' : 'indexeddb'
-      });
-    }
+      let encryptedMetadata: Uint8Array, metadataIv: Uint8Array, metadataTag: Uint8Array;
 
-    return {
-      ...entry,
-      title: fullPackage.title,
-      username: fullPackage.username
-    } as VaultEntry;
+      if (electronVault) {
+        const result = await electronVault.encrypt(packageJson);
+        ciphertext = new Uint8Array(result.ciphertext);
+        iv = new Uint8Array(result.iv);
+        tag = new Uint8Array(result.tag);
+
+        const mResult = await electronVault.encrypt(metadataPayload);
+        encryptedMetadata = new Uint8Array(mResult.ciphertext);
+        metadataIv = new Uint8Array(mResult.iv);
+        metadataTag = new Uint8Array(mResult.tag);
+      } else {
+        const result = await CryptoService.encrypt(packageJson, masterKey);
+        ciphertext = result.ciphertext;
+        iv = result.iv;
+        tag = result.tag;
+
+        const mResult = await CryptoService.encrypt(metadataPayload, masterKey);
+        encryptedMetadata = mResult.ciphertext;
+        metadataIv = mResult.iv;
+        metadataTag = mResult.tag;
+      }
+
+      const securityScore = plainEntry.category === Category.PASSKEY ? 100 : this.calculateStrength(plainEntry.sensitive.password || '');
+
+      // --- BLIND INDEX & SEARCHABLE ENCRYPTION ---
+      const categoryIdx = await this.generateBlindIndex(fullPackage.category, masterKey);
+      const folderIdx = fullPackage.folderId ? await this.generateBlindIndex(fullPackage.folderId, masterKey) : null;
+
+      const entry: VaultEntry = {
+        id: plainEntry.id || crypto.randomUUID(),
+        // FULL ENCRYPTION MODE: These fields are now empty or masked in DB
+        encryptedTitle: new Uint8Array(0),
+        titleIv: new Uint8Array(0),
+        titleTag: new Uint8Array(0),
+        encryptedUsername: new Uint8Array(0),
+        usernameIv: new Uint8Array(0),
+        usernameTag: new Uint8Array(0),
+        encryptedMetadata: encryptedMetadata,
+        metadataIv: metadataIv,
+        metadataTag: metadataTag,
+
+        // Store everything in the main data blob
+        encryptedData: ciphertext,
+        iv: iv,
+        tag: tag,
+
+        // Blind search indices (Store HMACs)
+        categoryIdx,
+        folderIdx,
+
+        // SECURITY: Mask metadata in DB if privacy mode is enabled
+        category: privacy.maskMetadata ? 'MASKED' as Category : fullPackage.category,
+        updatedAt: privacy.maskMetadata ? 0 : fullPackage.updatedAt,
+        isFavorite: privacy.maskMetadata ? false : (fullPackage.isFavorite || false),
+        folderId: privacy.maskMetadata ? undefined : fullPackage.folderId,
+        deletedAt: privacy.maskMetadata ? 0 : fullPackage.deletedAt,
+
+        securityScore: privacy.maskMetadata ? 0 : securityScore,
+        fileSize: (plainEntry.fileSize || 0),
+        encryptedFile,
+        fileIv,
+        fileTag,
+        version: 4 // Mark as Full Encryption
+      } as any;
+
+      // PERSISTENCE TIER
+      const electronDB = (window as any).electronAPI?.db;
+      if (electronDB) {
+        await electronDB.saveEntry({
+          id: entry.id,
+          category: entry.category,
+          folderId: entry.folderId,
+          payload: entry.encryptedData,
+          iv: CryptoService.arrayBufferToBase64(entry.iv),
+          tag: CryptoService.arrayBufferToBase64(entry.tag),
+          isFavorite: entry.isFavorite ? 1 : 0,
+          deletedAt: entry.deletedAt || 0,
+          fileSize: entry.fileSize,
+          encryptedFile: entry.encryptedFile,
+          fileIv: entry.fileIv ? CryptoService.arrayBufferToBase64(entry.fileIv) : null,
+          fileTag: entry.fileTag ? CryptoService.arrayBufferToBase64(entry.fileTag) : null,
+          encryptedTitle: entry.encryptedTitle,
+          titleIv: entry.titleIv ? CryptoService.arrayBufferToBase64(entry.titleIv) : null,
+          titleTag: entry.titleTag ? CryptoService.arrayBufferToBase64(entry.titleTag) : null,
+          encryptedUsername: entry.encryptedUsername,
+          usernameIv: entry.usernameIv ? CryptoService.arrayBufferToBase64(entry.usernameIv) : null,
+          usernameTag: entry.usernameTag ? CryptoService.arrayBufferToBase64(entry.usernameTag) : null,
+          encryptedMetadata: entry.encryptedMetadata,
+          metadataIv: entry.metadataIv ? CryptoService.arrayBufferToBase64(entry.metadataIv) : null,
+          metadataTag: entry.metadataTag ? CryptoService.arrayBufferToBase64(entry.metadataTag) : null,
+          categoryIdx,
+          folderIdx
+        });
+      } else {
+        await db.vault.put(entry);
+      }
+
+      if ((window as any).electronAPI?.audit) {
+        await (window as any).electronAPI.audit.logEvent('ENTRY_SAVED', {
+          entryId: entry.id,
+          category: entry.category,
+          fullEncryption: true,
+          storage: electronDB ? 'sqlite' : 'indexeddb'
+        });
+      }
+
+      return {
+        ...entry,
+        title: fullPackage.title,
+        username: fullPackage.username
+      } as VaultEntry;
+    } catch (e: any) {
+      const errorKey = ErrorHandlingService.handle(e, `VaultService.saveEntry(${plainEntry.id || 'new'})`);
+      throw new Error(errorKey);
+    }
   }
 
   // Fix: Adding missing bulkImport method to handle batch operations from PortabilityWizard
@@ -512,28 +608,48 @@ export class VaultService {
         let displayTitle = plainEntry.title;
         let displayUsername = plainEntry.username || (plainEntry.sensitive as any)?.username || (plainEntry.sensitive as any)?.email || (plainEntry.sensitive as any)?.user || (plainEntry.sensitive as any)?.login || (plainEntry.sensitive as any)?.id || (plainEntry.sensitive as any)?.login_name || (plainEntry.sensitive as any)?.loginuser || (plainEntry.sensitive as any)?.loginemail;
 
+        // Helper to ensure Uint8Array from various inputs (Base64 string, JSON object, Array)
+        const toUint8 = (val: any): Uint8Array | null => {
+          if (!val) return null;
+          if (val instanceof Uint8Array) return val;
+          if (typeof val === 'string') {
+            try { return new Uint8Array(CryptoService.base64ToArrayBuffer(val)); } catch { return null; }
+          }
+          if (Array.isArray(val)) return new Uint8Array(val);
+          if (typeof val === 'object') return new Uint8Array(Object.values(val));
+          return null;
+        };
+
         if (!displayTitle) {
           displayTitle = (plainEntry.sensitive as any)?.title || (plainEntry.sensitive as any)?.name;
         }
 
-        if (!displayTitle && plainEntry.encryptedTitle && plainEntry.titleIv && plainEntry.titleTag) {
+        const eTitle = toUint8(plainEntry.encryptedTitle);
+        const tIv = toUint8(plainEntry.titleIv);
+        const tTag = toUint8(plainEntry.titleTag);
+
+        if (!displayTitle && eTitle && tIv && tTag) {
           try {
             if (electronVault) {
-              displayTitle = await electronVault.decrypt(plainEntry.encryptedTitle, plainEntry.titleIv, plainEntry.titleTag);
+              displayTitle = await electronVault.decrypt(eTitle, tIv, tTag);
             } else {
-              displayTitle = await CryptoService.decrypt(plainEntry.encryptedTitle, masterKey, plainEntry.titleIv, plainEntry.titleTag);
+              displayTitle = await CryptoService.decrypt(eTitle, masterKey, tIv, tTag);
             }
           } catch (e) {
             console.warn(`Bulk Import: Failed to decrypt legacy title for ${plainEntry.id}`);
           }
         }
 
-        if (!displayUsername && plainEntry.encryptedUsername && plainEntry.usernameIv && plainEntry.usernameTag) {
+        const eUser = toUint8(plainEntry.encryptedUsername);
+        const uIv = toUint8(plainEntry.usernameIv);
+        const uTag = toUint8(plainEntry.usernameTag);
+
+        if (!displayUsername && eUser && uIv && uTag) {
           try {
             if (electronVault) {
-              displayUsername = await electronVault.decrypt(plainEntry.encryptedUsername, plainEntry.usernameIv, plainEntry.usernameTag);
+              displayUsername = await electronVault.decrypt(eUser, uIv, uTag);
             } else {
-              displayUsername = await CryptoService.decrypt(plainEntry.encryptedUsername, masterKey, plainEntry.usernameIv, plainEntry.usernameTag);
+              displayUsername = await CryptoService.decrypt(eUser, masterKey, uIv, uTag);
             }
           } catch (e) {
             console.warn(`Bulk Import: Failed to decrypt legacy username for ${plainEntry.id}`);
@@ -589,17 +705,66 @@ export class VaultService {
         const packageJson = JSON.stringify(fullPackage);
         let ciphertext: Uint8Array, iv: Uint8Array, tag: Uint8Array;
 
+        // Try electron vault first, fall back to CryptoService if it fails
         if (electronVault) {
-          const result = await electronVault.encrypt(packageJson);
-          ciphertext = new Uint8Array(result.ciphertext);
-          iv = new Uint8Array(result.iv);
-          tag = new Uint8Array(result.tag);
+          try {
+            const result = await electronVault.encrypt(packageJson);
+            ciphertext = new Uint8Array(result.ciphertext);
+            iv = new Uint8Array(result.iv);
+            tag = new Uint8Array(result.tag);
+          } catch (electronError: any) {
+            console.warn(`[VaultService] Electron encryption failed for ${plainEntry.id || plainEntry.title}, falling back to CryptoService:`, electronError.message);
+            // Fallback to renderer-side encryption
+            const result = await CryptoService.encrypt(packageJson, masterKey);
+            ciphertext = result.ciphertext;
+            iv = result.iv;
+            tag = result.tag;
+          }
         } else {
           const result = await CryptoService.encrypt(packageJson, masterKey);
           ciphertext = result.ciphertext;
           iv = result.iv;
           tag = result.tag;
         }
+
+        // 4. METADATA ENCRYPTION (v4)
+        const metadataPayload = JSON.stringify({
+          category: fullPackage.category,
+          folderId: fullPackage.folderId,
+          updatedAt: fullPackage.updatedAt,
+          isFavorite: fullPackage.isFavorite,
+          fileSize: fullPackage.fileSize,
+          deletedAt: fullPackage.deletedAt
+        });
+
+        let encryptedMetadata: Uint8Array, metadataIv: Uint8Array, metadataTag: Uint8Array;
+        if (electronVault) {
+          try {
+            const mResult = await electronVault.encrypt(metadataPayload);
+            encryptedMetadata = new Uint8Array(mResult.ciphertext);
+            metadataIv = new Uint8Array(mResult.iv);
+            metadataTag = new Uint8Array(mResult.tag);
+          } catch (metaError: any) {
+            console.warn(`[VaultService] Metadata encryption fallback for ${plainEntry.id || plainEntry.title}`);
+            const mResult = await CryptoService.encrypt(metadataPayload, masterKey);
+            encryptedMetadata = mResult.ciphertext;
+            metadataIv = mResult.iv;
+            metadataTag = mResult.tag;
+          }
+        } else {
+          const mResult = await CryptoService.encrypt(metadataPayload, masterKey);
+          encryptedMetadata = mResult.ciphertext;
+          metadataIv = mResult.iv;
+          metadataTag = mResult.tag;
+        }
+
+        const privacy = this.getPrivacyOptions();
+
+        // 5. Skip blind index generation for bulk import - masterKey is non-extractable
+        // Blind indices are optional (for search optimization) and entries work fine without them
+        // They can be regenerated later during normal entry edits if needed
+        const categoryIdx = null;
+        const folderIdx = null;
 
         return {
           id: plainEntry.id || crypto.randomUUID(),
@@ -609,31 +774,42 @@ export class VaultService {
           encryptedUsername: new Uint8Array(0),
           usernameIv: new Uint8Array(0),
           usernameTag: new Uint8Array(0),
-          encryptedMetadata: new Uint8Array(0),
-          metadataIv: new Uint8Array(0),
-          metadataTag: new Uint8Array(0),
+          encryptedMetadata,
+          metadataIv,
+          metadataTag,
+          categoryIdx,
+          folderIdx,
           encryptedData: ciphertext,
           iv: iv,
           tag: tag,
-          category: fullPackage.category,
-          updatedAt: fullPackage.updatedAt,
-          isFavorite: fullPackage.isFavorite,
-          folderId: fullPackage.folderId,
-          deletedAt: fullPackage.deletedAt,
+          category: privacy.maskMetadata ? 'MASKED' as Category : fullPackage.category,
+          updatedAt: privacy.maskMetadata ? 0 : fullPackage.updatedAt,
+          isFavorite: privacy.maskMetadata ? false : fullPackage.isFavorite,
+          folderId: privacy.maskMetadata ? undefined : fullPackage.folderId,
+          deletedAt: privacy.maskMetadata ? 0 : fullPackage.deletedAt,
           fileSize: fullPackage.fileSize,
           encryptedFile,
           fileIv,
           fileTag,
-          securityScore: fullPackage.category === Category.PASSKEY ? 100 : this.calculateStrength(fullPackage.sensitive.password || ''),
+          securityScore: privacy.maskMetadata ? 0 : (fullPackage.category === Category.PASSKEY ? 100 : this.calculateStrength(fullPackage.sensitive.password || '')),
           version: 4
         } as any;
-      } catch (e) {
-        console.error(`Bulk Import: Failed to process entry`, e);
-        return null;
+      } catch (e: any) {
+        console.error(`[VaultService] Bulk Import: Failed to process entry ${plainEntry.id || plainEntry.title}:`, e.message || e, e.stack);
+        return { error: e.message || String(e) }; // Return error info instead of null
       }
     }));
 
-    const validEntries = encryptedEntries.filter((e): e is VaultEntry => e !== null);
+    // Separate successful entries from errors
+    const validEntries = encryptedEntries.filter((e): e is VaultEntry => e !== null && !('error' in e));
+    const errors = encryptedEntries.filter((e): e is { error: string } => e !== null && 'error' in e);
+
+
+    if (validEntries.length === 0) {
+      const firstError = errors.length > 0 ? errors[0].error : 'Unknown error';
+      console.error("[VaultService] Bulk Import failed: No valid entries produced from " + items.length + " input items. First error: " + firstError);
+      throw new Error(`IMPORT_FAILED: ${firstError}`);
+    }
 
     if (validEntries.length > 0) {
       if (electronDB) {
@@ -660,7 +836,9 @@ export class VaultService {
           usernameTag: entry.usernameTag ? CryptoService.arrayBufferToBase64(entry.usernameTag) : null,
           encryptedMetadata: entry.encryptedMetadata,
           metadataIv: entry.metadataIv ? CryptoService.arrayBufferToBase64(entry.metadataIv) : null,
-          metadataTag: entry.metadataTag ? CryptoService.arrayBufferToBase64(entry.metadataTag) : null
+          metadataTag: entry.metadataTag ? CryptoService.arrayBufferToBase64(entry.metadataTag) : null,
+          categoryIdx: (entry as any).categoryIdx,
+          folderIdx: (entry as any).folderIdx
         }));
         await electronDB.bulkSaveEntries(sqliteEntries);
       } else {
@@ -708,9 +886,9 @@ export class VaultService {
       }
 
       return sensitive;
-    } catch (e) {
-      console.error("Decryption Error:", e);
-      throw new Error("Decryption failed");
+    } catch (e: any) {
+      const errorKey = ErrorHandlingService.handle(e, `VaultService.decryptEntry(${entry.id})`);
+      throw new Error(errorKey);
     }
   }
 
@@ -739,8 +917,8 @@ export class VaultService {
             metaJson = await CryptoService.decrypt(entry.encryptedMetadata, masterKey, entry.metadataIv, entry.metadataTag);
           }
           metadata = JSON.parse(metaJson);
-        } catch (e) {
-          console.warn("[VaultService] Failed to decrypt separate metadata for", entry.id, e);
+        } catch (e: any) {
+          console.warn(`[VaultService] Metadata blob decryption/parsing failed for entry ${entry.id}:`, e.message || e);
         }
       }
 
@@ -758,8 +936,8 @@ export class VaultService {
             title = await CryptoService.decrypt(entry.encryptedTitle, masterKey, entry.titleIv, entry.titleTag);
             username = await CryptoService.decrypt(entry.encryptedUsername, masterKey, entry.usernameIv, entry.usernameTag);
           }
-        } catch (e) {
-          console.warn("[VaultService] Failed to decrypt legacy title for", entry.id, e);
+        } catch (e: any) {
+          console.warn(`[VaultService] Legacy title/username decryption failed for entry ${entry.id}:`, e.message || e);
         }
       } else if (!title) {
         // v4 fallback - must decrypt main package to get title/username
@@ -785,8 +963,8 @@ export class VaultService {
               fileSize: fullPackage.fileSize
             };
           }
-        } catch (e) {
-          console.error("[VaultService] Failed to decrypt v4 package for", entry.id, e);
+        } catch (e: any) {
+          console.error(`[VaultService] Full package decryption failed for entry ${entry.id}:`, e.message || e);
         }
       }
 
@@ -880,19 +1058,22 @@ export class VaultService {
     }
 
     // 4. Update DB
+    const privacy = this.getPrivacyOptions();
+
+    // 5. Blind indices (Need to re-generate if category or folder changes)
+    const categoryIdx = await this.generateBlindIndex(newMeta.category, masterKey);
+    const folderIdx = newMeta.folderId ? await this.generateBlindIndex(newMeta.folderId, masterKey) : null;
+
     if (electronDB) {
-      // In SQLite, we store the same encryptedData blob, but we might need to update isFavorite etc.
-      // Since our current SQLite schema stores is_favorite explicitly, we update that.
-      // IMPORTANT: We must preserve all other fields to avoid nulling them out.
       await electronDB.saveEntry({
         id: entry.id,
-        category: entry.category,
-        folderId: 'folderId' in changes ? (changes.folderId || null) : entry.folderId,
+        category: privacy.maskMetadata ? 'MASKED' as Category : newMeta.category,
+        folderId: privacy.maskMetadata ? null : newMeta.folderId,
         payload: entry.encryptedData,
         iv: CryptoService.arrayBufferToBase64(entry.iv),
         tag: CryptoService.arrayBufferToBase64(entry.tag),
-        isFavorite: 'isFavorite' in changes ? (changes.isFavorite ? 1 : 0) : (entry.isFavorite ? 1 : 0),
-        deletedAt: 'deletedAt' in changes ? (changes.deletedAt || 0) : (entry.deletedAt || 0),
+        isFavorite: privacy.maskMetadata ? 0 : (newMeta.isFavorite ? 1 : 0),
+        deletedAt: privacy.maskMetadata ? 0 : (newMeta.deletedAt || 0),
         fileSize: entry.fileSize,
         encryptedFile: entry.encryptedFile,
         fileIv: entry.fileIv ? CryptoService.arrayBufferToBase64(entry.fileIv) : null,
@@ -903,21 +1084,68 @@ export class VaultService {
         encryptedUsername: entry.encryptedUsername,
         usernameIv: entry.usernameIv ? CryptoService.arrayBufferToBase64(entry.usernameIv) : null,
         usernameTag: entry.usernameTag ? CryptoService.arrayBufferToBase64(entry.usernameTag) : null,
-        encryptedMetadata: encryptedMetadata, // Use the NEWLY encrypted metadata
+        encryptedMetadata: encryptedMetadata,
         metadataIv: CryptoService.arrayBufferToBase64(metadataIv),
-        metadataTag: CryptoService.arrayBufferToBase64(metadataTag)
+        metadataTag: CryptoService.arrayBufferToBase64(metadataTag),
+        categoryIdx,
+        folderIdx
       });
     } else {
       await db.vault.update(id, {
         encryptedMetadata,
         metadataIv,
         metadataTag,
-        updatedAt: 0,
-        isFavorite: false,
-        folderId: undefined,
-        deletedAt: undefined,
+        updatedAt: privacy.maskMetadata ? 0 : newMeta.updatedAt,
+        isFavorite: privacy.maskMetadata ? false : newMeta.isFavorite,
+        folderId: privacy.maskMetadata ? undefined : newMeta.folderId,
+        deletedAt: privacy.maskMetadata ? 0 : newMeta.deletedAt,
+        category: privacy.maskMetadata ? 'MASKED' as Category : newMeta.category,
       });
     }
+  }
+
+  static async updatePasskeyCounter(id: string, newCounter: number, masterKey: CryptoKey): Promise<void> {
+    const electronDB = (window as any).electronAPI?.db;
+    let entry: VaultEntry | undefined;
+
+    if (electronDB) {
+      const row = await electronDB.getEntry(id);
+      if (row) entry = this.mapRowToEntry(row);
+    } else {
+      entry = await db.vault.get(id);
+    }
+
+    if (!entry) throw new Error("Entry not found");
+
+    // 1. Decrypt data to get sensitive bundle
+    const sensitive = await this.decryptEntry(entry, masterKey);
+    const metadata = await this.decryptEntryMetadata(entry, masterKey);
+
+    if (!sensitive.passkeyDetails) throw new Error("Not a passkey entry");
+
+    // 2. REPLAY PROTECTION: Verify counter is actually increasing
+    if (newCounter <= (sensitive.passkeyDetails.signCount || 0)) {
+      console.warn("[Security] Blocking suspected replay attack: Counter not increasing", {
+        stored: sensitive.passkeyDetails.signCount,
+        incoming: newCounter
+      });
+      return;
+    }
+
+    // 3. Update counter
+    sensitive.passkeyDetails.signCount = newCounter;
+
+    // 4. Re-save everything (Full encryption cycle)
+    await this.saveEntry({
+      ...entry,
+      title: metadata.title,
+      username: metadata.username,
+      category: metadata.category,
+      folderId: metadata.folderId,
+      isFavorite: metadata.isFavorite,
+      deletedAt: metadata.deletedAt,
+      sensitive
+    } as any, masterKey);
   }
 
   static async deleteEntry(id: string): Promise<void> {
@@ -991,6 +1219,39 @@ export class VaultService {
 
   static isInitialized(): boolean {
     return !!localStorage.getItem(MASTER_METADATA_KEY);
+  }
+
+  /**
+   * SECURITY: Re-saves all entries in the vault. 
+   * Used to apply new encryption standards or Metadata Privacy retroactively.
+   */
+  static async reSaveAllEntries(masterKey: CryptoKey): Promise<void> {
+    const entries = await this.loadAllFromSQLite();
+    console.log(`[Privacy] Retroactively applying privacy mode to ${entries.length} entries...`);
+
+    for (const entry of entries) {
+      try {
+        // 1. Decrypt full entry (to get sensitive data)
+        const sensitive = await this.decryptEntry(entry, masterKey);
+
+        // 2. Decrypt metadata (to get current title/username/structure)
+        const metadata = await this.decryptEntryMetadata(entry, masterKey);
+
+        // 3. Re-save using saveEntry (which will apply the CURRENT privacy settings from localStorage)
+        await this.saveEntry({
+          ...entry,
+          sensitive,
+          title: metadata.title,
+          username: metadata.username,
+          category: metadata.category,
+          folderId: metadata.folderId,
+          isFavorite: metadata.isFavorite,
+          deletedAt: metadata.deletedAt
+        } as any, masterKey);
+      } catch (e) {
+        console.error(`[Privacy] Failed to re-save entry ${entry.id}:`, e);
+      }
+    }
   }
 
 

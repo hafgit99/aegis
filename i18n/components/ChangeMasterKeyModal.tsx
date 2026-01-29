@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Lock, AlertTriangle, CheckCircle2, Loader2, Eye, EyeOff, Zap } from 'lucide-react';
+import { X, Lock, AlertTriangle, CheckCircle2, Loader2, Eye, EyeOff, Zap, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { ChangeMasterKeyService, ChangePasswordProgress } from '../../services/changeMasterKeyService';
 
@@ -8,9 +8,10 @@ interface ChangeMasterKeyModalProps {
   onClose: () => void;
   masterKey: CryptoKey | null;
   onSuccess: () => void;
+  isRotationOnly?: boolean;
 }
 
-const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, onSuccess }) => {
+const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, onSuccess, isRotationOnly = false }) => {
   const { t, lang } = useLanguage();
   const [stage, setStage] = useState<'input' | 'processing' | 'complete'>('input');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -27,7 +28,6 @@ const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, on
     processedEntries: 0,
   });
   const [isProcessing, setIsProcessing] = useState(false);
-  const progressIntervalRef = useRef<number | null>(null);
 
   const validateInputs = (): boolean => {
     setError('');
@@ -36,6 +36,8 @@ const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, on
       setError(lang === 'tr' ? 'Mevcut şifre gereklidir' : 'Current password is required');
       return false;
     }
+
+    if (isRotationOnly) return true;
 
     if (!newPassword) {
       setError(lang === 'tr' ? 'Yeni şifre gereklidir' : 'New password is required');
@@ -68,13 +70,20 @@ const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, on
     setIsProcessing(true);
 
     try {
-      await ChangeMasterKeyService.changeMasterKey(
-        currentPassword,
-        newPassword,
-        (prog) => {
-          setProgress(prog);
-        }
-      );
+      if (isRotationOnly) {
+        await ChangeMasterKeyService.rotateMasterKeyWithSamePassword(
+          currentPassword,
+          (prog) => setProgress(prog)
+        );
+      } else {
+        await ChangeMasterKeyService.changeMasterKey(
+          currentPassword,
+          newPassword,
+          (prog) => {
+            setProgress(prog);
+          }
+        );
+      }
 
       setStage('complete');
       setTimeout(() => {
@@ -141,10 +150,14 @@ const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, on
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">
-                  {lang === 'tr' ? 'Master Şifre Değiştir' : 'Change Master Password'}
+                  {isRotationOnly
+                    ? (lang === 'tr' ? 'Anahtar Rotasyonu' : 'Key Rotation')
+                    : (lang === 'tr' ? 'Master Şifre Değiştir' : 'Change Master Password')}
                 </h2>
                 <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
-                  {lang === 'tr' ? 'Tüm verileriniz güvenli bir şekilde yeniden şifrelenmektedir' : 'Your data will be securely re-encrypted'}
+                  {isRotationOnly
+                    ? (lang === 'tr' ? 'Mevcut şifrenizle verileri yeni anahtarlarla yeniden şifreler (Periyodik Bakım)' : 'Re-encrypts data with new keys using your current password (Periodic Maintenance)')
+                    : (lang === 'tr' ? 'Tüm verileriniz güvenli bir şekilde yeniden şifrelenmektedir' : 'Your data will be securely re-encrypted')}
                 </p>
               </div>
               <button
@@ -171,7 +184,7 @@ const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, on
             {/* Current Password */}
             <div className="space-y-3">
               <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                {lang === 'tr' ? 'Mevcut Şifre' : 'Current Password'}
+                {lang === 'tr' ? 'Master Şifre' : 'Master Password'}
               </label>
               <div className="relative">
                 <input
@@ -179,7 +192,7 @@ const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, on
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   disabled={isProcessing}
-                  placeholder={lang === 'tr' ? 'Mevcut şifrenizi girin' : 'Enter current password'}
+                  placeholder={lang === 'tr' ? 'Master şifrenizi girin' : 'Enter master password'}
                   className="w-full px-6 py-4 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-zinc-600 outline-none focus:border-blue-500/30 transition-all disabled:opacity-50"
                 />
                 <button
@@ -193,102 +206,117 @@ const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, on
               </div>
             </div>
 
-            {/* New Password */}
-            <div className="space-y-3">
-              <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                {lang === 'tr' ? 'Yeni Şifre' : 'New Password'}
-              </label>
-              <div className="relative">
-                <input
-                  type={showNewPassword ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  disabled={isProcessing}
-                  placeholder={lang === 'tr' ? 'Yeni şifrenizi girin' : 'Enter new password'}
-                  className="w-full px-6 py-4 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-zinc-600 outline-none focus:border-blue-500/30 transition-all disabled:opacity-50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  disabled={isProcessing}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors disabled:opacity-50"
-                >
-                  {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-
-              {/* Password Strength Indicator */}
-              {newPassword && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-black/40 rounded-full overflow-hidden">
-                      <motion.div
-                        animate={{ width: `${strength.score}%` }}
-                        className={`h-full transition-colors ${strength.score >= 80
-                            ? 'bg-emerald-500'
-                            : strength.score >= 60
-                              ? 'bg-blue-500'
-                              : strength.score >= 40
-                                ? 'bg-amber-500'
-                                : 'bg-red-500'
-                          }`}
-                      />
-                    </div>
-                    <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500">
-                      {strength.score}%
-                    </span>
+            {!isRotationOnly && (
+              <>
+                {/* New Password */}
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                    {lang === 'tr' ? 'Yeni Şifre' : 'New Password'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      disabled={isProcessing}
+                      placeholder={lang === 'tr' ? 'Yeni şifrenizi girin' : 'Enter new password'}
+                      className="w-full px-6 py-4 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-zinc-600 outline-none focus:border-blue-500/30 transition-all disabled:opacity-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      disabled={isProcessing}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors disabled:opacity-50"
+                    >
+                      {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
                   </div>
-                  {strength.issues.length > 0 && (
-                    <div className="space-y-1">
-                      {strength.issues.map((issue, idx) => (
-                        <p key={idx} className="text-[8px] text-red-500 font-bold uppercase tracking-widest">
-                          • {issue}
-                        </p>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </div>
 
-            {/* Confirm Password */}
-            <div className="space-y-3">
-              <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                {lang === 'tr' ? 'Şifreyi Onayla' : 'Confirm Password'}
-              </label>
-              <div className="relative">
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={isProcessing}
-                  placeholder={lang === 'tr' ? 'Şifreyi tekrar girin' : 'Confirm password'}
-                  className="w-full px-6 py-4 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-zinc-600 outline-none focus:border-blue-500/30 transition-all disabled:opacity-50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  disabled={isProcessing}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors disabled:opacity-50"
-                >
-                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                  {/* Password Strength Indicator */}
+                  {newPassword && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-black/40 rounded-full overflow-hidden">
+                          <motion.div
+                            animate={{ width: `${strength.score}%` }}
+                            className={`h-full transition-colors ${strength.score >= 80
+                              ? 'bg-emerald-500'
+                              : strength.score >= 60
+                                ? 'bg-blue-500'
+                                : strength.score >= 40
+                                  ? 'bg-amber-500'
+                                  : 'bg-red-500'
+                              }`}
+                          />
+                        </div>
+                        <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500">
+                          {strength.score}%
+                        </span>
+                      </div>
+                      {strength.issues.length > 0 && (
+                        <div className="space-y-1">
+                          {strength.issues.map((issue, idx) => (
+                            <p key={idx} className="text-[8px] text-red-500 font-bold uppercase tracking-widest">
+                              • {issue}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                    {lang === 'tr' ? 'Şifreyi Onayla' : 'Confirm Password'}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      disabled={isProcessing}
+                      placeholder={lang === 'tr' ? 'Şifreyi tekrar girin' : 'Confirm password'}
+                      className="w-full px-6 py-4 bg-black/40 border border-white/5 rounded-2xl text-white placeholder-zinc-600 outline-none focus:border-blue-500/30 transition-all disabled:opacity-50"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      disabled={isProcessing}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors disabled:opacity-50"
+                    >
+                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  {confirmPassword && newPassword !== confirmPassword && (
+                    <p className="text-[8px] text-red-500 font-bold uppercase tracking-widest">
+                      {lang === 'tr' ? '✗ Şifreler eşleşmiyor' : '✗ Passwords do not match'}
+                    </p>
+                  )}
+                  {confirmPassword && newPassword === confirmPassword && (
+                    <p className="text-[8px] text-emerald-500 font-bold uppercase tracking-widest">
+                      {lang === 'tr' ? '✓ Şifreler eşleşiyor' : '✓ Passwords match'}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
+            {isRotationOnly && (
+              <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-2xl flex items-start gap-3">
+                <Zap size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
+                <p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest leading-relaxed">
+                  {lang === 'tr'
+                    ? 'Bu işlem salt, iterasyon sayısı ve şifreleme anahtarlarını güncelleyerek kaba kuvvet saldırılarına karşı korumayı artırır.'
+                    : 'This process updates the salt, iteration count, and encryption keys, enhancing protection against brute-force attacks.'}
+                </p>
               </div>
-              {confirmPassword && newPassword !== confirmPassword && (
-                <p className="text-[8px] text-red-500 font-bold uppercase tracking-widest">
-                  {lang === 'tr' ? '✗ Şifreler eşleşmiyor' : '✗ Passwords do not match'}
-                </p>
-              )}
-              {confirmPassword && newPassword === confirmPassword && (
-                <p className="text-[8px] text-emerald-500 font-bold uppercase tracking-widest">
-                  {lang === 'tr' ? '✓ Şifreler eşleşiyor' : '✓ Passwords match'}
-                </p>
-              )}
-            </div>
+            )}
 
             {/* Buttons */}
             <div className="flex gap-4 pt-4">
@@ -301,11 +329,13 @@ const ChangeMasterKeyModal: React.FC<ChangeMasterKeyModalProps> = ({ onClose, on
               </button>
               <button
                 onClick={handleChangePassword}
-                disabled={!currentPassword || !newPassword || !confirmPassword || !strength.isValid || isProcessing}
+                disabled={!currentPassword || (!isRotationOnly && (!newPassword || !confirmPassword || !strength.isValid)) || isProcessing}
                 className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
               >
-                <Lock size={16} />
-                {lang === 'tr' ? 'Değiştir' : 'Change'}
+                {isRotationOnly ? <RefreshCw size={16} className={isProcessing ? 'animate-spin' : ''} /> : <Lock size={16} />}
+                {isRotationOnly
+                  ? (lang === 'tr' ? 'Rotasyonu Başlat' : 'Start Rotation')
+                  : (lang === 'tr' ? 'Değiştir' : 'Change')}
               </button>
             </div>
           </motion.div>

@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePasswordGenerator } from '../../hooks/usePasswordGenerator';
 import { PasskeyService } from '../../services/passkeyService';
 import { TagService } from '../../services/tagService';
+import { ErrorHandlingService } from '../../services/errorHandlingService';
 // Added Check icon to imports from lucide-react
 import { FileUp, File, X, AlertCircle, Loader2, Plus, Trash2, Eye, EyeOff, Lock, Globe, CreditCard, FileText, Download, ChevronRight, Wand2, Check, Wallet, Fingerprint, Hash } from 'lucide-react';
 
@@ -112,11 +113,15 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
   };
 
   const handleRegisterPasskey = async () => {
+    if (!masterKey) {
+      alert(lang === 'tr' ? 'Lütfen önce kasanın kilidini açın.' : 'Please unlock the vault first.');
+      return;
+    }
     try {
       const rpId = sensitiveData.passkeyDetails?.rpId || formData.url.replace(/^https?:\/\//, '').split('/')[0] || 'localhost';
       const displayName = sensitiveData.passkeyDetails?.displayName || formData.username || 'Aegis User';
 
-      const credential = await PasskeyService.createCredential(rpId, displayName);
+      const credential = await PasskeyService.createCredential(rpId, displayName, masterKey);
 
       setSensitiveData({
         ...sensitiveData,
@@ -135,9 +140,10 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
     const file = e.target.files?.[0];
     if (!file || !masterKey) return;
 
-    // Performance Guard: Max 100MB for IndexedDB storage (was 5MB)
-    if (file.size > 100 * 1024 * 1024) {
-      setFileError("File too large (>100MB)");
+    // Security Limit: 50MB to prevent browser crash / storage issues
+    if (file.size > 50 * 1024 * 1024) {
+      const key = ErrorHandlingService.handle(new Error("File size too large"), "EntryForm.fileUpload");
+      setFileError(t(key as any));
       return;
     }
 

@@ -4,7 +4,9 @@ import { CryptoService } from './cryptoService';
 import { VaultEntry, Category } from '../types';
 import { VaultService } from './vaultService';
 
-export type ExportFormat = 'aegis' | 'json' | 'csv';
+import { FidoCxpExporter } from './export/fidoCxpExporter';
+
+export type ExportFormat = 'aegis' | 'json' | 'csv' | 'fido_cxp';
 
 export class ExportService {
   static async exportVault(
@@ -104,6 +106,9 @@ export class ExportService {
       // If you need plaintext, manually decrypt and export separately.
       console.warn('[Security] Plaintext JSON export requested - this exposes all credentials unencrypted');
       return null;
+    } else if (format === 'fido_cxp') {
+      await FidoCxpExporter.exportPasskeys(decryptedEntries);
+      return;
     } else {
       // Düz Metin CSV
       const csvContent = this.convertToCSV(decryptedEntries);

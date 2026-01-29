@@ -23,6 +23,7 @@ interface VaultContextType {
     resetVault: () => Promise<void>;
     lock: () => Promise<void>;
     deduplicateVault: () => Promise<{ deletedCount: number }>;
+    applyMetadataPrivacy: () => Promise<void>;
     isInitialized: boolean;
     isLoading: boolean;
 }
@@ -240,7 +241,16 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const resetVault = async () => {
         await db.vault.clear();
         await db.folders.clear();
+
+        // Factory Reset: Clear all keys
+        localStorage.removeItem('aegis_vault_metadata');
+        localStorage.removeItem('aegis_master_verifier');
+        localStorage.removeItem('aegis_vault_initialized');
+        localStorage.removeItem('aegis_2fa_config');
+
         await loadEntries();
+        // Force reload to show Setup screen
+        window.location.reload();
     };
 
     const deduplicateVault = useCallback(async () => {
@@ -249,6 +259,17 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await loadEntries();
         return result;
     }, [masterKey, loadEntries]);
+
+    const applyMetadataPrivacy = useCallback(async () => {
+        if (!masterKey) throw new Error("Vault locked");
+        setDeriving(true);
+        try {
+            await VaultService.reSaveAllEntries(masterKey);
+            await loadEntries(true);
+        } finally {
+            setDeriving(false);
+        }
+    }, [masterKey, loadEntries, setDeriving]);
 
     return (
         <VaultContext.Provider value={{
@@ -268,7 +289,8 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             lock: handleLock,
             deduplicateVault,
             isLoading,
-            isInitialized: VaultService.isInitialized()
+            applyMetadataPrivacy,
+            isInitialized: !!localStorage.getItem('aegis_vault_initialized')
         }}>
             {children}
         </VaultContext.Provider>

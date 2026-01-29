@@ -2,6 +2,7 @@ import { CryptoService } from './cryptoService';
 import { RecoveryService } from './recoveryService';
 import { db } from '../db';
 import { VaultEntry, SensitiveData } from '../types';
+import { VaultService } from './vaultService';
 
 const MASTER_METADATA_KEY = 'aegis_vault_metadata';
 const MASTER_VERIFIER_KEY = 'aegis_vault_verifier';
@@ -34,22 +35,7 @@ export class ChangeMasterKeyService {
       if (!verifierStr) throw new Error("Verifier not found");
 
       const verifier = JSON.parse(verifierStr);
-      const encryptedBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.payload));
-      const tagBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.tag));
-      const ivBuffer = new Uint8Array(CryptoService.base64ToArrayBuffer(verifier.iv));
-
-      const combined = new Uint8Array(encryptedBuffer.byteLength + tagBuffer.byteLength);
-      combined.set(encryptedBuffer, 0);
-      combined.set(tagBuffer, encryptedBuffer.byteLength);
-
-      const decryptedBuffer = await window.crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: ivBuffer as any },
-        currentKey,
-        combined.buffer as any
-      );
-
-      const decoder = new TextDecoder();
-      const decrypted = decoder.decode(decryptedBuffer);
+      const decrypted = await VaultService.decryptWithMasterKey(currentKey, verifier);
 
       return decrypted === VALIDATOR_TEXT;
     } catch (e) {
@@ -58,7 +44,7 @@ export class ChangeMasterKeyService {
   }
 
   /**
-   * Change the master key with full vault encryption
+   * Change the master key with full vault encryption (Upgrades to V4)
    */
   static async changeMasterKey(
     currentPassword: string,
@@ -74,20 +60,23 @@ export class ChangeMasterKeyService {
         processedEntries: 0,
       });
 
-      const isValid = await this.validateCurrentPassword(currentPassword);
-      if (!isValid) {
+      const metadataStr = localStorage.getItem(MASTER_METADATA_KEY);
+      if (!metadataStr) throw new Error("Vault not setup");
+      const metadata = JSON.parse(metadataStr);
+
+      const salt = new Uint8Array(CryptoService.base64ToArrayBuffer(metadata.salt));
+      const iterations = metadata.iterations || CryptoService.DEFAULT_ITERATIONS;
+      const { key: currentKey } = await CryptoService.deriveKeyWithRaw(currentPassword, salt, iterations, CryptoService.PURPOSES.VAULT_LOCK_UNLOCK);
+
+      const verifierStr = localStorage.getItem(MASTER_VERIFIER_KEY);
+      if (!verifierStr) throw new Error("Verifier not found");
+      const verifier = JSON.parse(verifierStr);
+      const decrypted = await VaultService.decryptWithMasterKey(currentKey, verifier);
+      if (decrypted !== VALIDATOR_TEXT) {
         throw new Error("INVALID_CURRENT_PASSWORD");
       }
 
-      // Get current salt and derive current key
-      const metadata = localStorage.getItem(MASTER_METADATA_KEY);
-      if (!metadata) throw new Error("Vault not setup");
-
-      const { salt: currentSaltB64, iterations: currentIterations = CryptoService.DEFAULT_ITERATIONS } = JSON.parse(metadata);
-      const currentSalt = new Uint8Array(CryptoService.base64ToArrayBuffer(currentSaltB64));
-      const currentKey = await CryptoService.deriveKeyFromPassword(currentPassword, currentSalt, currentIterations);
-
-      // Stage 2: Decrypt all entries with current key
+      // Stage 2: Load and Decrypt all entries
       onProgress?.({
         stage: 'decrypting',
         progress: 10,
@@ -95,49 +84,26 @@ export class ChangeMasterKeyService {
         processedEntries: 0,
       });
 
-      const allEntries = await db.vault.toArray();
-      const decryptedEntries: Array<{ original: VaultEntry; sensitive: SensitiveData }> = [];
+      const isSQLite = await VaultService.isMigratedToSQLite();
+      const allEntries = isSQLite ? await VaultService.loadAllFromSQLite() : await db.vault.toArray();
+      const decryptedData: Array<{ plain: any; sensitive: SensitiveData }> = [];
 
       for (let i = 0; i < allEntries.length; i++) {
         const entry = allEntries[i];
         try {
-          // Decrypt title
-          const titleCombined = new Uint8Array(entry.encryptedTitle.byteLength + entry.titleTag.byteLength);
-          titleCombined.set(entry.encryptedTitle, 0);
-          titleCombined.set(entry.titleTag, entry.encryptedTitle.byteLength);
+          const sensitive = await VaultService.decryptEntry(entry, currentKey);
+          const meta = await VaultService.decryptEntryMetadata(entry, currentKey);
 
-          const titleBuffer = await window.crypto.subtle.decrypt(
-            { name: 'AES-GCM', iv: entry.titleIv as any },
-            currentKey,
-            titleCombined.buffer as any
-          );
-          const titleDecoder = new TextDecoder();
-          const title = titleDecoder.decode(titleBuffer);
-
-          // Decrypt username
-          const usernameCombined = new Uint8Array(entry.encryptedUsername.byteLength + entry.usernameTag.byteLength);
-          usernameCombined.set(entry.encryptedUsername, 0);
-          usernameCombined.set(entry.usernameTag, entry.encryptedUsername.byteLength);
-
-          const usernameBuffer = await window.crypto.subtle.decrypt(
-            { name: 'AES-GCM', iv: entry.usernameIv as any },
-            currentKey,
-            usernameCombined.buffer as any
-          );
-          const usernameDecoder = new TextDecoder();
-          const username = usernameDecoder.decode(usernameBuffer);
-
-          // Decrypt sensitive data
-          const decryptedStr = await CryptoService.decrypt(
-            entry.encryptedData,
-            currentKey,
-            entry.iv,
-            entry.tag
-          );
-          const sensitive: SensitiveData = JSON.parse(decryptedStr);
-
-          decryptedEntries.push({
-            original: entry,
+          decryptedData.push({
+            plain: {
+              ...entry,
+              title: meta.title,
+              username: meta.username,
+              category: meta.category,
+              folderId: meta.folderId,
+              isFavorite: meta.isFavorite,
+              deletedAt: meta.deletedAt,
+            },
             sensitive
           });
 
@@ -148,12 +114,12 @@ export class ChangeMasterKeyService {
             processedEntries: i + 1,
           });
         } catch (e) {
-          console.error('Failed to decrypt entry:', entry.id, e);
+          console.error('[Rotation] Failed to decrypt entry:', entry.id, e);
           throw new Error(`DECRYPTION_FAILED_${entry.id}`);
         }
       }
 
-      // Stage 3: Create new key material
+      // Stage 3: Generate New Key Material
       onProgress?.({
         stage: 'encrypting',
         progress: 40,
@@ -162,128 +128,71 @@ export class ChangeMasterKeyService {
       });
 
       const newSalt = window.crypto.getRandomValues(new Uint8Array(16));
-      // Benchmark for new optimized iterations
       const newIterations = await CryptoService.benchmarkIterations();
-      const newKey = await CryptoService.deriveKeyFromPassword(newPassword, newSalt, newIterations);
+      const { key: newKey, raw: newKeyRaw } = await CryptoService.deriveKeyWithRaw(newPassword, newSalt, newIterations, CryptoService.PURPOSES.VAULT_LOCK_UNLOCK);
 
-      // Stage 4: Re-encrypt all entries with new key
-      const newEntries: VaultEntry[] = [];
+      // Stage 4: Re-encrypt and Save
+      // If SQLite is active, we empty the renderer state and let saveEntry handle electron path
+      if (!isSQLite) {
+        await db.vault.clear(); // Clear old key entries
+      }
 
-      for (let i = 0; i < decryptedEntries.length; i++) {
-        const { original, sensitive } = decryptedEntries[i];
+      // Prepare Electron for rotation if active
+      if ((window as any).electronAPI?.db) {
+        await (window as any).electronAPI.vault.prepareRotation(newKeyRaw);
+      }
 
-        // Re-encrypt title
-        const titleEncoder = new TextEncoder();
-        const titleBytes = titleEncoder.encode(original.title || '');
-        const titleIv = window.crypto.getRandomValues(new Uint8Array(12));
-        const titleEncrypted = await window.crypto.subtle.encrypt(
-          { name: 'AES-GCM', iv: titleIv as any },
-          newKey,
-          titleBytes as any
-        );
-        const titleBuffer = new Uint8Array(titleEncrypted);
-        const titleCiphertext = titleBuffer.slice(0, titleBuffer.length - 16);
-        const titleTag = titleBuffer.slice(titleBuffer.length - 16);
-
-        // Re-encrypt username
-        const usernameEncoder = new TextEncoder();
-        const usernameBytes = usernameEncoder.encode(original.username || '');
-        const usernameIv = window.crypto.getRandomValues(new Uint8Array(12));
-        const usernameEncrypted = await window.crypto.subtle.encrypt(
-          { name: 'AES-GCM', iv: usernameIv as any },
-          newKey,
-          usernameBytes as any
-        );
-        const usernameBuffer = new Uint8Array(usernameEncrypted);
-        const usernameCiphertext = usernameBuffer.slice(0, usernameBuffer.length - 16);
-        const usernameTag = usernameBuffer.slice(usernameBuffer.length - 16);
-
-        // Re-encrypt sensitive data
-        const sensitiveStr = JSON.stringify(sensitive);
-        const { ciphertext: dataCiphertext, iv: dataIv, tag: dataTag } = await CryptoService.encrypt(sensitiveStr, newKey);
-
-        const newEntry: VaultEntry = {
-          ...original,
-          encryptedTitle: new Uint8Array(titleCiphertext),
-          titleIv: titleIv,
-          titleTag: titleTag,
-          encryptedUsername: new Uint8Array(usernameCiphertext),
-          usernameIv: usernameIv,
-          usernameTag: usernameTag,
-          encryptedData: dataCiphertext,
-          iv: dataIv,
-          tag: dataTag,
-          updatedAt: Date.now(),
-        };
-
-        newEntries.push(newEntry);
+      for (let i = 0; i < decryptedData.length; i++) {
+        const { plain, sensitive } = decryptedData[i];
+        await VaultService.saveEntry({ ...plain, sensitive }, newKey);
 
         onProgress?.({
           stage: 'encrypting',
-          progress: 40 + (i / decryptedEntries.length) * 45,
+          progress: 40 + (i / decryptedData.length) * 45,
           totalEntries: allEntries.length,
           processedEntries: i + 1,
         });
       }
 
-      // Stage 5: Save new metadata and verifier
+      // Stage 5: Update Verifier & Metadata
       onProgress?.({
         stage: 'saving',
-        progress: 85,
+        progress: 90,
         totalEntries: allEntries.length,
         processedEntries: allEntries.length,
       });
 
-      // Create new verifier with new key
       const encoder = new TextEncoder();
       const dataBytes = encoder.encode(VALIDATOR_TEXT);
-      const verifierIv = window.crypto.getRandomValues(new Uint8Array(12));
-
-      const verifierEncrypted = await window.crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv: verifierIv as any },
-        newKey,
-        dataBytes as any
-      );
-
-      const verifierBuffer = new Uint8Array(verifierEncrypted);
-      const verifierCiphertext = verifierBuffer.slice(0, verifierBuffer.length - 16);
-      const verifierTag = verifierBuffer.slice(verifierBuffer.length - 16);
+      const newIv = window.crypto.getRandomValues(new Uint8Array(12));
+      const newEncrypted = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv: newIv }, newKey, dataBytes);
+      const fullBuffer = new Uint8Array(newEncrypted);
 
       const newVerifierBlob = {
-        payload: CryptoService.arrayBufferToBase64(verifierCiphertext.buffer),
-        iv: CryptoService.arrayBufferToBase64(verifierIv.buffer),
-        tag: CryptoService.arrayBufferToBase64(verifierTag.buffer)
+        payload: CryptoService.arrayBufferToBase64(fullBuffer.slice(0, fullBuffer.length - 16).buffer),
+        iv: CryptoService.arrayBufferToBase64(newIv.buffer),
+        tag: CryptoService.arrayBufferToBase64(fullBuffer.slice(fullBuffer.length - 16).buffer),
+        salt: CryptoService.arrayBufferToBase64(newSalt.buffer),
+        iterations: newIterations
       };
 
-      // Update localStorage
-      localStorage.setItem(MASTER_METADATA_KEY, JSON.stringify({
+      const newMetadata = {
         salt: CryptoService.arrayBufferToBase64(newSalt.buffer),
         iterations: newIterations,
-        version: 5,
-        createdAt: Date.now()
-      }));
+        version: 4, // Upgraded to V4 Full Package
+        createdAt: metadata.createdAt,
+        rotatedAt: Date.now()
+      };
 
+      // Electron Rotation Connection
+      if ((window as any).electronAPI?.db) {
+        await (window as any).electronAPI.vault.rotateKey(newKeyRaw, newVerifierBlob);
+      }
+
+      localStorage.setItem(MASTER_METADATA_KEY, JSON.stringify(newMetadata));
       localStorage.setItem(MASTER_VERIFIER_KEY, JSON.stringify(newVerifierBlob));
 
-      // Update Electron if available
-      if ((window as any).electronAPI?.vault) {
-        await (window as any).electronAPI.vault.setVerifier(newVerifierBlob);
-      }
-
-      // Update database
-      await db.vault.bulkPut(newEntries);
-
-      // AUDIT: Log password change
-      if ((window as any).electronAPI?.audit) {
-        await (window as any).electronAPI.audit.logEvent('MASTER_KEY_CHANGED', {
-          timestamp: Date.now(),
-          entriesUpdated: newEntries.length
-        });
-      }
-
-      // WARNING: Recovery blob is now invalid because it stores the OLD master key.
-      // We must reset recovery so the user is forced/prompted to set it up again.
-      // We cannot update it automatically without the user's recovery words.
+      // Reset Recovery (Mandatory after key change)
       RecoveryService.resetRecovery();
 
       onProgress?.({
@@ -292,13 +201,21 @@ export class ChangeMasterKeyService {
         totalEntries: allEntries.length,
         processedEntries: allEntries.length,
       });
-
-      // Memory cleanup
-      dataBytes.fill(0);
     } catch (e) {
-      console.error('Master key change failed:', e);
+      console.error('Master key rotation failed:', e);
       throw e;
     }
+  }
+
+  /**
+   * Rotates the master key using the same password but new salt/iterations.
+   * Useful for periodic maintenance without forcing a password change.
+   */
+  static async rotateMasterKeyWithSamePassword(
+    password: string,
+    onProgress?: (progress: ChangePasswordProgress) => void
+  ): Promise<void> {
+    return this.changeMasterKey(password, password, onProgress);
   }
 
   /**
@@ -312,7 +229,7 @@ export class ChangeMasterKeyService {
     const issues: string[] = [];
 
     if (password.length < 8) {
-      issues.push("Minimum 8 character required");
+      issues.push("Minimum 8 characters required");
     }
 
     if (!/[a-z]/.test(password)) {

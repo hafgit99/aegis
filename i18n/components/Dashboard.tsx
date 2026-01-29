@@ -8,10 +8,11 @@ import {
   Smartphone, Key, Zap, Languages, Database, CreditCard, FileText, Download, Fingerprint, Moon, Sun,
   ChevronUp, SortAsc, SortDesc, Filter, CheckSquare, Square, Check, Copy, Loader2, ShieldCheck,
   RotateCcw, Flame, Clock, Calendar, ShieldX, Crown, Gem, Award, ChevronRight, Eye, MoreVertical, SlidersHorizontal, RefreshCw, Folder, BookOpen, Hourglass, Wallet, Cpu,
-  Cloud, QrCode, Hash
+  Cloud, QrCode, Hash, Bug, Activity
 } from 'lucide-react';
 import { VaultEntry, SensitiveData, Category } from '../../types';
 import { AutoLockStatus } from '../../hooks/useAutoLock';
+import { ErrorHandlingService } from '../../services/errorHandlingService';
 import ImageBrandIcon from './ImageBrandIcon';
 import EntryForm from './EntryForm';
 import SecurityAudit from './SecurityAudit';
@@ -29,6 +30,7 @@ import UserGuideModal from './UserGuideModal';
 import CloudBridgeView from './CloudBridgeView';
 import ScanModal from './ScanModal';
 import ImportSharedEntryModal from './ImportSharedEntryModal';
+import ErrorLogsModal from './ErrorLogsModal';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useVault } from '../../hooks/useVault';
 import { useAuth } from '../../contexts/AuthContext';
@@ -477,6 +479,7 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
   const [showPortability, setShowPortability] = useState(false);
   const [showLicensing, setShowLicensing] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
+  const [isRotationMode, setIsRotationMode] = useState(false);
   const [showChangeMasterKey, setShowChangeMasterKey] = useState(false);
   const [showLegalModal, setShowLegalModal] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
@@ -496,6 +499,27 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
   const [isBioEnabled, setIsBioEnabled] = useState(BiometricService.isEnabled());
   const [isSKEnabled, setIsSKEnabled] = useState(BiometricService.isSecurityKeyEnabled());
   const [isLocking, setIsLocking] = useState(false);
+  const [isDebugMode, setIsDebugMode] = useState(ErrorHandlingService.getDebugMode());
+  const [showErrorLogs, setShowErrorLogs] = useState(false);
+  const [isMetadataPrivacyEnabled, setIsMetadataPrivacyEnabled] = useState(localStorage.getItem('aegis_metadata_privacy') === 'true');
+
+  const { applyMetadataPrivacy } = useVault();
+
+  const toggleMetadataPrivacy = () => {
+    const next = !isMetadataPrivacyEnabled;
+    setIsMetadataPrivacyEnabled(next);
+    localStorage.setItem('aegis_metadata_privacy', next.toString());
+  };
+
+  const handleApplyPrivacyToAll = async () => {
+    if (!window.confirm(lang === 'tr' ? "Tüm mevcut girişlerin metadataları (kategori, klasör vb.) maskelenecek. Bu işlem biraz zaman alabilir. Devam edilsin mi?" : "Metadata of all existing entries will be masked. This may take a moment. Continue?")) return;
+    try {
+      await applyMetadataPrivacy();
+      alert(t('success_title'));
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
 
   const handleLogout = async () => {
     setIsLocking(true);
@@ -548,6 +572,7 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
     setEditingEntry(null);
     setShowResetConfirm(null);
     setCurrentFolderId(null);
+    setIsRotationMode(false); // Reset rotation mode on tab change
   }, [activeTab]);
 
   // Yeni sekme seçildiğinde sayfayı en yukarı kaydır
@@ -559,6 +584,28 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
     }, 50);
     return () => clearTimeout(timer);
   }, [activeTab]);
+
+  const handleRotateKey = () => {
+    setIsRotationMode(true);
+    setShowChangeMasterKey(true);
+  };
+
+  // SECURITY: Monitor Master Key age for rotation reminders
+  const keyStatus = useMemo(() => {
+    const metaStr = localStorage.getItem('aegis_vault_metadata');
+    if (!metaStr) return { isOld: false, days: 0 };
+
+    const meta = JSON.parse(metaStr);
+    const lastRotated = meta.rotatedAt || meta.createdAt || Date.now();
+    const ageMs = Date.now() - lastRotated;
+    const ageDays = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+
+    return {
+      isOld: ageDays > 180, // POLICY: Rotate every 180 days
+      days: ageDays,
+      lastRotated
+    };
+  }, [showChangeMasterKey]); // Refresh when modal closes (rotation might have happened)
 
 
   useEffect(() => {
@@ -668,6 +715,12 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
   }, [triggerPanic]);
 
   const [isCleaning, setIsCleaning] = useState(false);
+  const toggleDebugMode = () => {
+    const newState = !isDebugMode;
+    setIsDebugMode(newState);
+    ErrorHandlingService.setDebugMode(newState);
+  };
+
   const handleDeduplicate = async () => {
     if (isCleaning) return;
     setIsCleaning(true);
@@ -1177,6 +1230,34 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
         </header>
 
         <section ref={scrollRef} className="flex-1 overflow-y-auto custom-scrollbar relative">
+          {keyStatus.isOld && activeTab !== 'settings' && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mx-4 mt-4 glass p-4 rounded-[2rem] border border-red-500/30 bg-red-500/5 flex items-center justify-between group shadow-2xl shadow-red-500/10"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-red-500 text-white rounded-2xl shadow-xl shadow-red-500/20 animate-pulse">
+                  <ShieldAlert size={20} />
+                </div>
+                <div>
+                  <h4 className="text-[11px] font-black text-white uppercase tracking-widest flex items-center gap-2">
+                    {t('security_alert')} <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping" />
+                  </h4>
+                  <p className="text-[9px] text-zinc-400 font-bold uppercase mt-1 tracking-wider">
+                    {t('rotation_required_desc').replace('{days}', keyStatus.days.toString())}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleRotateKey}
+                className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white text-[9px] font-black uppercase tracking-[0.2em] rounded-xl transition-all shadow-lg shadow-red-600/20 active:scale-95"
+              >
+                {t('rotate_now')}
+              </button>
+            </motion.div>
+          )}
+
           <AnimatePresence mode="popLayout">
             <motion.div
               key={`main-tab-content-${activeTab}`}
@@ -1193,7 +1274,7 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
               )}
 
               {activeTab === 'audit' && (
-                <SecurityAudit entries={entries} onEditEntry={handleEditEntry} />
+                <SecurityAudit entries={entries} onEditEntry={handleEditEntry} onRotateKey={handleRotateKey} />
               )}
 
               {activeTab === 'trash' && (
@@ -1293,6 +1374,38 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
                                 <p className="text-xs text-zinc-400 mt-2 uppercase tracking-widest">{t('user_guide_subtext')}</p>
                               </div>
                               <div className="text-blue-500 group-hover:translate-x-1 transition-transform"><ChevronRight size={24} /></div>
+                            </div>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-8 mt-6">
+                          <div className="glass p-8 rounded-[2rem] border border-main flex flex-col justify-between shadow-lg group hover:border-red-500/20 transition-all">
+                            <div className="flex items-center justify-between mb-4">
+                              <div className="flex items-center gap-4">
+                                <Bug size={20} className="text-red-500 group-hover:animate-pulse" />
+                                <h5 className="text-[11px] font-black uppercase tracking-widest text-white">{t('debug_mode')}</h5>
+                              </div>
+                              <button
+                                onClick={toggleDebugMode}
+                                className={`px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all ${isDebugMode ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-zinc-900 text-zinc-600 border border-white/5'}`}
+                              >
+                                {isDebugMode ? t('status_enabled') : t('status_disabled')}
+                              </button>
+                            </div>
+                            <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed mb-4">{t('debug_mode_desc')}</p>
+                          </div>
+
+                          <button
+                            onClick={() => setShowErrorLogs(true)}
+                            className="glass p-8 rounded-[2rem] border border-main flex flex-col justify-between shadow-lg group hover:border-zinc-500/50 transition-all"
+                          >
+                            <div className="flex items-center gap-4 mb-4">
+                              <Activity size={20} className="text-zinc-500 group-hover:text-white transition-colors" />
+                              <h5 className="text-[11px] font-black uppercase tracking-widest text-white">{lang === 'tr' ? "Hata Günlükleri" : "Internal Error Logs"}</h5>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <p className="text-[9px] text-zinc-500 font-bold uppercase leading-relaxed">{lang === 'tr' ? "Son 50 hatayı görüntüle" : "View the last 50 technical events"}</p>
+                              <ChevronRight size={16} className="text-zinc-700 group-hover:text-white transition-all group-hover:translate-x-1" />
                             </div>
                           </button>
                         </div>
@@ -1408,6 +1521,34 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
                                 {t('enable_integration')}
                               </button>
                             </div>
+
+                            {/* Metadata Privacy Card */}
+                            <div className="glass p-5 rounded-[1.5rem] border border-white/5 flex items-center justify-between group hover:border-amber-500/20 transition-all shadow-lg">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-amber-500/10 text-amber-500 rounded-lg group-hover:scale-110 transition-transform">
+                                  <Shield size={18} />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('metadata_privacy')}</h4>
+                                  <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1">{t('metadata_privacy_desc') || "Masks entry categories and folder IDs in the database"}</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={toggleMetadataPrivacy}
+                                className={`px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest transition-all ${isMetadataPrivacyEnabled ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/20' : 'bg-zinc-900 text-zinc-600 border border-white/5'}`}
+                              >
+                                {isMetadataPrivacyEnabled ? t('status_enabled') : t('status_disabled')}
+                              </button>
+                            </div>
+                            {isMetadataPrivacyEnabled && (
+                              <button
+                                onClick={handleApplyPrivacyToAll}
+                                className="mt-3 w-full py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[8px] font-black uppercase tracking-widest rounded-xl transition-all border border-amber-500/20 flex items-center justify-center gap-2 group/btn"
+                              >
+                                <RefreshCw size={12} className="group-hover/btn:rotate-180 transition-transform duration-500" />
+                                {lang === 'tr' ? "Mevcut Girişlere Uygula" : "Apply to Existing Entries"}
+                              </button>
+                            )}
                           </div>
                         </section>
 
@@ -1484,7 +1625,6 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
                               <ChevronRight size={16} className="text-zinc-700 group-hover:text-amber-500 transition-colors" />
                             </button>
 
-                            {/* Master Key Card */}
                             <button onClick={() => setShowChangeMasterKey(true)} className="glass p-5 rounded-[1.5rem] border border-white/5 text-left hover:border-blue-500/20 transition-all flex items-center justify-between group shadow-lg">
                               <div className="flex items-center gap-4">
                                 <div className="p-2 bg-blue-600/10 text-blue-500 rounded-lg group-hover:scale-110 transition-transform">
@@ -1496,6 +1636,29 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
                                 </div>
                               </div>
                               <ChevronRight size={16} className="text-zinc-700 group-hover:text-blue-500 transition-colors" />
+                            </button>
+
+                            {/* Key Rotation Card */}
+                            <button onClick={handleRotateKey} className={`glass p-5 rounded-[1.5rem] border ${keyStatus.isOld ? 'border-red-500/40 bg-red-500/[0.03]' : 'border-white/5'} text-left hover:border-indigo-500/20 transition-all flex items-center justify-between group shadow-lg`}>
+                              <div className="flex items-center gap-4">
+                                <div className={`p-2 rounded-lg group-hover:scale-110 transition-transform ${keyStatus.isOld ? 'bg-red-500/20 text-red-500' : 'bg-indigo-500/10 text-indigo-500'}`}>
+                                  <RefreshCw size={18} className={keyStatus.isOld ? 'animate-pulse' : ''} />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="text-xs font-black text-white uppercase tracking-widest">{t('rotate_master_key')}</h4>
+                                    {keyStatus.isOld && (
+                                      <span className="px-1.5 py-0.5 bg-red-600 text-white text-[7px] font-black rounded uppercase tracking-tighter">
+                                        {t('at_risk')}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[8px] text-zinc-500 font-bold uppercase mt-1">
+                                    {keyStatus.isOld ? t('rotation_overdue_desc') : t('periodic_maintenance_desc')} ({keyStatus.days} {t('days_ago')})
+                                  </p>
+                                </div>
+                              </div>
+                              <ChevronRight size={16} className={`text-zinc-700 group-hover:text-indigo-500 transition-colors`} />
                             </button>
                           </div>
 
@@ -1734,7 +1897,27 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
           {showPortability && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"><PortabilityWizard onClose={() => setShowPortability(false)} /></div>}
           {show2FASetup && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"><TwoFactorSetup onClose={() => setShow2FASetup(false)} onComplete={() => setShow2FASetup(false)} /></div>}
           {showRecovery && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"><RecoveryWordsView onClose={() => setShowRecovery(false)} /></div>}
-          {showChangeMasterKey && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"><ChangeMasterKeyModal onClose={() => setShowChangeMasterKey(false)} masterKey={masterKey} onSuccess={() => setShowChangeMasterKey(false)} /></div>}
+          {showChangeMasterKey && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl">
+              <ChangeMasterKeyModal
+                masterKey={masterKey}
+                onClose={() => {
+                  setShowChangeMasterKey(false);
+                  setIsRotationMode(false);
+                }}
+                onSuccess={() => {
+                  loadEntries(true);
+                  setIsRotationMode(false);
+                }}
+                isRotationOnly={isRotationMode}
+              />
+            </div>
+          )}
+          <ErrorLogsModal
+            isOpen={showErrorLogs}
+            onClose={() => setShowErrorLogs(false)}
+            lang={lang}
+          />
           {showDuressSetup && <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"><DuressModeSetup onClose={() => setShowDuressSetup(false)} /></div>}
           {showResetConfirm && (
             <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl">

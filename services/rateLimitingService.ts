@@ -19,7 +19,7 @@ export interface RateLimitStatus {
 export class RateLimitingService {
   private static readonly DEFAULT_WINDOW_MS = 60000; // 1 minute
   private static readonly DEFAULT_MAX_ATTEMPTS = 5;
-  
+
   private static inMemoryStorage = new Map<string, { count: number; windowStart: number; windowEnd: number }>();
   private static cleanupInterval: NodeJS.Timeout | null = null;
 
@@ -150,6 +150,20 @@ export class RateLimitingService {
       resetTime: data.windowEnd,
       retryAfterSeconds: data.count >= maxAttempts ? retryAfterSeconds : 0,
     };
+  }
+
+  /**
+   * Record an attempt (usually failed) for rate limiting
+   * @param key Unique identifier
+   * @param success Whether the attempt was successful
+   * @param config Rate limit configuration
+   */
+  static recordAttempt(key: string, success: boolean, config: Partial<RateLimitConfig> = {}): void {
+    if (!success) {
+      this.increment(key, 1, config);
+    } else {
+      this.reset(key, config.keyPrefix);
+    }
   }
 
   /**

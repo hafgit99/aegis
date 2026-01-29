@@ -29,6 +29,11 @@ export interface AuditStats {
     patternCount: number;
     initialized: boolean;
   };
+  masterKeyStatus?: {
+    lastRotated: number;
+    isOld: boolean;
+    ageDays: number;
+  };
 }
 
 const commonPatterns = ['123456', 'password', 'qwerty', '12345678', 'admin', 'welcome'];
@@ -177,14 +182,38 @@ export const useSecurityAudit = (entries: VaultEntry[], decryptFn: (e: VaultEntr
     // Get breach database statistics
     const breachStats = OfflineBreachService.getStats();
 
-    const newStats = {
+    // 6. Master Key Age Check (Key Rotation Health)
+    const vaultMetaStr = localStorage.getItem('aegis_vault_metadata');
+    let masterKeyStatus = { lastRotated: now, isOld: false, ageDays: 0 };
+    if (vaultMetaStr) {
+      const meta = JSON.parse(vaultMetaStr);
+      // Use rotatedAt if available, otherwise fallback to createdAt
+      const lastRotated = meta.rotatedAt || meta.createdAt || now;
+      const ageMs = now - lastRotated;
+      const ageDays = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+
+      // ROTATION POLICY: 
+      // 1. Age > 365 days (1 year) is considered OLD (Critical)
+      // 2. Iterations < 20 (Stronger default) is considered sub-optimal (Recommended)
+      const isOld = ageDays > 365;
+      const subOptimalIterations = (meta.iterations || 0) < 20;
+
+      masterKeyStatus = {
+        lastRotated,
+        isOld: isOld || subOptimalIterations,
+        ageDays
+      };
+    }
+
+    const newStats: AuditStats = {
       score: finalScore,
       total: entries.length,
       unique: Object.keys(plainPasswords).length,
       atRisk: atRiskIds.size,
       secureCount: entries.length - atRiskIds.size,
       breachMatches,
-      breachDatabaseStats: breachStats
+      breachDatabaseStats: breachStats,
+      masterKeyStatus
     };
 
     console.log(`[SecurityAudit] Audit complete: score=${finalScore}, breached=${breachMatches}, atRisk=${atRiskIds.size}`);

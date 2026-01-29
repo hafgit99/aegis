@@ -17,6 +17,7 @@ const AppContent: React.FC = () => {
   const {
     unlock,
     lock,
+    loadEntries,
     setup,
     isInitialized,
     entries
@@ -150,7 +151,12 @@ const AppContent: React.FC = () => {
                 ? CryptoService.base64ToArrayBuffer(challenge)
                 : challenge;
 
-              const assertion = await PasskeyService.signChallenge(sensitive.passkeyDetails, challengeBuffer);
+              const assertion = await PasskeyService.signChallenge(sensitive.passkeyDetails, challengeBuffer, masterKey);
+
+              // REPLAY PROTECTION: Persist the new counter BEFORE responding
+              await VaultService.updatePasskeyCounter(entry.id, assertion.newCounter, masterKey);
+              await loadEntries(true);
+
               extension.sendResult(`passkey-result-${requestId}`, assertion);
             } else {
               extension.sendResult(`passkey-result-${requestId}`, { error: "NOT_A_PASSKEY" });

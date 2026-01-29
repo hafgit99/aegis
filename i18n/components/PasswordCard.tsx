@@ -11,7 +11,10 @@ import { VaultEntry, SensitiveData, Category } from '../../types';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { PasskeyService } from '../../services/passkeyService';
 import { BiometricService } from '../../services/biometricService';
+import { VaultService } from '../../services/vaultService';
 import { TagService } from '../../services/tagService';
+import { useAuth } from '../../contexts/AuthContext';
+import { useVault } from '../../contexts/VaultContext';
 import ShareModal from './ShareModal';
 
 interface PasswordCardProps {
@@ -32,6 +35,8 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
   isSelected, onSelect, isSelectionMode
 }) => {
   const { t, lang } = useLanguage();
+  const { masterKey } = useAuth();
+  const { loadEntries } = useVault();
   const [isRevealed, setIsRevealed] = useState(false);
   const [sensitiveData, setSensitiveData] = useState<SensitiveData | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -109,6 +114,8 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
 
     setIsSigning(true);
     try {
+      if (!masterKey) throw new Error("Vault locked");
+
       // Require biometric approval for signing
       const isVerified = await BiometricService.verifyUser();
       if (!isVerified) {
@@ -118,7 +125,19 @@ const PasswordCard: React.FC<PasswordCardProps> = memo(({
 
       // Simulate a challenge from a server
       const challenge = new TextEncoder().encode('aegis-vault-challenge-' + Date.now()).buffer;
-      const assertion = await PasskeyService.signChallenge(sensitiveData.passkeyDetails, challenge);
+      const assertion = await PasskeyService.signChallenge(sensitiveData.passkeyDetails, challenge, masterKey);
+
+      // PERSIST: Save the new counter to the encrypted database (Replay Protection)
+      await VaultService.updatePasskeyCounter(entry.id, assertion.newCounter, masterKey);
+
+      // SYNC: Update local state to prevent "Counter not increasing" block on next click
+      // This ensures subsequent signs in the same revealed session use the new counter
+      setSensitiveData(prev => prev ? {
+        ...prev,
+        passkeyDetails: prev.passkeyDetails ? { ...prev.passkeyDetails, signCount: assertion.newCounter } : prev.passkeyDetails
+      } : null);
+
+      await loadEntries(true);
 
       console.log('[Passkey] Signed Assertion:', assertion);
 

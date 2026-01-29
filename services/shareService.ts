@@ -4,6 +4,7 @@
  */
 
 import { CryptoService } from './cryptoService';
+import { ErrorHandlingService } from './errorHandlingService';
 import { argon2id } from 'hash-wasm';
 import QRCode from 'qrcode';
 import jsQR from 'jsqr';
@@ -226,8 +227,8 @@ export class ShareService {
       };
 
       return { payload };
-    } catch (error) {
-      console.error('[ShareService] Generate payload error:', error);
+    } catch (error: any) { // Type as any to satisfy ErrorHandlingService
+      ErrorHandlingService.handle(error, 'ShareService.generateSharePayload');
       return { payload: null as any, error: lang === 'tr' ? 'Paylaşım oluşturulamadı' : 'Failed to generate share' };
     }
   }
@@ -317,8 +318,8 @@ export class ShareService {
       const entryData: DecryptedShareEntry = JSON.parse(entryJson);
 
       return { data: entryData };
-    } catch (error) {
-      console.error('[ShareService] Decrypt payload error:', error);
+    } catch (error: any) {
+      ErrorHandlingService.handle(error, 'ShareService.decryptSharePayload');
       return { data: null, error: 'DECRYPTION_FAILED' };
     }
   }
@@ -385,8 +386,8 @@ export class ShareService {
       }
 
       return qrDataUrls;
-    } catch (error) {
-      console.error('[ShareService] Generate QR codes error:', error);
+    } catch (error: any) {
+      ErrorHandlingService.handle(error, 'ShareService.generateQRCodes');
       throw new Error('Failed to generate QR codes');
     }
   }
