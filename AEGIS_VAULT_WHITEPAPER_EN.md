@@ -10,13 +10,14 @@ Aegis Vault's core mission is to return absolute control and ownership of users'
 
 The backbone of Aegis Vault's security infrastructure consists of industry-standard cryptographic components proven against modern cyber threats. Each of these components is carefully selected not only to provide high-level theoretical security but also to offer maximum resistance against practical attack scenarios. In this section, the encryption standard that forms the foundation of data protection, the key derivation function, and database security mechanisms will be detailed.
 
-### 2.1 Data Encryption Standard: AES-256-GCM
+### 2.1 Multi-Layered Data Encryption (Double Encryption)
 
-All sensitive data within Aegis Vault (passwords, notes, files) is encrypted using the AES-256-GCM (Advanced Encryption Standard with Galois/Counter Mode) standard. This standard is strategically preferred because it provides the following critical security guarantees:
+Aegis Vault implements a "Double Encryption" strategy to ensure data remains secure even if one layer is compromised:
 
-**Industry Standard and Reliability:** AES-256 is approved by the US National Institute of Standards and Technology (NIST) and is a "military-grade" encryption algorithm used by military and financial institutions worldwide.
+1.  **Entry-Level Encryption (AES-256-GCM):** Every individual vault entry is encrypted at the application layer using the AES-256-GCM standard before ever reaching the database. This ensures that even a person with access to the decrypted database file cannot read the sensitive payloads.
+2.  **Database-Level Encryption (SQLCipher):** The entire SQLite database file is encrypted on disk using SQLCipher (AES-256). 
 
-**Integrity and Confidentiality (Authenticated Encryption):** Unlike standard AES modes, GCM mode offers Authenticated Encryption capability. This guarantees not only the confidentiality of data (protection against unauthorized reading) but also its integrity and authenticity. Any unauthorized modification of encrypted data can be detected immediately, adding a critical defense layer against data manipulation attacks.
+This dual-layer approach provides defense-in-depth, protecting against both database injection attacks and physical file theft.
 
 ### 2.2 Key Derivation Function: Argon2id
 
@@ -45,9 +46,11 @@ One of Aegis Vault's most distinctive security features, Hardware Binding, physi
 
 While the application is running, critical data such as the master encryption key is temporarily held in system memory (RAM). Modern operating systems may write data in memory to disk (page file/swap) to improve performance. This situation creates the risk of sensitive keys being read from disk through "cold boot" or memory forensics attacks. Aegis Vault uses the VirtualLock mechanism to lock critical memory pages in RAM and prevents the operating system from writing this data to disk. This ensures that encryption keys never leave RAM and provides protection against memory-based attacks.
 
-### 3.3 Triple-Wipe Memory Protection
+### 3.3 Triple-Wipe Memory Protection & Memory Auditing
 
-Securely erasing sensitive data from memory is as important as protecting it. Standard deletion operations free the memory area where the data resides but do not immediately destroy its contents. These data remnants can be recovered using advanced forensic techniques. Aegis Vault implements the Triple-Wipe method, an anti-forensic technique, to eliminate this risk. When sensitive data (e.g., encryption key) is removed from memory, three different data patterns (0xFF, 0xAA, 0x55) are written sequentially to physically destroy it. This process makes information leakage from data remnants impossible.
+Securely erasing sensitive data from memory is as important as protecting it. Aegis Vault implements the Triple-Wipe method, an anti-forensic technique where three different data patterns (0xFF, 0xAA, 0x55) are written sequentially to physically destroy sensitive data (e.g., encryption keys) when removed from RAM.
+
+**Automated Memory Auditing:** As of v2.3.1, the application includes a dedicated **Memory Testing Suite** that simulates memory forensics to verify that no sensitive data remains in heap/stack after a "Secure Wipe" command is issued.
 
 ### 3.4 Code Obfuscation
 
@@ -60,6 +63,10 @@ One of the first steps a potential attacker takes is to analyze the application'
  - **Hardware-Level Security:** Passkey private keys are kept under the vault's cryptographic protection and are protected by **mandatory biometric re-authentication** for every signing operation.
  - **Domain Binding:** Each Passkey is valid only for the domain it was created for. This prevents attackers from stealing credentials through fake websites.
  - **Zero-Knowledge Signatures:** The actual key is never shared during authentication; instead, only a mathematical signature (assertion) is sent.
+
+### 3.6 Side-Channel (Timing Attack) Protection
+
+To prevent side-channel analysis, Aegis Vault utilizes **Constant-Time Comparison** algorithms for all cryptographic verifications. Standard string comparison stops at the first differing character, leading to timing variations that can be exploited to guess secrets bit-by-bit. Aegis Vault’s `constantTimeCompare` ensures that comparisons always take the same amount of time regardless of intermediate matches, neutralizing this sophisticated attack vector.
  
  These advanced defense layers are continuously supported and improved beyond static protections through a proactive security management process. 
 

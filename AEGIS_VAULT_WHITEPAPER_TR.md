@@ -10,13 +10,14 @@ Aegis Vault'un temel misyonu, kullanıcıların en hassas dijital varlıkları o
 
 Aegis Vault'un güvenlik altyapısının omurgası, modern siber tehditlere karşı kanıtlanmış, endüstri standardı kriptografik bileşenlerden oluşmaktadır. Bu bileşenlerin her biri, sadece yüksek düzeyde teorik güvenlik sunmakla kalmayıp, aynı zamanda pratik saldırı senaryolarına karşı maksimum direnç sağlamak amacıyla özenle seçilmiştir. Bu bölümde, veri korumasının temelini oluşturan şifreleme standardı, anahtar türetme fonksiyonu ve veritabanı güvenliği mekanizmaları detaylandırılacaktır.
 
-### 2.1 Veri Şifreleme Standardı: AES-256-GCM
+### 2.1 Çok Katmanlı Veri Şifreleme (Double Encryption)
 
-Aegis Vault içerisindeki tüm hassas veriler (parolalar, notlar, dosyalar) AES-256-GCM (Advanced Encryption Standard with Galois/Counter Mode) standardı kullanılarak şifrelenmektedir. Bu standart, aşağıdaki kritik güvenlik garantilerini sağladığı için stratejik olarak tercih edilmiştir:
+Aegis Vault, bir katmanın tehlikeye girmesi durumunda bile verilerin güvende kalmasını sağlamak için bir "Çift Şifreleme" stratejisi uygular:
 
-**Endüstri Standardı ve Güvenilirlik:** AES-256, ABD Ulusal Standartlar ve Teknoloji Enstitüsü (NIST) tarafından onaylanmış olup, dünya genelinde askeri ve finansal kurumlar tarafından kullanılan "askeri düzeyde" bir şifreleme algoritmasıdır.
+1.  **Girdi Düzeyinde Şifreleme (AES-256-GCM):** Her bir kasa kaydı, veritabanına ulaşmadan önce uygulama katmanında AES-256-GCM standardı kullanılarak şifrelenir. Bu, veritabanı dosyasına erişimi olan birinin bile hassas içerikleri okuyamamasını sağlar.
+2.  **Veritabanı Düzeyinde Şifreleme (SQLCipher):** Tüm SQLite veritabanı dosyası, SQLCipher (AES-256) kullanılarak disk üzerinde şifrelenir.
 
-**Bütünlük ve Gizlilik (Authenticated Encryption):** Standart AES modlarından farklı olarak, GCM modu Doğrulanmış Şifreleme (Authenticated Encryption) yeteneği sunar. Bu, verilerin sadece gizliliğini (yetkisiz okunmaya karşı koruma) değil, aynı zamanda bütünlüğünü ve orijinalliğini de garanti altına alır. Herhangi bir şifreli verinin izinsiz olarak değiştirilip değiştirilmediği anında tespit edilebilir, bu da veri manipülasyonu saldırılarına karşı kritik bir savunma katmanı ekler.
+Bu çift katmanlı yaklaşım, hem veritabanı enjeksiyon saldırılarına hem de fiziksel dosya hırsızlığına karşı derinlemesine savunma sağlar.
 
 ### 2.2 Anahtar Türetme Fonksiyonu: Argon2id
 
@@ -45,9 +46,11 @@ Aegis Vault'un en ayırt edici güvenlik özelliklerinden biri olan Donanım Ba�
 
 Uygulama çalışırken, ana şifreleme anahtarı gibi kritik veriler geçici olarak sistem belleğinde (RAM) tutulur. Modern işletim sistemleri, bellekteki verileri performansı artırmak amacıyla diske (page file/swap) yazabilir. Bu durum, "soğuk başlatma" (cold boot) veya bellek analizi (memory forensics) gibi saldırılarla hassas anahtarların diskten okunması riskini doğurur. Aegis Vault, VirtualLock mekanizmasını kullanarak kritik bellek sayfalarını RAM üzerinde kilitler ve işletim sisteminin bu verileri diske yazmasını engeller. Bu sayede, şifreleme anahtarları asla RAM dışına çıkmaz ve bellek tabanlı saldırılara karşı koruma sağlanır.
 
-### 3.3 Bellekten Üçlü Silme (Triple-Wipe Memory Protection)
+### 3.3 Bellekten Üçlü Silme ve Bellek Denetimi (Memory Audit)
 
-Hassas verilerin bellekten güvenli bir şekilde silinmesi, en az korunması kadar önemlidir. Standart silme işlemleri, verinin bulunduğu bellek alanını serbest bırakır ancak içeriğini hemen yok etmez. Bu veri kalıntıları, gelişmiş adli bilişim teknikleriyle geri getirilebilir. Aegis Vault, bu riski ortadan kaldırmak için bir anti-forensik tekniği olan Üçlü Silme yöntemini uygular. Hassas bir veri (örneğin şifreleme anahtarı) bellekten kaldırılırken, üzerine sırasıyla üç farklı veri deseni (0xFF, 0xAA, 0x55) yazılarak fiziksel olarak yok edilir. Bu süreç, veri kalıntılarından bilgi sızdırılmasını imkansız hale getirir.
+Hassas verilerin bellekten güvenli bir şekilde silinmesi, en az korunması kadar önemlidir. Aegis Vault, hassas veriler (örn. şifreleme anahtarları) RAM'den kaldırıldığında fiziksel olarak yok etmek için sırasıyla üç farklı veri deseninin (0xFF, 0xAA, 0x55) yazıldığı bir anti-forensik tekniği olan Üçlü Silme yöntemini uygular.
+
+**Otomatik Bellek Denetimi:** v2.3.1 itibarıyla uygulama, "Güvenli Silme" komutu verildikten sonra yığın/yığın belleğinde (heap/stack) hiçbir hassas verinin kalmadığını doğrulamak için bellek adli bilişim simülasyonları yapan özel bir **Bellek Test Paketi** içerir.
 
 ### 3.4 Kod Karartma (Obfuscation)
 
@@ -60,6 +63,10 @@ Potansiyel bir saldırganın ilk adımlarından biri, uygulamanın yürütülebi
  - **Donanım Düzeyinde Güvenlik:** Passkey özel anahtarları (private keys), kasanın kriptografik koruması altında tutulur ve her imza işleminde **zorunlu biyometrik onay (re-authentication)** ile korunur.
  - **Alan Adı Bağlama:** Her Passkey, yalnızca oluşturulduğu alan adı (domain) için geçerlidir. Bu, saldırganların sahte siteler üzerinden kimlik bilgisi çalmasını matematiksel olarak engeller.
  - **Sıfır Bilgi İmzaları:** Kimlik doğrulama sırasında gerçek anahtar paylaşılmaz; bunun yerine yalnızca matematiksel bir imza (assertion) gönderilir.
+
+### 3.6 Yan Kanal (Zamanlama Saldırısı) Koruması (Side-Channel Protection)
+
+Yan kanal analizlerini önlemek için Aegis Vault, tüm kriptografik doğrulamalar için **Sabit Zamanlı Karşılaştırma** (Constant-Time Comparison) algoritmaları kullanır. Standart dize karşılaştırması ilk farklı karakterde durur ve bu da sırların bit bit tahmin edilmesi için kullanılabilecek zamanlama varyasyonlarına yol açar. Aegis Vault'un `constantTimeCompare` fonksiyonu, karşılaştırmaların ara eşleşmelerden bağımsız olarak her zaman aynı miktarda zaman almasını sağlayarak bu karmaşık saldırı vektörünü etkisiz hale getirir.
  
  Bu gelişmiş savunma katmanları, statik korumaların ötesinde, proaktif bir güvenlik yönetimi süreciyle sürekli olarak desteklenmekte ve iyileştirilmektedir.
 
