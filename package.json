@@ -14,6 +14,7 @@
     "build": "npm run build:win",
     "build:win": "npm run prebuild && npx vite build && npm run obfuscate && npx electron-builder build --win && npm run postbuild",
     "build:mac": "npm run prebuild && npx vite build && npm run obfuscate && npx electron-builder build --mac",
+    "build:linux": "npm run prebuild && npx vite build && npm run obfuscate && npx electron-builder build --linux",
     "obfuscate": "node scripts/obfuscate.js",
     "postbuild": "node copy-node-cli.cjs && powershell -ExecutionPolicy Bypass -File scripts/postbuild.ps1",
     "rebuild-native": "electron-rebuild -f -w aegis_security",
@@ -150,6 +151,14 @@
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
       "identity": null
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "icon_large.png",
+      "category": "Utility"
     },
     "nsis": {
       "oneClick": false,
