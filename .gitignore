@@ -27,6 +27,7 @@ nul
 # Documentation
 *.md
 !README.md
+!README_TR.md
 !SECURITY.md
 !CHANGELOG.md
 !*_WHITEPAPER_*.md

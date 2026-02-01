@@ -1,6 +1,10 @@
 # Aegis Vault - Zero-Knowledge Password Manager
 
 <p align="center">
+  <b>English</b> | <a href="README_TR.md">Türkçe</a>
+</p>
+
+<p align="center">
   <img src="screenshot/aegis.png" alt="Aegis Vault Banner" width="600">
 </p>
 
