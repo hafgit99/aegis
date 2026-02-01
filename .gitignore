@@ -33,6 +33,8 @@ nul
 !*_WHITEPAPER_*.md
 !BROWSER_EXTENSION_GUIDE.md
 !SECURITY_AUDIT_REPORT_*.md
+!MACOS_YOL_HARITASI.md
+!LINUX_YOL_HARITASI.md
 
 # Security
 private_key.pem

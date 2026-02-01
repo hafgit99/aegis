@@ -168,8 +168,18 @@ ZIP (Portable Archive):   8FBCE7C80F96D3F2B6DEF5ACAB05DAA29D155C8DAFE5C554A443AF
 
 ## 🚀 Installation
 
-### Method 1: Portable Installer (EXE) - Recommended for Beginners
-1. **Download**: `Aegis Vault-2.0.0-x64.exe`
+### 📥 Download for Your Platform
+
+Aegis Vault is now available for **Windows**, **macOS**, and **Linux**!
+
+👉 **[Download Latest Release](https://github.com/hafgit99/aegis/releases/latest)**
+
+---
+
+### 🪟 Windows Installation
+
+#### Method 1: Portable Installer (EXE) - Recommended
+1. **Download**: `Aegis Vault-2.3.1-x64.exe`
 2. **Double-click**: Run the executable
 3. **Extract**: The installer will extract all files to a folder
 4. **Run**: Open `Aegis Vault.exe` from the extracted folder
@@ -181,17 +191,67 @@ ZIP (Portable Archive):   8FBCE7C80F96D3F2B6DEF5ACAB05DAA29D155C8DAFE5C554A443AF
 - ✅ No admin privileges needed
 - ✅ Easy to uninstall (just delete folder)
 
-### Method 2: Portable Archive (ZIP)
-1. **Download**: `Aegis Vault-2.0.0-x64.zip`
+#### Method 2: Portable Archive (ZIP)
+1. **Download**: `Aegis Vault-2.3.1-x64.zip`
 2. **Extract**: Right-click → "Extract All"
 3. **Run**: Open `Aegis Vault.exe` from the extracted folder
 
-**Advantages**:
-- ✅ Smaller download size
-- ✅ No extraction step needed after download
-- ✅ Same portability as EXE
+---
 
-### Method 3: Browser Extension (Optional)
+### 🍎 macOS Installation
+
+#### DMG Installer (Recommended)
+1. **Download**: `Aegis Vault-2.3.1.dmg`
+2. **Open**: Double-click the DMG file
+3. **Drag**: Drag Aegis Vault to Applications folder
+4. **First Launch**: Right-click → Open (to bypass Gatekeeper)
+5. **Run**: Launch from Applications or Spotlight
+
+**Note**: Since the app is not notarized by Apple, you'll need to:
+- Right-click the app → Select "Open"
+- Click "Open" in the security dialog
+- This only needs to be done once
+
+#### ZIP Archive
+1. **Download**: `Aegis Vault-2.3.1-mac.zip`
+2. **Extract**: Double-click to extract
+3. **Move**: Drag to Applications folder
+4. **First Launch**: Right-click → Open
+
+---
+
+### 🐧 Linux Installation
+
+#### AppImage (Recommended - Universal)
+1. **Download**: `Aegis-Vault-2.3.1.AppImage`
+2. **Make Executable**: 
+   ```bash
+   chmod +x Aegis-Vault-2.3.1.AppImage
+   ```
+3. **Run**: Double-click or execute from terminal
+   ```bash
+   ./Aegis-Vault-2.3.1.AppImage
+   ```
+
+**Advantages**:
+- ✅ Works on all Linux distributions
+- ✅ No installation required
+- ✅ Portable and self-contained
+
+#### DEB Package (Debian/Ubuntu)
+1. **Download**: `aegis-vault_2.3.1_amd64.deb`
+2. **Install**:
+   ```bash
+   sudo dpkg -i aegis-vault_2.3.1_amd64.deb
+   ```
+3. **Run**: Launch from application menu or terminal:
+   ```bash
+   aegis-vault
+   ```
+
+---
+
+### 🌐 Browser Extension (Optional - All Platforms)
 To enable Autofill and Passkey support in your browser:
 1. Open **Chrome/Edge** and navigate to `chrome://extensions/`
 2. Enable **Developer mode** (toggle in the top right corner)
@@ -334,11 +394,14 @@ URL:      https://accounts.google.com
 ![Dashboard](https://github.com/hafgit99/aegis/raw/main/screenshot/1.png)
 ![Vault](https://github.com/hafgit99/aegis/raw/main/screenshot/2.png)
 
-## 📦 Installation
+## 📦 Quick Start
 
-### Quick Start
-1. **Download** the latest release from the [Release Page](https://github.com/hafgit99/aegis/releases)
-2. **Run** the executable (Windows: `.exe`,)
+### Installation Steps
+1. **Download** the latest release for your platform from the [Release Page](https://github.com/hafgit99/aegis/releases)
+   - Windows: `.exe` or `.zip`
+   - macOS: `.dmg` or `-mac.zip`
+   - Linux: `.AppImage` or `.deb`
+2. **Install/Run** following the platform-specific instructions above
 3. **Create** your master password (minimum 12 characters)
 4. **Start** securing your passwords!
 
@@ -354,7 +417,8 @@ To ensure the integrity and authenticity of the downloaded file, you can verify 
 
 ### System Requirements
 - **Windows**: 10/11 (64-bit)
-- **macOS**: 10.13+ (High Sierra or later)
+- **macOS**: 10.13+ (High Sierra or later) - Intel & Apple Silicon (M1/M2/M3)
+- **Linux**: Ubuntu 20.04+, Debian 10+, Fedora 35+, or any modern distribution
 - **RAM**: Minimum 2GB (4GB recommended)
 - **Disk**: 200MB free space
 

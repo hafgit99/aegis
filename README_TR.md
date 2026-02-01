@@ -180,25 +180,102 @@ Aegis Vault, senkronizasyon için devrim niteliğinde bir "Kendi Bulutunu Getir"
 
 ## 📦 Kurulum
 
-### Hızlı Başlangıç
-1. **İndirin**: [Release Sayfasından](https://github.com/hafgit99/aegis/releases) en son sürümü
-2. **Çalıştırın**: Yürütülebilir dosyayı (Windows: `.exe`)
-3. **Oluşturun**: Ana parolanızı (minimum 12 karakter)
-4. **Başlayın**: Parolalarınızı güvence altına alın!
+### 📥 Platformunuz İçin İndirin
 
-### 🛡️ İndirmeyi Doğrulayın (Hash Doğrulama)
-İndirilen dosyanın bütünlüğünü ve sahipliğini doğrulamak için SHA256 sağlamasını kontrol edebilirsiniz:
+Aegis Vault artık **Windows**, **macOS** ve **Linux** için mevcut!
 
-1. PowerShell veya Komut İstemi'ni açın.
-2. Aşağıdaki komutu çalıştırın (dosya adını gerekirse değiştirin):
-   ```powershell
-   certutil -hashfile "Aegis Vault-2.0.0-x64.exe" SHA256
+👉 **[En Son Sürümü İndirin](https://github.com/hafgit99/aegis/releases/latest)**
+
+---
+
+### 🪟 Windows Kurulumu
+
+#### Yöntem 1: Taşınabilir Yükleyici (EXE) - Önerilen
+1. **İndirin**: `Aegis Vault-2.3.1-x64.exe`
+2. **Çift tıklayın**: Yürütülebilir dosyayı çalıştırın
+3. **Çıkarın**: Yükleyici tüm dosyaları bir klasöre çıkaracaktır
+4. **Çalıştırın**: Çıkarılan klasörden `Aegis Vault.exe`'yi açın
+5. **Kısayol Oluşturun**: Sağ tık → Gönder → Masaüstü (isteğe bağlı)
+
+**Avantajlar**:
+- ✅ Sistem kurulumu gerektirmez
+- ✅ Herhangi bir konumdan çalıştırın (USB dahil)
+- ✅ Yönetici ayrıcalıkları gerekmez
+- ✅ Kaldırması kolay (klasörü silin)
+
+#### Yöntem 2: Taşınabilir Arşiv (ZIP)
+1. **İndirin**: `Aegis Vault-2.3.1-x64.zip`
+2. **Çıkarın**: Sağ tık → "Tümünü Çıkar"
+3. **Çalıştırın**: Çıkarılan klasörden `Aegis Vault.exe`'yi açın
+
+---
+
+### 🍎 macOS Kurulumu
+
+#### DMG Yükleyici (Önerilen)
+1. **İndirin**: `Aegis Vault-2.3.1.dmg`
+2. **Açın**: DMG dosyasına çift tıklayın
+3. **Sürükleyin**: Aegis Vault'u Uygulamalar klasörüne sürükleyin
+4. **İlk Başlatma**: Sağ tık → Aç (Gatekeeper'ı atlamak için)
+5. **Çalıştırın**: Uygulamalar'dan veya Spotlight'tan başlatın
+
+**Not**: Uygulama Apple tarafından noter onaylı olmadığından:
+- Uygulamaya sağ tıklayın → "Aç"ı seçin
+- Güvenlik diyalogunda "Aç"a tıklayın
+- Bu işlemi sadece bir kez yapmanız gerekir
+
+#### ZIP Arşivi
+1. **İndirin**: `Aegis Vault-2.3.1-mac.zip`
+2. **Çıkarın**: Çıkarmak için çift tıklayın
+3. **Taşıyın**: Uygulamalar klasörüne sürükleyin
+4. **İlk Başlatma**: Sağ tık → Aç
+
+---
+
+### 🐧 Linux Kurulumu
+
+#### AppImage (Önerilen - Evrensel)
+1. **İndirin**: `Aegis-Vault-2.3.1.AppImage`
+2. **Çalıştırılabilir Yapın**: 
+   ```bash
+   chmod +x Aegis-Vault-2.3.1.AppImage
    ```
-3. Çıktıyı, sürüm varlıklarında bulunan `SHA256SUMS.txt` dosyasında sağlanan sağlama ile karşılaştırın. Eşleşirse, indirmeniz güvenlidir.
+3. **Çalıştırın**: Çift tıklayın veya terminalden çalıştırın
+   ```bash
+   ./Aegis-Vault-2.3.1.AppImage
+   ```
+
+**Avantajlar**:
+- ✅ Tüm Linux dağıtımlarında çalışır
+- ✅ Kurulum gerektirmez
+- ✅ Taşınabilir ve bağımsız
+
+#### DEB Paketi (Debian/Ubuntu)
+1. **İndirin**: `aegis-vault_2.3.1_amd64.deb`
+2. **Kurun**:
+   ```bash
+   sudo dpkg -i aegis-vault_2.3.1_amd64.deb
+   ```
+3. **Çalıştırın**: Uygulama menüsünden veya terminalden başlatın:
+   ```bash
+   aegis-vault
+   ```
+
+---
+
+### 🌐 Tarayıcı Eklentisi (İsteğe Bağlı - Tüm Platformlar)
+Tarayıcınızda Otomatik Doldurma ve Passkey desteğini etkinleştirmek için:
+1. **Chrome/Edge**'i açın ve `chrome://extensions/` adresine gidin
+2. **Geliştirici modunu** etkinleştirin (sağ üst köşedeki düğme)
+3. **Paketlenmemiş yükle**'ye tıklayın
+4. Aegis Vault dizininizdeki `browser-extension` klasörünü seçin
+5. Eklenti kimliğinin `pjjmjgibliobepbjbghmipfpiljgogii` olduğunu doğrulayın
+6. İletişime izin vermek için Aegis Vault masaüstü uygulamasının açık olduğundan emin olun
 
 ### Sistem Gereksinimleri
 - **Windows**: 10/11 (64-bit)
-- **macOS**: 10.13+ (High Sierra veya üzeri)
+- **macOS**: 10.13+ (High Sierra veya üzeri) - Intel & Apple Silicon (M1/M2/M3)
+- **Linux**: Ubuntu 20.04+, Debian 10+, Fedora 35+, veya herhangi bir modern dağıtım
 - **RAM**: Minimum 2GB (4GB önerilir)
 - **Disk**: 200MB boş alan
 
