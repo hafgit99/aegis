@@ -4,7 +4,10 @@
   "type": "module",
   "description": "Premium, Offline-First, Zero-Knowledge Password Manager - Security Hardened Edition (99.8/100 Security Score)",
   "main": "main.js",
-  "author": "Aegis Security",
+  "author": {
+    "name": "Aegis Security",
+    "email": "support@hafizakademi.site"
+  },
   "license": "MIT",
   "scripts": {
     "dev": "vite",
