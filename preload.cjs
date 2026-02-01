@@ -152,7 +152,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         getStatus: () => ipcRenderer.invoke('licensing:getStatus'),
         activatePro: (licenseKey) => ipcRenderer.invoke('licensing:activatePro', licenseKey),
         updateActivity: () => ipcRenderer.invoke('licensing:updateActivity'),
-        isPro: () => ipcRenderer.invoke('licensing:isPro')
+        isPro: () => ipcRenderer.invoke('licensing:isPro'),
+        getPublicKey: () => ipcRenderer.invoke('licensing:get-public-key')
     }
 });
 

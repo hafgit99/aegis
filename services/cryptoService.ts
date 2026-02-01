@@ -168,6 +168,46 @@ export class CryptoService {
     );
   }
 
+  static async deriveKeyPBKDF2Bits(password: string, salt: Uint8Array, iterations: number, bits: number): Promise<Uint8Array> {
+    const encoder = new TextEncoder();
+    const passwordKey = await window.crypto.subtle.importKey(
+      'raw',
+      encoder.encode(password),
+      'PBKDF2',
+      false,
+      ['deriveBits']
+    );
+
+    const derivedBits = await window.crypto.subtle.deriveBits(
+      {
+        name: 'PBKDF2',
+        salt: salt as any,
+        iterations,
+        hash: 'SHA-256'
+      },
+      passwordKey,
+      bits
+    );
+
+    return new Uint8Array(derivedBits);
+  }
+
+  static async decryptCBC(ciphertext: Uint8Array, key: CryptoKey, iv: Uint8Array): Promise<string> {
+    try {
+      const decryptedBuffer = await window.crypto.subtle.decrypt(
+        { name: 'AES-CBC', iv: iv as any },
+        key,
+        ciphertext.buffer as any
+      );
+
+      const decoder = new TextDecoder();
+      return decoder.decode(decryptedBuffer);
+    } catch (e: any) {
+      console.error("[CryptoService] CBC Decryption failed:", e);
+      throw e;
+    }
+  }
+
   static async encrypt(data: string, key: CryptoKey): Promise<{ ciphertext: Uint8Array; iv: Uint8Array; tag: Uint8Array }> {
     const encoder = new TextEncoder();
     const dataBytes = encoder.encode(data);

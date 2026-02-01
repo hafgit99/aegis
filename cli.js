@@ -160,9 +160,11 @@ async function main() {
         console.log('\n📖 Kullanım:');
         console.log('  cli.bat list              - Tüm kayıtları listele');
         console.log('  cli.bat get <id>          - Belirli bir kaydın ayrıntılarını göster');
+        console.log('  cli.bat get <id> --reveal - Şifreyi açık metin olarak göster');
         console.log('  cli.bat help              - Bu yardım mesajını göster');
         console.log('\nÖrnek:');
         console.log("  cli.bat get a1b2c3d4      - ID'si a1b2c3d4 ile başlayan kaydı göster");
+        console.log("  cli.bat get a1b2c3d4 --reveal");
         process.exit(0);
     }
 
@@ -264,7 +266,10 @@ async function main() {
                     console.log(`Başlık:   ${data.title}`);
                     console.log(`Kullanıcı:${data.username || 'Yok'}`);
                     console.log('------------------');
-                    if (data.sensitive.password) console.log(`Şifre:    ${data.sensitive.password}`);
+                    if (data.sensitive.password) {
+                        const reveal = subArgs.includes('--reveal') || subArgs.includes('-r');
+                        console.log(`Şifre:    ${reveal ? data.sensitive.password : '******** (Use --reveal to show)'}`);
+                    }
                     if (data.sensitive.url) console.log(`URL:      ${data.sensitive.url}`);
                 }
             }

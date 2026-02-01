@@ -2,18 +2,7 @@ let currentDomain = "";
 let debugMode = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Debug toggle: Title'a çift tıkla
-    document.querySelector('.brand').ondblclick = () => {
-        debugMode = !debugMode;
-        if (debugMode) {
-            const d = document.createElement('div');
-            d.id = 'debugLog';
-            d.style.cssText = "font-size:10px; color:#aaa; padding:10px; border-top:1px solid #333; max-height:100px; overflow:auto;";
-            document.body.appendChild(d);
-            log("Debug Mode Enabled");
-        }
-    };
-
+    // Debug toggle removed for security
     renderLoading();
 
     setTimeout(async () => {
@@ -154,12 +143,7 @@ async function scanQrFromFile(file) {
 }
 
 function log(msg) {
-    if (!debugMode) return;
-    const d = document.getElementById('debugLog');
-    if (d) {
-        d.innerHTML += `<div>${msg}</div>`;
-        d.scrollTop = d.scrollHeight;
-    }
+    // Debug logging disabled for security
     console.log(msg);
 }
 
@@ -184,7 +168,7 @@ function sendNative(type, payload = {}) {
     setTimeout(() => {
         const container = document.getElementById('listContainer');
         // Only trigger timeout if we are still showing the loading spinner/text
-        if (container.innerHTML.includes('Connecting')) {
+        if (container.querySelector('.empty-text') && container.querySelector('.empty-text').textContent.includes('Connecting')) {
             renderError("Timeout: No response from Aegis.");
         }
     }, 4000);
@@ -236,35 +220,74 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 function renderLoading() {
     const container = document.getElementById('listContainer');
-    container.innerHTML = `
-      <div class="empty-state">
-        <svg fill="currentColor" viewBox="0 0 24 24" class="spin"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-8 8 3.59 8 8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
-        <div class="empty-text">Connecting to Aegis...</div>
-      </div>
-      <style>.spin { animation: spin 1s linear infinite; } @keyframes spin { 100% { transform: rotate(360deg); } }</style>`;
+    container.textContent = '';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'empty-state';
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('fill', 'currentColor');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.classList.add('spin');
+    svg.style.width = '24px';
+    svg.style.height = '24px';
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-8 8 3.59 8 8 8zm-1-13h2v6h-2zm0 8h2v2h-2z');
+    svg.appendChild(path);
+
+    const text = document.createElement('div');
+    text.className = 'empty-text';
+    text.textContent = 'Connecting to Aegis...';
+
+    wrapper.appendChild(svg);
+    wrapper.appendChild(text);
+    container.appendChild(wrapper);
 }
 
 function renderError(msg) {
     const container = document.getElementById('listContainer');
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-text" style="color:#ef4444">${msg}</div>
-        <button id="retryBtn" style="margin-top:10px; background:#334155; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;">Retry</button>
-      </div>`;
-    document.getElementById('retryBtn').onclick = () => search(currentDomain);
+    container.textContent = '';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'empty-state';
+
+    const text = document.createElement('div');
+    text.className = 'empty-text';
+    text.style.color = '#ef4444';
+    text.textContent = msg;
+
+    const retryBtn = document.createElement('button');
+    retryBtn.id = 'retryBtn';
+    retryBtn.style.cssText = 'margin-top:10px; background:#334155; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer;';
+    retryBtn.textContent = 'Retry';
+    retryBtn.onclick = () => search(currentDomain);
+
+    wrapper.appendChild(text);
+    wrapper.appendChild(retryBtn);
+    container.appendChild(wrapper);
 }
 
 function renderResults(items) {
     const container = document.getElementById('listContainer');
-    container.innerHTML = '';
+    container.textContent = '';
 
     if (!items || items.length === 0) {
         const isSearching = searchInput.value.length > 0;
-        container.innerHTML = `
-          <div class="empty-state">
-             <div class="empty-text">${isSearching ? 'No results found.' : 'No logins for this site.'}</div>
-             <div style="font-size:11px; color:#64748b; margin-top:5px;">Search to find specific items.</div>
-          </div>`;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'empty-state';
+
+        const text = document.createElement('div');
+        text.className = 'empty-text';
+        text.textContent = isSearching ? 'No results found.' : 'No logins for this site.';
+
+        const subText = document.createElement('div');
+        subText.style.cssText = 'font-size:11px; color:#64748b; margin-top:5px;';
+        subText.textContent = 'Search to find specific items.';
+
+        wrapper.appendChild(text);
+        wrapper.appendChild(subText);
+        container.appendChild(wrapper);
         return;
     }
 
@@ -277,13 +300,28 @@ function renderResults(items) {
         const card = document.createElement('div');
         card.className = 'card';
         const initial = (item.title || "?")[0].toUpperCase();
-        card.innerHTML = `
-            <div class="card-icon">${initial}</div>
-            <div class="card-info">
-                <div class="card-title">${item.title}</div>
-                <div class="card-sub">${item.username || 'No Username'}</div>
-            </div>
-        `;
+
+        const cardIcon = document.createElement('div');
+        cardIcon.className = 'card-icon';
+        cardIcon.textContent = initial;
+
+        const cardInfo = document.createElement('div');
+        cardInfo.className = 'card-info';
+
+        const cardTitle = document.createElement('div');
+        cardTitle.className = 'card-title';
+        cardTitle.textContent = item.title;
+
+        const cardSub = document.createElement('div');
+        cardSub.className = 'card-sub';
+        cardSub.textContent = item.username || 'No Username';
+
+        cardInfo.appendChild(cardTitle);
+        cardInfo.appendChild(cardSub);
+
+        card.appendChild(cardIcon);
+        card.appendChild(cardInfo);
+
         card.onclick = () => {
             card.style.borderColor = '#3b82f6';
             card.style.background = '#1e293b';

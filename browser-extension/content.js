@@ -92,7 +92,12 @@ function handleAegisClick() {
     if (!activeInput) return;
 
     // Basit yükleniyor mesajı
-    dropdown.innerHTML = '<div style="padding:10px; color:#aaa;">Searching vault...</div>';
+    dropdown.textContent = '';
+    const loadingDiv = document.createElement('div');
+    loadingDiv.style.padding = '10px';
+    loadingDiv.style.color = '#aaa';
+    loadingDiv.textContent = 'Searching vault...';
+    dropdown.appendChild(loadingDiv);
     showDropdownUI();
 
     const domain = window.location.hostname;
@@ -131,7 +136,12 @@ chrome.runtime.onMessage.addListener((msg) => {
             fillPassword(payload.data);
         }
         else if (payload.error) {
-            dropdown.innerHTML = `<div style="padding:10px; color:#ef4444;">Error: ${payload.error}</div>`;
+            dropdown.textContent = '';
+            const errorDiv = document.createElement('div');
+            errorDiv.style.padding = '10px';
+            errorDiv.style.color = '#ef4444';
+            errorDiv.textContent = `Error: ${payload.error}`;
+            dropdown.appendChild(errorDiv);
         }
     }
 });
@@ -140,12 +150,17 @@ function renderSearchResults(results) {
     if (!dropdown) return;
 
     if (results.length === 0) {
-        dropdown.innerHTML = '<div style="padding:10px; color:#aaa;">No entries found for this domain.</div>';
+        dropdown.textContent = '';
+        const emptyDiv = document.createElement('div');
+        emptyDiv.style.padding = '10px';
+        emptyDiv.style.color = '#aaa';
+        emptyDiv.textContent = 'No entries found for this domain.';
+        dropdown.appendChild(emptyDiv);
         setTimeout(() => { dropdown.style.display = 'none'; }, 2000);
         return;
     }
 
-    dropdown.innerHTML = '';
+    dropdown.textContent = '';
     results.forEach(entry => {
         const item = document.createElement('div');
         item.style.cssText = `
@@ -180,7 +195,12 @@ function renderSearchResults(results) {
 }
 
 function requestCredential(entryId) {
-    dropdown.innerHTML = '<div style="padding:10px; color:#aaa;">Decrypting...</div>';
+    dropdown.textContent = '';
+    const decryptDiv = document.createElement('div');
+    decryptDiv.style.padding = '10px';
+    decryptDiv.style.color = '#aaa';
+    decryptDiv.textContent = 'Decrypting...';
+    dropdown.appendChild(decryptDiv);
     chrome.runtime.sendMessage({
         type: 'SEND_NATIVE',
         payload: {

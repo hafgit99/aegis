@@ -14,6 +14,7 @@ export class LicensingService {
   private static STORAGE_KEY = 'aegis_license_data'; // Legacy - kept for backward compatibility
   private static INSTALL_KEY = 'aegis_install_date'; // Legacy - kept for backward compatibility
   private static initialized = false;
+  private static cachedPublicKey: string | null = null;
   private static cachedStatus: {
     isPro: boolean;
     remainingDays: number;
@@ -21,8 +22,21 @@ export class LicensingService {
     timeManipulated: boolean;
   } | null = null;
 
-  // BURAYA: Üretici scriptinden aldığınız PUBLIC KEY'i yapıştırın (PEM formatında)
-  private static PUBLIC_KEY_PEM = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE3F8VMn76p9146qWrhHhEEjRcZqTd\n4SShA7jt9lUKNT8Uig0RCQavP457h71HDAsu6I5CF/EerrSebutQCPqLVA==\n-----END PUBLIC KEY-----";
+  private static async fetchPublicKey(): Promise<string | null> {
+    if (this.cachedPublicKey) return this.cachedPublicKey;
+    try {
+      if ((window as any).electronAPI?.licensing?.getPublicKey) {
+        const key = await (window as any).electronAPI.licensing.getPublicKey();
+        if (key) {
+          this.cachedPublicKey = key;
+          return key;
+        }
+      }
+    } catch (e) {
+      console.error('[Licensing] Failed to fetch public key from backend:', e);
+    }
+    return null;
+  }
 
   /**
    * Initialize the licensing system
@@ -247,9 +261,16 @@ export class LicensingService {
       }
 
       // 2. Dijital İmza Doğrulaması
+      const publicKeyPem = await this.fetchPublicKey();
+      if (!publicKeyPem) {
+        console.error("❌ Hata: Lisans doğrulama anahtarı yüklenemedi.");
+        console.groupEnd();
+        return false;
+      }
+
       const publicKey = await window.crypto.subtle.importKey(
         'spki',
-        this.pemToArrayBuffer(this.PUBLIC_KEY_PEM),
+        this.pemToArrayBuffer(publicKeyPem),
         { name: 'ECDSA', namedCurve: 'P-256' },
         false,
         ['verify']

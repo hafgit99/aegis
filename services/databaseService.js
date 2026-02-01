@@ -13,9 +13,9 @@ class DatabaseService {
         if (this.db) return;
 
         try {
-            // SECURITY: Validate Master Key format (must be hex) to prevent PRAGMA injection
-            if (!/^[0-9a-fA-F]+$/.test(masterKeyHex)) {
-                throw new Error("INVALID_KEY_FORMAT: Master key must be hexadecimal");
+            // SECURITY: Validate Master Key format (must be 64-char hex) to prevent PRAGMA injection
+            if (!/^[0-9a-fA-F]{64}$/.test(masterKeyHex)) {
+                throw new Error("INVALID_KEY_FORMAT: Master key must be a 64-character hexadecimal string");
             }
 
             this.dbPath = path.join(userDataPath, 'vault.db');
@@ -52,8 +52,8 @@ class DatabaseService {
         if (!this.db) throw new Error("Database not initialized");
 
         try {
-            if (!/^[0-9a-fA-F]+$/.test(newMasterKeyHex)) {
-                throw new Error("INVALID_KEY_FORMAT: New master key must be hexadecimal");
+            if (!/^[0-9a-fA-F]{64}$/.test(newMasterKeyHex)) {
+                throw new Error("INVALID_KEY_FORMAT: New master key must be a 64-character hexadecimal string");
             }
 
             console.log('[Security] Rotating SQLite encryption key...');

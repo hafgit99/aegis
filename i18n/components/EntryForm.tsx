@@ -7,6 +7,8 @@ import { usePasswordGenerator } from '../../hooks/usePasswordGenerator';
 import { PasskeyService } from '../../services/passkeyService';
 import { TagService } from '../../services/tagService';
 import { ErrorHandlingService } from '../../services/errorHandlingService';
+import { ValidationService } from '../../services/validationService';
+import { FileValidationService } from '../../services/fileValidationService';
 // Added Check icon to imports from lucide-react
 import { FileUp, File, X, AlertCircle, Loader2, Plus, Trash2, Eye, EyeOff, Lock, Globe, CreditCard, FileText, Download, ChevronRight, Wand2, Check, Wallet, Fingerprint, Hash } from 'lucide-react';
 
@@ -140,10 +142,9 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
     const file = e.target.files?.[0];
     if (!file || !masterKey) return;
 
-    // Security Limit: 50MB to prevent browser crash / storage issues
-    if (file.size > 50 * 1024 * 1024) {
-      const key = ErrorHandlingService.handle(new Error("File size too large"), "EntryForm.fileUpload");
-      setFileError(t(key as any));
+    const validation = await FileValidationService.validateFileUpload(file);
+    if (!validation.valid) {
+      setFileError(FileValidationService.getErrorMessage(validation.errors[0], lang as any));
       return;
     }
 
@@ -182,6 +183,15 @@ const EntryForm: React.FC<EntryFormProps> = ({ entry, sensitive, onSave, onClose
       <form className="p-10 space-y-8" onSubmit={async (e) => {
         e.preventDefault();
         if (isSaving) return;
+
+        // URL Validation
+        if (sensitiveData.url) {
+          const urlValidation = ValidationService.validateUrl(sensitiveData.url);
+          if (!urlValidation.isValid) {
+            alert(lang === 'tr' ? 'Geçersiz URL formatı. Lütfen http:// veya https:// ile başlayan geçerli bir adres girin.' : 'Invalid URL format. Please enter a valid address starting with http:// or https://.');
+            return;
+          }
+        }
 
         setIsSaving(true);
         try {

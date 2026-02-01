@@ -1,0 +1,27 @@
+rules:
+  - id: dangerous-inner-html
+    pattern: $X.innerHTML = $Y
+    message: "Using innerHTML can lead to XSS vulnerabilities. Use textContent or createElement instead."
+    languages: [javascript, typescript]
+    severity: ERROR
+
+  - id: hardcoded-secrets
+    patterns:
+      - pattern-either:
+          - pattern: const $S = "..."
+          - pattern: let $S = "..."
+          - pattern: var $S = "..."
+      - metavariable-regex:
+          metavariable: $S
+          regex: (?i)(password|secret|key|token|auth)
+    message: "Potential hardcoded secret found. Ensure sensitive data is not stored in source code."
+    languages: [javascript, typescript]
+    severity: WARNING
+
+  - id: insecure-crypto-algorithm
+    pattern-either:
+      - pattern: crypto.createHash("md5")
+      - pattern: crypto.createHash("sha1")
+    message: "Insecure hashing algorithm (MD5/SHA1) detected. Use SHA-256 or stronger."
+    languages: [javascript, typescript]
+    severity: ERROR

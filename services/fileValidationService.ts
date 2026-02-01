@@ -9,8 +9,8 @@
  */
 
 export class FileValidationService {
-  // Maksimum dosya boyutu: 25MB (önceki 5MB'den yükseltildi)
-  private static readonly MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+  // Maksimum dosya boyutu: 50MB (önceki 25MB'den yükseltildi)
+  private static readonly MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
   // İzin verilen MIME türleri
   private static readonly ALLOWED_MIMES = [
@@ -20,13 +20,13 @@ export class FileValidationService {
     'image/gif',
     'image/webp',
     'image/svg+xml',
-    
+
     // Documents
     'application/pdf',
     'text/plain',
     'text/csv',
     'text/markdown',
-    
+
     // Office documents
     'application/msword', // .doc
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
@@ -41,19 +41,19 @@ export class FileValidationService {
     // Executables
     'exe', 'bat', 'cmd', 'com', 'pif', 'scr',
     'ps1', 'ps2', 'psc1', 'psc2', 'msh', 'msh1', 'msh2', 'mshxml', 'msh1xml', 'msh2xml',
-    
+
     // Scripts
     'vbs', 'vbe', 'js', 'jse', 'jar', 'jnlp',
-    
+
     // Libraries/Plugins
     'dll', 'app', 'bin', 'dylib', 'so', 'msi',
-    
+
     // Archives (zip bombs)
     'zip', 'rar', '7z', 'gz', 'tar', 'bz2', 'iso', 'dmg',
-    
+
     // Symbolic links (security risk)
     'lnk', 'sym',
-    
+
     // System files
     'sys', 'ini', 'reg',
   ];
@@ -62,19 +62,19 @@ export class FileValidationService {
   private static readonly MAGIC_BYTES: Record<string, Uint8Array> = {
     // JPEG: FF D8 FF
     'jpeg': new Uint8Array([0xFF, 0xD8, 0xFF]),
-    
+
     // PNG: 89 50 4E 47
     'png': new Uint8Array([0x89, 0x50, 0x4E, 0x47]),
-    
+
     // GIF: 47 49 46 38
     'gif': new Uint8Array([0x47, 0x49, 0x46, 0x38]),
-    
+
     // PDF: 25 50 44 46
     'pdf': new Uint8Array([0x25, 0x50, 0x44, 0x46]),
-    
+
     // ZIP: 50 4B 03 04 or 50 4B 05 06
     'zip': new Uint8Array([0x50, 0x4B]),
-    
+
     // WEBP: 52 49 46 46 (RIFF)
     'webp': new Uint8Array([0x52, 0x49, 0x46, 0x46]),
   };
@@ -277,8 +277,8 @@ export class FileValidationService {
         tr: 'Dosya boş'
       },
       FILE_TOO_LARGE: {
-        en: 'File size exceeds maximum limit (25MB)',
-        tr: 'Dosya boyutu maksimum limiti aşıyor (25MB)'
+        en: 'File size exceeds maximum limit (50MB)',
+        tr: 'Dosya boyutu maksimum limiti aşıyor (50MB)'
       },
       BLOCKED_EXTENSION: {
         en: 'This file type is not allowed for security reasons',

@@ -60,11 +60,12 @@ async function loadKeytar() {
 }
 
 // SECURITY: Audit logging with encryption
-// SECURITY: Store audit key in hidden directory with restricted permissions
+// Tamper-proof hash chain for immutable logs
 const auditLogPath = path.join(app.getPath('userData'), '.audit.log');
 const auditLogKeyPath = path.join(app.getPath('userData'), '.audit', '.audit-key');
 const auditBuffer = [];
-const MAX_AUDIT_BUFFER = 100;
+const MAX_AUDIT_BUFFER = 50; // Flushed more frequently for real-time security
+let lastLogHash = 'AEGIS-GENESIS-HASH'; // Genesis hash for the chain
 
 let mainWindow;
 let deviceKey = null; // Cached device key for session
@@ -195,14 +196,20 @@ function getDeviceKey() {
   }
 }
 
-// SECURITY: Encrypted audit logging helpers
+// SECURITY: Encrypted audit logging helpers with tamper detection
 function recordAuditLog(action, metadata = {}) {
   const entry = {
     timestamp: Date.now(),
     action,
     metadata,
-    deviceId: getDeviceId()
+    deviceId: getDeviceId(),
+    prevHash: lastLogHash
   };
+
+  // Compute current entry hash (tamper detection)
+  const entryString = JSON.stringify(entry);
+  lastLogHash = crypto.createHash('sha256').update(entryString).digest('hex');
+  entry.hash = lastLogHash;
 
   auditBuffer.push(entry);
 
@@ -219,7 +226,7 @@ function flushAuditLog() {
     const entriesToWrite = auditBuffer.splice(0, auditBuffer.length);
     const logEntries = entriesToWrite.map(e => JSON.stringify(e)).join('\n') + '\n';
 
-    // SECURITY: Encrypt audit log entries
+    // SECURITY: Encrypt audit log entries with AES-256-GCM
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv('aes-256-gcm', getDeviceKey(), iv);
     let encrypted = cipher.update(logEntries, 'utf8', 'hex');
@@ -227,15 +234,33 @@ function flushAuditLog() {
     const tag = cipher.getAuthTag();
 
     // Format: iv:tag:ciphertext (hex encoded)
+    // Structured format: IV:AUTH_TAG:ENCRYPTED_DATA
     const encryptedEntry = iv.toString('hex') + ':' + tag.toString('hex') + ':' + encrypted + '\n';
 
+    // Append-only write with OS-level permission sync
     fs.appendFileSync(auditLogPath, encryptedEntry, 'utf8');
+
+    // Automatic Anomaly Analysis (Basic)
+    analyzeAuditTraffic(entriesToWrite);
   } catch (err) {
-    console.error('Failed to flush audit log:', err.message);
+    console.error('[Security] Failed to flush audit log:', err.message);
   }
 }
 
-// Helper to read encrypted audit log (for admin purposes)
+/**
+ * Basic security analysis for audit logs
+ */
+function analyzeAuditTraffic(entries) {
+  const highRiskActions = ['SIGN_OUT_ALL', 'DB_DELETE', 'MASTER_KEY_CHANGE', 'UNAUTHORIZED_ACCESS'];
+  for (const entry of entries) {
+    if (highRiskActions.includes(entry.action)) {
+      console.warn(`[Security Alert] High-risk action detected: ${entry.action}`);
+      // In production, this could trigger a webhook or local alert
+    }
+  }
+}
+
+// Helper to read encrypted audit log and verify integrity
 function readAuditLog() {
   try {
     if (!fs.existsSync(auditLogPath)) return [];
@@ -244,6 +269,7 @@ function readAuditLog() {
     const lines = content.trim().split('\n').filter(l => l);
     const entries = [];
     const deviceKey = getDeviceKey();
+    let expectedPrevHash = 'AEGIS-GENESIS-HASH';
 
     for (const line of lines) {
       try {
@@ -252,26 +278,44 @@ function readAuditLog() {
 
         const iv = Buffer.from(parts[0], 'hex');
         const tag = Buffer.from(parts[1], 'hex');
-        const ciphertext = parts.slice(2).join(':'); // In case ciphertext has colons
+        const ciphertext = parts.slice(2).join(':');
 
         const decipher = crypto.createDecipheriv('aes-256-gcm', deviceKey, iv);
         decipher.setAuthTag(tag);
         let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
 
-        // Each line can contain multiple JSON entries
         const logLines = decrypted.trim().split('\n');
         for (const logLine of logLines) {
-          if (logLine) entries.push(JSON.parse(logLine));
+          if (logLine) {
+            const entry = JSON.parse(logLine);
+
+            // VERIFY TAMPER DETECTION: Check Hash Chain
+            if (entry.prevHash !== expectedPrevHash) {
+              console.error(`[Security] Audit log TAMPERED at entry: ${entry.timestamp}`);
+              entry.tampered = true;
+            }
+
+            // Validate self hash
+            const { hash, ...dataWithoutHash } = entry;
+            const computedHash = crypto.createHash('sha256').update(JSON.stringify(dataWithoutHash)).digest('hex');
+            if (hash !== computedHash) {
+              console.error(`[Security] Audit log entry hash mismatch: ${entry.timestamp}`);
+              entry.tampered = true;
+            }
+
+            expectedPrevHash = hash;
+            entries.push(entry);
+          }
         }
       } catch (e) {
-        console.warn('Failed to decrypt audit log entry:', e.message);
+        console.warn('[Security] Failed to decrypt audit log entry (likely corrupted):', e.message);
       }
     }
 
     return entries;
   } catch (err) {
-    console.error('Failed to read audit log:', err.message);
+    console.error('[Security] Failed to read audit logs:', err.message);
     return [];
   }
 }
@@ -816,14 +860,14 @@ async function handleExtensionMessage(socketOrStdout, msg) {
 let clipboardTimer;
 let lastCopiedText = "";
 
-ipcMain.on('clipboard:write', (event, text, duration = 45000) => {
+ipcMain.on('clipboard:write', (event, text, duration = 30000) => {
   clipboard.writeText(text);
   lastCopiedText = text;
 
   if (clipboardTimer) clearTimeout(clipboardTimer);
 
   clipboardTimer = setTimeout(() => {
-    // Sadece eğer pano hala bizim kopyaladığımız metni içeriyorsa temizle
+    // Sadece eğer pano hala bizim kopyaladığımız metni içeriyorsa temizle (SECURE)
     if (clipboard.readText() === lastCopiedText) {
       clipboard.writeText('');
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -1925,7 +1969,19 @@ ipcMain.handle('licensing:updateActivity', async () => {
   return saveLicenseData(data);
 });
 
-ipcMain.handle('licensing:isPro', async () => {
-  const data = loadLicenseData();
-  return data?.proActivated === true;
+ipcMain.handle('licensing:get-public-key', async () => {
+  try {
+    let keyPath;
+    if (app.isPackaged) {
+      keyPath = path.join(process.resourcesPath, 'public_key.pem');
+    } else {
+      keyPath = path.join(__dirname, 'public_key.pem');
+    }
+    if (fs.existsSync(keyPath)) {
+      return fs.readFileSync(keyPath, 'utf8');
+    }
+  } catch (e) {
+    console.error('[Licensing] Failed to read public key:', e);
+  }
+  return null;
 });

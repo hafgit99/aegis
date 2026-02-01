@@ -2,6 +2,17 @@ import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 import 'fake-indexeddb/auto';
 
+// Mock File.prototype.text for jsdom
+if (!File.prototype.text) {
+    File.prototype.text = function () {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsText(this);
+        });
+    };
+}
+
 // Mock Web Crypto API
 if (!global.crypto) {
     // @ts-ignore

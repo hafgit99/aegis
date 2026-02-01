@@ -179,9 +179,11 @@ export class ChangeMasterKeyService {
       const newMetadata = {
         salt: CryptoService.arrayBufferToBase64(newSalt.buffer),
         iterations: newIterations,
-        version: 4, // Upgraded to V4 Full Package
+        version: 5, // Upgraded to V5 Full Package
+        keyVersion: (metadata.keyVersion || 0) + 1, // Key Versioning
         createdAt: metadata.createdAt,
-        rotatedAt: Date.now()
+        rotatedAt: Date.now(),
+        nextRotationAt: Date.now() + (365 * 24 * 60 * 60 * 1000) // 1 year later
       };
 
       // Electron Rotation Connection
@@ -219,7 +221,7 @@ export class ChangeMasterKeyService {
   }
 
   /**
-   * Validate new password strength
+   * Validate new password strength with enhanced security rules
    */
   static validatePasswordStrength(password: string): {
     isValid: boolean;
@@ -228,32 +230,68 @@ export class ChangeMasterKeyService {
   } {
     const issues: string[] = [];
 
-    if (password.length < 8) {
-      issues.push("Minimum 8 characters required");
+    // Unicode Normalization (NFKD)
+    const normalized = password.normalize('NFKD');
+
+    if (normalized.length < 12) {
+      issues.push("Minimum 12 characters required");
     }
 
-    if (!/[a-z]/.test(password)) {
+    if (normalized.length > 128) {
+      issues.push("Maximum 128 characters allowed");
+    }
+
+    // Whitelist check: Printable ASCII + extended unicode characters, exclude control characters
+    // Regex matches common printable chars and letters/numbers across languages
+    const whitelistRegex = /^[^\x00-\x1F\x7F-\x9F]+$/;
+    if (!whitelistRegex.test(normalized)) {
+      issues.push("Contains invalid or control characters");
+    }
+
+    if (!/[a-z]/.test(normalized)) {
       issues.push("Must contain lowercase letters");
     }
 
-    if (!/[A-Z]/.test(password)) {
+    if (!/[A-Z]/.test(normalized)) {
       issues.push("Must contain uppercase letters");
     }
 
-    if (!/[0-9]/.test(password)) {
+    if (!/[0-9]/.test(normalized)) {
       issues.push("Must contain numbers");
     }
 
-    if (!/[^A-Za-z0-9]/.test(password)) {
+    if (!/[^A-Za-z0-9]/.test(normalized)) {
       issues.push("Must contain special characters");
     }
 
-    const score = Math.max(0, 100 - issues.length * 20);
+    const score = Math.max(0, 100 - issues.length * 15);
 
     return {
       isValid: issues.length === 0,
       score,
       issues
     };
+  }
+
+  /**
+   * Checks if the master key needs rotation based on time (1 year policy)
+   */
+  static needsRotation(): { required: boolean; lastRotated: number } {
+    const metadataStr = localStorage.getItem(MASTER_METADATA_KEY);
+    if (!metadataStr) return { required: false, lastRotated: 0 };
+
+    try {
+      const metadata = JSON.parse(metadataStr);
+      const lastRotated = metadata.rotatedAt || metadata.createdAt || 0;
+      const oneYear = 365 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+
+      return {
+        required: (now - lastRotated) > oneYear,
+        lastRotated
+      };
+    } catch (e) {
+      return { required: false, lastRotated: 0 };
+    }
   }
 }
