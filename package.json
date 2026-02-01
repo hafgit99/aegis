@@ -11,7 +11,9 @@
     "lint": "eslint . --ext .ts,.tsx,.js",
     "start": "npx electron .",
     "prebuild": "node -e \"const fs = require('fs'); ['dist_out', 'dist_electron_obfuscated', 'dist'].forEach(d => fs.rmSync(d, {recursive: true, force: true}))\"",
-    "build": "npm run prebuild && npx vite build && npm run obfuscate && npx electron-builder build --win && npm run postbuild",
+    "build": "npm run build:win",
+    "build:win": "npm run prebuild && npx vite build && npm run obfuscate && npx electron-builder build --win && npm run postbuild",
+    "build:mac": "npm run prebuild && npx vite build && npm run obfuscate && npx electron-builder build --mac",
     "obfuscate": "node scripts/obfuscate.js",
     "postbuild": "node copy-node-cli.cjs && powershell -ExecutionPolicy Bypass -File scripts/postbuild.ps1",
     "rebuild-native": "electron-rebuild -f -w aegis_security",
@@ -137,6 +139,16 @@
       "provider": "github",
       "owner": "hafgit99",
       "repo": "aegis"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "icon_large.png",
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     },
     "nsis": {
       "oneClick": false,
