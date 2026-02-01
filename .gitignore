@@ -31,6 +31,7 @@ nul
 !CHANGELOG.md
 !*_WHITEPAPER_*.md
 !BROWSER_EXTENSION_GUIDE.md
+!SECURITY_AUDIT_REPORT_*.md
 
 # Security
 private_key.pem
