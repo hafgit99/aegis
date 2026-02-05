@@ -486,7 +486,7 @@ npm run dev
 npm run build
 ```
 
-## [2.3.1] - 2026-02-15
+## [2.3.1] - 2026-02-05
 
 ### 🛡️ Advanced Security Testing Suite - Malware, Biometric & Memory Forensics
 
@@ -692,7 +692,7 @@ If you find a security vulnerability:
 ## 🔒 Security Audit History
 | Date | Version | Auditor | Score | Report |
 |------|---------|---------|-------|--------|
-| 2026-02-15 | v2.3.1 | Internal + Automated | **99.8/100** | [View Testing Suite](docs/SECURITY_TESTING_SUITE.md) |
+| 2026-02-05 | v2.3.1 | Internal + Automated | **99.8/100** | [View Testing Suite](docs/SECURITY_TESTING_SUITE.md) |
 | 2026-02-01 | v2.3.1 | Internal + Automated | **99.8/100** | [View Security Audit Report](SECURITY_AUDIT_REPORT_v2.3.1.md) |
 | 2026-01-29 | v2.3.1 | Internal | **99.5/100** | [View Technical Report](AEGIS_VAULT_WHITEPAPER_EN.md) |
 | 2026-01-19 | v2.3.0 | Internal | **99/100** | [View Technical Report](AEGIS_VAULT_WHITEPAPER_EN.md) |

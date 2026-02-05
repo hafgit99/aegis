@@ -383,6 +383,7 @@ Lisans soruları için: sales@hetech-me.space
 ## 🔒 Güvenlik Denetim Geçmişi
 | Tarih | Sürüm | Denetçi | Skor | Rapor |
 |------|---------|---------|-------|--------|
+| 2026-02-05 | v2.3.1 | Dahili + Otomatik | **99.8/100** | [Test Paketini Görüntüle](docs/SECURITY_TESTING_SUITE.md) |
 | 2026-02-01 | v2.3.1 | Dahili + Otomatik | **99.8/100** | [Güvenlik Denetim Raporunu Görüntüle](SECURITY_AUDIT_REPORT_v2.3.1.md) |
 | 2026-01-29 | v2.3.1 | Dahili | **99.5/100** | [Teknik Raporu Görüntüle](AEGIS_VAULT_WHITEPAPER_EN.md) |
 | 2026-01-19 | v2.3.0 | Dahili | **99/100** | [Teknik Raporu Görüntüle](AEGIS_VAULT_WHITEPAPER_EN.md) |
