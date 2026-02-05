@@ -18,6 +18,8 @@ import {
   Category
 } from '../types';
 
+export type { ChunkedPayload };
+
 // Error messages (TR/EN)
 const ERROR_MESSAGES: Record<ShareErrorType, { tr: string; en: string }> = {
   SHARE_EXPIRED: {
@@ -55,7 +57,7 @@ const SHARE_VERSION = "1.0";
 const SHARE_TYPE = "AEGIS_SHARE";
 const EXPIRATION_HOURS = 24;
 const MIN_PASSWORD_LENGTH = 12;
-const QR_MAX_SIZE = 2000; // Max bytes per QR code (conservative)
+const QR_MAX_SIZE = 700; // Reduced to fit comfortably with Level Q correction
 const ARGON2_ITERATIONS = 20;
 const ARGON2_MEMORY = 65536; // 64MB
 const ARGON2_PARALLELISM = 4;
@@ -341,14 +343,28 @@ export class ShareService {
       // Check if chunking is needed
       const payloadSize = new TextEncoder().encode(payloadBase64).length;
 
+      console.log('[ShareService] QR Code Generation:');
+      console.log('  Payload size:', payloadSize, 'bytes');
+      console.log('  Max QR size:', QR_MAX_SIZE, 'bytes');
+      console.log('  Chunking needed:', payloadSize > QR_MAX_SIZE);
+
       if (payloadSize <= QR_MAX_SIZE) {
         // Single QR code
         const qrDataUrl = await QRCode.toDataURL(payloadBase64, {
-          errorCorrectionLevel: 'M',
+          errorCorrectionLevel: 'Q', // High error correction (25%)
           type: 'image/png',
-          margin: 2,
-          width: 400
+          margin: 4,
+          width: 800,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
         });
+
+        console.log('  Generated 1 QR code');
+        console.log('  QR data URL length:', qrDataUrl.length);
+        console.log('  QR image size (approx):', Math.round(qrDataUrl.length * 0.75 / 1024), 'KB');
+
         return [qrDataUrl];
       }
 
@@ -356,6 +372,8 @@ export class ShareService {
       const chunkId = crypto.randomUUID();
       const totalChunks = Math.ceil(payloadSize / QR_MAX_SIZE);
       const qrDataUrls: string[] = [];
+
+      console.log('  Generating', totalChunks, 'QR codes...');
 
       for (let i = 0; i < totalChunks; i++) {
         const start = i * QR_MAX_SIZE;
@@ -376,19 +394,98 @@ export class ShareService {
         );
 
         const qrDataUrl = await QRCode.toDataURL(chunkBase64, {
-          errorCorrectionLevel: 'M',
+          errorCorrectionLevel: 'Q', // High error correction (25%)
           type: 'image/png',
-          margin: 2,
-          width: 400
+          margin: 4,
+          width: 800,
+          color: {
+            dark: '#000000',
+            light: '#FFFFFF'
+          }
         });
 
         qrDataUrls.push(qrDataUrl);
+        console.log(`  Generated QR ${i + 1}/${totalChunks}`);
       }
+
+      console.log('  Total QR codes generated:', qrDataUrls.length);
 
       return qrDataUrls;
     } catch (error: any) {
       ErrorHandlingService.handle(error, 'ShareService.generateQRCodes');
       throw new Error('Failed to generate QR codes');
+    }
+  }
+
+  /**
+   * Process decoded QR string data (from extension or browser)
+   * @param qrData - The raw string data from the QR code
+   * @param chunks - Previously collected chunks (for multi-QR)
+   */
+  static async processQRData(
+    qrData: string,
+    chunks: Map<string, ChunkedPayload[]> = new Map()
+  ): Promise<{ payload: QRSharePayload | null; isComplete: boolean; chunksNeeded?: number; error?: ShareErrorType }> {
+    try {
+      // Decode base64 data
+      const dataBytes = CryptoService.base64ToArrayBuffer(qrData);
+      const dataJson = new TextDecoder().decode(dataBytes);
+
+      // Try to parse as chunked payload first
+      try {
+        const chunked = JSON.parse(dataJson) as ChunkedPayload;
+
+        // Verify chunk checksum
+        const chunkValid = await this.verifyChecksum(chunked.data, chunked.checksum);
+        if (!chunkValid) {
+          return { payload: null, isComplete: false, error: 'SHARE_TAMPERED' };
+        }
+
+        // Add chunk to collection
+        if (!chunks.has(chunked.chunkId)) {
+          chunks.set(chunked.chunkId, []);
+        }
+
+        // Check if we already have this chunk index
+        const collectedChunks = chunks.get(chunked.chunkId)!;
+        if (!collectedChunks.find(c => c.chunkIndex === chunked.chunkIndex)) {
+          collectedChunks.push(chunked);
+        }
+
+        // Check if all chunks collected
+        if (collectedChunks.length === chunked.totalChunks) {
+          // Sort chunks by index and combine
+          collectedChunks.sort((a, b) => a.chunkIndex - b.chunkIndex);
+
+          let combinedData = '';
+          for (const chunk of collectedChunks) {
+            combinedData += chunk.data;
+          }
+
+          // Decode the combined base64 to get actual payload
+          const payloadBytes = CryptoService.base64ToArrayBuffer(combinedData);
+          const payloadJson = new TextDecoder().decode(payloadBytes);
+          const payload = JSON.parse(payloadJson) as QRSharePayload;
+
+          // Clear chunks for this ID
+          chunks.delete(chunked.chunkId);
+
+          return { payload, isComplete: true };
+        }
+
+        return {
+          payload: null,
+          isComplete: false,
+          chunksNeeded: chunked.totalChunks - collectedChunks.length
+        };
+      } catch (e) {
+        // Not a chunked payload, try direct payload
+        const payload = JSON.parse(dataJson) as QRSharePayload;
+        return { payload, isComplete: true };
+      }
+    } catch (error) {
+      console.error('[ShareService] processQRData error:', error);
+      return { payload: null, isComplete: false, error: 'INVALID_SHARE_FORMAT' };
     }
   }
 

@@ -99,6 +99,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
             ipcRenderer.on('extension:passkey-sign', subscription);
             return () => ipcRenderer.removeListener('extension:passkey-sign', subscription);
         },
+        onQRScanned: (callback) => {
+            const subscription = (event, ...args) => callback(event, ...args);
+            ipcRenderer.on('extension:qr-scanned', subscription);
+            return () => ipcRenderer.removeListener('extension:qr-scanned', subscription);
+        },
+        onQRImage: (callback) => {
+            const subscription = (event, ...args) => callback(event, ...args);
+            ipcRenderer.on('extension:qr-image', subscription);
+            return () => ipcRenderer.removeListener('extension:qr-image', subscription);
+        },
         sendResult: (id, data) => ipcRenderer.send(`extension:${id}`, data),
     },
 

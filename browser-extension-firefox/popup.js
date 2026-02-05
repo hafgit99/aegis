@@ -105,33 +105,56 @@ async function scanQrFromFile(file) {
 
         reader.onload = (e) => {
             img.onload = () => {
-                // Create canvas to read image data
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
+                try {
+                    console.log('Image loaded:', img.width, 'x', img.height);
 
-                if (!ctx) {
+                    // Try to find QR code using jsQR library
+                    if (typeof jsQR !== 'undefined') {
+                        console.log('jsQR library found, scanning...');
+
+                        // Try multiple strategies
+                        const strategies = [
+                            { scale: 1, invert: false, enhance: false, name: 'Original' },
+                            { scale: 1, invert: false, enhance: true, name: 'Enhanced' },
+                            { scale: 1, invert: true, enhance: false, name: 'Inverted' },
+                            { scale: 1.5, invert: false, enhance: false, name: '1.5x Scale' },
+                            { scale: 0.75, invert: false, enhance: false, name: '0.75x Scale' },
+                        ];
+
+                        for (const strategy of strategies) {
+                            console.log(`Trying strategy: ${strategy.name}...`);
+                            const result = tryDecodeQR(img, strategy.scale, strategy.invert, strategy.enhance);
+                            if (result) {
+                                console.log(`✅ QR code found with strategy: ${strategy.name}`, result);
+                                resolve(result);
+                                return;
+                            }
+                        }
+
+                        console.log('❌ No QR code found with any strategy');
+                        resolve(null);
+                    } else {
+                        console.error('jsQR library not loaded!');
+                        // If jsQR is not available, send image data to desktop app for processing
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                            ctx.drawImage(img, 0, 0);
+                            const dataUrl = canvas.toDataURL('image/png');
+                            sendNative('PROCESS_QR_IMAGE', { imageData: dataUrl });
+                        }
+                        resolve(null);
+                    }
+                } catch (error) {
+                    console.error('Error processing image:', error);
                     resolve(null);
-                    return;
-                }
-
-                ctx.drawImage(img, 0, 0);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-                // Try to find QR code using jsQR library if available
-                if (typeof jsQR !== 'undefined') {
-                    const code = jsQR(imageData.data, imageData.width, imageData.height);
-                    resolve(code ? code.data : null);
-                } else {
-                    // If jsQR is not available, send image data to desktop app for processing
-                    const dataUrl = canvas.toDataURL('image/png');
-                    sendNative('PROCESS_QR_IMAGE', { imageData: dataUrl });
-                    resolve(null); // Desktop app will handle it
                 }
             };
 
             img.onerror = () => {
+                console.error('Failed to load image');
                 resolve(null);
             };
 
@@ -139,12 +162,75 @@ async function scanQrFromFile(file) {
         };
 
         reader.onerror = () => {
+            console.error('Failed to read file');
             resolve(null);
         };
 
         reader.readAsDataURL(file);
     });
 }
+
+function tryDecodeQR(img, scale, invert, enhance) {
+    try {
+        const canvas = document.createElement('canvas');
+        const width = Math.floor(img.width * scale);
+        const height = Math.floor(img.height * scale);
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) return null;
+
+        // Draw scaled image
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Get image data
+        let imageData = ctx.getImageData(0, 0, width, height);
+
+        if (invert) {
+            const data = imageData.data;
+            for (let i = 0; i < data.length; i += 4) {
+                data[i] = 255 - data[i];
+                data[i + 1] = 255 - data[i + 1];
+                data[i + 2] = 255 - data[i + 2];
+            }
+        }
+
+        // Enhance contrast only if requested
+        if (enhance) {
+            imageData = enhanceContrast(imageData);
+        }
+
+        // Try to decode
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "attemptBoth",
+        });
+
+        return code ? code.data : null;
+    } catch (error) {
+        console.error('Error in tryDecodeQR:', error);
+        return null;
+    }
+}
+
+function enhanceContrast(imageData) {
+    const data = imageData.data;
+    const factor = 1.5; // Contrast factor
+
+    for (let i = 0; i < data.length; i += 4) {
+        // Convert to grayscale and enhance
+        const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        const enhanced = ((gray - 128) * factor) + 128;
+        const clamped = Math.max(0, Math.min(255, enhanced));
+
+        data[i] = clamped;     // R
+        data[i + 1] = clamped; // G
+        data[i + 2] = clamped; // B
+    }
+
+    return imageData;
+}
+
 
 function log(msg) {
     // Debug logging disabled for security

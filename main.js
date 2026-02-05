@@ -874,6 +874,24 @@ async function handleExtensionMessage(socketOrStdout, msg) {
           response.error = "WINDOW_NOT_AVAILABLE";
         }
         break;
+      case 'SCAN_QR_RESULT':
+        // Forward the decoded QR data to the main window for processing
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('extension:qr-scanned', { qrData: msg.qrData });
+          response.success = true;
+        } else {
+          response.error = "WINDOW_NOT_AVAILABLE";
+        }
+        break;
+      case 'PROCESS_QR_IMAGE':
+        // Forward raw image data to main window to decode (fallback)
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('extension:qr-image', { imageData: msg.imageData });
+          response.success = true;
+        } else {
+          response.error = "WINDOW_NOT_AVAILABLE";
+        }
+        break;
       default:
         response.error = "UNKNOWN_COMMAND";
     }

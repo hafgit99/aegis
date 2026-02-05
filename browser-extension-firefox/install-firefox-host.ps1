@@ -60,9 +60,10 @@ try {
         Remove-Item -Path $registryPath -Force
     }
     
-    # Create new key
-    New-Item -Path $registryPath -Force | Out-Null
-    New-ItemProperty -Path $registryPath -Name "(Default)" -Value $manifestPath -PropertyType String -Force | Out-Null
+    # Create or update the registry key using reg.exe (format HKCU\...)
+    # We use cmd.exe /c to ensure reg.exe treats arguments correctly
+    $regPathStandard = "HKCU\SOFTWARE\Mozilla\NativeMessagingHosts\$hostName"
+    Invoke-Expression "reg add `"$regPathStandard`" /ve /t REG_SZ /d `"$manifestPath`" /f" | Out-Null
     
     Write-Host "✓ Registry key created at: $registryPath" -ForegroundColor Green
     Write-Host ""

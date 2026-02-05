@@ -12,6 +12,7 @@ import { VaultService } from './services/vaultService';
 import { PasskeyService } from './services/passkeyService';
 import { CryptoService } from './services/cryptoService';
 import { BiometricService } from './services/biometricService';
+import { ShareService, ChunkedPayload } from './services/shareService';
 
 const AppContent: React.FC = () => {
   const {
@@ -24,6 +25,9 @@ const AppContent: React.FC = () => {
   } = useVault();
 
   const { isAuthenticated, masterKey, setKey } = useAuth();
+
+  // Storage for multi-part QR codes coming from the extension
+  const qrChunks = React.useRef<Map<string, ChunkedPayload[]>>(new Map());
 
   // Listen for OS-level lock triggers (sleep/lock screen)
   React.useEffect(() => {
@@ -168,11 +172,33 @@ const AppContent: React.FC = () => {
         }
       });
 
+      const removeQRScanned = extension.onQRScanned(async (event: any, { qrData }: any) => {
+        try {
+          // Process the QR data (handles single or multi-chunk QR codes)
+          const result = await ShareService.processQRData(qrData, qrChunks.current);
+
+          if (result.isComplete && result.payload) {
+            console.log("[Extension] QR Share fully received!", result.payload);
+            // Open import modal or show notification in Dashboard
+            // For now, we'll store it in a way the app can use
+            (window as any).pendingQRShare = result.payload;
+
+            // Trigger a custom event to notify components (like Dashboard)
+            window.dispatchEvent(new CustomEvent('aegis:qr-received', { detail: result.payload }));
+          } else if (result.chunksNeeded) {
+            console.log(`[Extension] QR Chunk received. Still need ${result.chunksNeeded} more.`);
+          }
+        } catch (e) {
+          console.error("[Extension] Failed to process QR data:", e);
+        }
+      });
+
       // CLEANUP FUNCTION to remove listeners when dependencies change
       return () => {
         if (removeSearch && typeof removeSearch === 'function') removeSearch();
         if (removeGetCreds && typeof removeGetCreds === 'function') removeGetCreds();
         if (removePasskey && typeof removePasskey === 'function') removePasskey();
+        if (removeQRScanned && typeof removeQRScanned === 'function') removeQRScanned();
       };
     }
   }, [entries, masterKey]);

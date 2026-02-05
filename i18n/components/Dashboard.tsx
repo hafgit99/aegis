@@ -607,6 +607,21 @@ const Dashboard: React.FC<{ onLogout: () => void; }> = memo(({ onLogout }) => {
     };
   }, [showChangeMasterKey]); // Refresh when modal closes (rotation might have happened)
 
+  // Listen for QR code results from browser extension
+  useEffect(() => {
+    const handleQRReceived = (event: any) => {
+      console.log("[Dashboard] QR received from extension!", event.detail);
+      setScannedPayload(event.detail);
+
+      // Focus window if it's minimized/in background
+      if ((window as any).electronAPI?.focus) {
+        (window as any).electronAPI.focus();
+      }
+    };
+
+    window.addEventListener('aegis:qr-received', handleQRReceived);
+    return () => window.removeEventListener('aegis:qr-received', handleQRReceived);
+  }, []);
 
   useEffect(() => {
     loadEntries().then(() => {

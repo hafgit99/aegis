@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+const { contextBridge, ipcRenderer } = require('electron');
 
 console.log('[Preload] Loading preload script...');
 
@@ -86,6 +86,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   extension: {
     onSearch: (callback) => ipcRenderer.on('extension:search', callback),
     onGetCreds: (callback) => ipcRenderer.on('extension:get-creds', callback),
+    onPasskeySign: (callback) => ipcRenderer.on('extension:passkey-sign', callback),
+    onQRScanned: (callback) => ipcRenderer.on('extension:qr-scanned', callback),
+    onQRImage: (callback) => ipcRenderer.on('extension:qr-image', callback),
     sendResult: (id, data) => ipcRenderer.send(`extension:${id}`, data),
   },
 
