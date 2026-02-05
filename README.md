@@ -253,12 +253,22 @@ Aegis Vault is now available for **Windows**, **macOS**, and **Linux**!
 
 ### 🌐 Browser Extension (Optional - All Platforms)
 To enable Autofill and Passkey support in your browser:
+
+#### 🟢 Chrome, Edge, Brave, etc.
 1. Open **Chrome/Edge** and navigate to `chrome://extensions/`
 2. Enable **Developer mode** (toggle in the top right corner)
 3. Click **Load unpacked**
 4. Select the `browser-extension` folder from your Aegis Vault directory
 5. Verify the extension ID is `pjjmjgibliobepbjbghmipfpiljgogii`
-6. Make sure the Aegis Vault desktop app is open to allow communication
+
+#### 🦊 Mozilla Firefox
+1. Open **Firefox** and navigate to `about:debugging`
+2. Click on **"This Firefox"** in the left sidebar
+3. Click **"Load Temporary Add-on..."**
+4. Select the `manifest.json` file inside the `browser-extension-firefox` folder
+5. **Note:** Temporary add-ons are removed when Firefox restarts.
+
+**Make sure the Aegis Vault desktop app is open and unlocked to allow communication.**
 
 👉 **[View Detailed Extension Setup Guide](BROWSER_EXTENSION_GUIDE.md)**
 

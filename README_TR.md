@@ -265,12 +265,24 @@ Aegis Vault artık **Windows**, **macOS** ve **Linux** için mevcut!
 
 ### 🌐 Tarayıcı Eklentisi (İsteğe Bağlı - Tüm Platformlar)
 Tarayıcınızda Otomatik Doldurma ve Passkey desteğini etkinleştirmek için:
+
+#### 🟢 Chrome, Edge, Brave vb.
 1. **Chrome/Edge**'i açın ve `chrome://extensions/` adresine gidin
 2. **Geliştirici modunu** etkinleştirin (sağ üst köşedeki düğme)
 3. **Paketlenmemiş yükle**'ye tıklayın
 4. Aegis Vault dizininizdeki `browser-extension` klasörünü seçin
 5. Eklenti kimliğinin `pjjmjgibliobepbjbghmipfpiljgogii` olduğunu doğrulayın
-6. İletişime izin vermek için Aegis Vault masaüstü uygulamasının açık olduğundan emin olun
+
+#### 🦊 Mozilla Firefox
+1. **Firefox**'u açın ve `about:debugging` adresine gidin
+2. Sol menüden **"Bu Firefox"** (This Firefox) seçeneğine tıklayın
+3. **"Geçici Eklentiyi Yükle..."** (Load Temporary Add-on...) butonuna tıklayın
+4. `browser-extension-firefox` klasörü içindeki `manifest.json` dosyasını seçin
+5. **Not:** Geçici eklentiler Firefox kapatıldığında silinir.
+
+**İletişime izin vermek için Aegis Vault masaüstü uygulamasının açık ve kilidinin açık olduğundan emin olun.**
+
+👉 **[Detaylı Eklenti Kurulum Kılavuzu](BROWSER_EXTENSION_GUIDE.md)**
 
 ### Sistem Gereksinimleri
 - **Windows**: 10/11 (64-bit)

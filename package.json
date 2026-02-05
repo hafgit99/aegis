@@ -104,7 +104,8 @@
         ]
       },
       "package.json",
-      "browser-extension/**/*"
+      "browser-extension/**/*",
+      "browser-extension-firefox/**/*"
     ],
     "extraResources": [
       {

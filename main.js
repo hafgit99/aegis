@@ -634,6 +634,7 @@ function runBridgeMode() {
 }
 
 const EXTENSION_ID = 'pjjmjgibliobepbjbghmipfpiljgogii';
+const FIREFOX_EXTENSION_ID = 'sales@hetech-me.space';
 function sendToExtension(socketOrStdout, message) {
   const payload = JSON.stringify(message);
   const buffer = Buffer.from(payload);
@@ -652,6 +653,7 @@ function sendToExtension(socketOrStdout, message) {
 /**
  * Registers this application as a Native Messaging Host in the OS.
  * Uses a standalone Node.js bridge script (not the Electron app) to avoid lifecycle conflicts.
+ * Supports both Chrome and Firefox with separate manifests.
  */
 async function setupNativeMessagingHost() {
   const hostName = 'com.aegis.vault';
@@ -677,7 +679,8 @@ async function setupNativeMessagingHost() {
   const batchContent = `@echo off\n"${nodeExe}" "${bridgeScript}" %*`;
   fs.writeFileSync(batchPath, batchContent);
 
-  const manifest = {
+  // Chrome manifest (uses allowed_origins)
+  const chromeManifest = {
     name: hostName,
     description: "Aegis Vault Security Bridge",
     path: batchPath,
@@ -687,21 +690,50 @@ async function setupNativeMessagingHost() {
     ]
   };
 
-  const manifestPath = path.join(app.getPath('userData'), 'com.aegis.vault.json');
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-  logMain("Native Host manifest written to: " + manifestPath);
+  // Firefox manifest (uses allowed_extensions)
+  const firefoxManifest = {
+    name: hostName,
+    description: "Aegis Vault Security Bridge for Firefox",
+    path: batchPath,
+    type: "stdio",
+    allowed_extensions: [
+      FIREFOX_EXTENSION_ID
+    ]
+  };
+
+  // Write Chrome manifest
+  const chromeManifestPath = path.join(app.getPath('userData'), 'com.aegis.vault.json');
+  fs.writeFileSync(chromeManifestPath, JSON.stringify(chromeManifest, null, 2));
+  logMain("Chrome Native Host manifest written to: " + chromeManifestPath);
+
+  // Write Firefox manifest
+  const firefoxManifestPath = path.join(app.getPath('userData'), 'com.aegis.vault.firefox.json');
+  fs.writeFileSync(firefoxManifestPath, JSON.stringify(firefoxManifest, null, 2));
+  logMain("Firefox Native Host manifest written to: " + firefoxManifestPath);
+
   logMain("Bridge batch file written to: " + batchPath);
 
   // Trigger token generation so it's ready for the bridge
   await getBridgeToken();
 
   if (process.platform === 'win32') {
-    const regKey = `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${hostName}`;
+    // Chrome registry key
+    const regKeyChrome = `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${hostName}`;
+    // Firefox registry key
+    const regKeyFirefox = `HKCU\\Software\\Mozilla\\NativeMessagingHosts\\${hostName}`;
+
     try {
-      execSync(`reg add "${regKey}" /ve /t REG_SZ /d "${manifestPath}" /f`);
-      console.log('[Security] Native Messaging Host registered in Registry');
+      // Register Chrome
+      execSync(`reg add "${regKeyChrome}" /ve /t REG_SZ /d "${chromeManifestPath}" /f`, { windowsHide: true });
+      logMain('[Security] Native Messaging Host registered for Chrome');
+
+      // Register Firefox
+      execSync(`reg add "${regKeyFirefox}" /ve /t REG_SZ /d "${firefoxManifestPath}" /f`, { windowsHide: true });
+      logMain('[Security] Native Messaging Host registered for Firefox');
+
+      console.log('[Security] Native Messaging Host registered in Registry for Chrome & Firefox');
     } catch (e) {
-      console.error('[Security] Failed to register Registry key:', e.message);
+      console.error('[Security] Failed to register Registry keys:', e.message);
     }
   }
 }
@@ -709,9 +741,11 @@ async function setupNativeMessagingHost() {
 // 3. STARTUP LOGIC
 // Check if running as Native Messaging Host (Bridge Mode)
 // Chrome passes the origin (chrome-extension://ID/) as an argument on Windows
-const isNativeHost = process.argv.includes('--native-messaging-host') ||
-  process.argv.includes('com.aegis.vault.json') ||
-  process.argv.some(arg => arg.startsWith('chrome-extension://'));
+const isNativeHost = process.argv.some(arg =>
+  arg.includes('--native-messaging-host') ||
+  arg.includes('com.aegis.vault.json') ||
+  arg.startsWith('chrome-extension://')
+);
 
 if (isNativeHost) {
   // We are the Bridge Process launched by Chrome

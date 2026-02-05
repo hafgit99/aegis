@@ -1,0 +1,42 @@
+{
+    "manifest_version": 2,
+    "name": "Aegis Vault",
+    "version": "1.0.1",
+    "description": "Secure bridge for Aegis Vault",
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "sales@hetech-me.space",
+            "strict_min_version": "91.0",
+            "update_url": "https://hetech-me.space/aegis-update.json"
+        }
+    },
+    "background": {
+        "scripts": [
+            "background.js"
+        ]
+    },
+    "permissions": [
+        "nativeMessaging",
+        "activeTab",
+        "tabs",
+        "<all_urls>"
+    ],
+    "browser_action": {
+        "default_popup": "popup.html",
+        "default_icon": "icon.png"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_end"
+        }
+    ],
+    "icons": {
+        "128": "icon.png"
+    }
+}

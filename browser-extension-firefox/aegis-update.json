@@ -1,0 +1,12 @@
+{
+    "addons": {
+        "sales@hetech-me.space": {
+            "updates": [
+                {
+                    "version": "1.0.1",
+                    "update_link": "https://hetech-me.space/aegis-vault.xpi"
+                }
+            ]
+        }
+    }
+}
