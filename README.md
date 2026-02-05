@@ -262,11 +262,10 @@ To enable Autofill and Passkey support in your browser:
 5. Verify the extension ID is `pjjmjgibliobepbjbghmipfpiljgogii`
 
 #### 🦊 Mozilla Firefox
-1. Open **Firefox** and navigate to `about:debugging`
-2. Click on **"This Firefox"** in the left sidebar
-3. Click **"Load Temporary Add-on..."**
-4. Select the `manifest.json` file inside the `browser-extension-firefox` folder
-5. **Note:** Temporary add-ons are removed when Firefox restarts.
+1. **Download:** Go to the [Releases](https://github.com/hafgit99/aegis/releases) page and download `aegis-vault.xpi`.
+2. **Install:** Drag and drop the downloaded `.xpi` file into your Firefox browser window.
+3. **Approve:** Click **"Add"** when prompted by Firefox to install the extension.
+4. **Permissions:** Ensure the extension has permission to run in private windows if needed.
 
 **Make sure the Aegis Vault desktop app is open and unlocked to allow communication.**
 

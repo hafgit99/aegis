@@ -28,13 +28,11 @@ The Aegis Vault Browser Extension provides a secure bridge between your web brow
 6. **Pin to Toolbar:** For easy access, pin the Aegis Vault icon to your browser's toolbar.
 
 #### 🦊 Firefox Installation
-1. **Open Debugging Page:** In Firefox, navigate to `about:debugging`.
-2. **This Firefox:** Click on **"This Firefox"** in the left sidebar.
-3. **Load Manifest:**
-   - Click **"Load Temporary Add-on..."**.
-   - Select the `manifest.json` file inside the `browser-extension-firefox` folder.
-4. **Verify ID:** Ensure the ID is `sales@hetech-me.space` (in about:debugging).
-5. **Note:** Temporary add-ons are removed when Firefox restarts. For permanent use, the extension must be signed by Mozilla.
+1. **Download Signed Extension:** Download the `aegis-vault.xpi` file from the [GitHub Releases](https://github.com/hafgit99/aegis/releases).
+2. **Install:** Drag the `aegis-vault.xpi` file into any Firefox window.
+3. **Confirm:** Click **"Add"** in the permission dialog.
+4. **Verify ID:** Ensure the ID is `sales@hetech-me.space` in the Add-ons Manager (`about:addons`).
+5. **Note:** This is a signed permanent version. No need to reload on restart.
 
 #### 📄 Mozilla Add-ons (AMO) Submission Metadata
 When submitting to AMO, use the following information:
@@ -75,13 +73,11 @@ Aegis Vault Tarayıcı Eklentisi, web tarayıcınız ile Aegis Vault masaüstü 
 6. **Araç Çubuğuna Sabitle:** Kolay erişim için Aegis Vault ikonunu tarayıcı araç çubuğuna sabitleyin.
 
 #### 🦊 Mozilla Firefox Kurulumu
-1. **Hata Ayıklama Sayfasını Açın:** Firefox'ta `about:debugging` adresine gidin.
-2. **Bu Firefox:** Sol menüden **"Bu Firefox"** (This Firefox) seçeneğine tıklayın.
-3. **Eklentiyi Yükleyin:**
-   - **"Geçici Eklentiyi Yükle..."** (Load Temporary Add-on...) butonuna tıklayın.
-   - `browser-extension-firefox` klasörü içindeki `manifest.json` dosyasını seçin.
-4. **Kimlik Doğrulama:** Eklenti kimliğinin `sales@hetech-me.space` olduğunu kontrol edin (about:debugging sayfasında).
-5. **Not:** Geçici eklentiler Firefox kapatıldığında silinir. Kalıcı kullanım için eklentinin Mozilla tarafından imzalanması gerekmektedir.
+1. **İmzalı Eklentiyi İndir:** [GitHub Releases](https://github.com/hafgit99/aegis/releases) sayfasından `aegis-vault.xpi` dosyasını indirin.
+2. **Kurulum:** `aegis-vault.xpi` dosyasını herhangi bir Firefox penceresine sürükleyin.
+3. **Onayla:** İzin penceresinde **"Ekle"** butonuna tıklayın.
+4. **Kimlik Doğrulama:** Eklentiler sayfasında (`about:addons`) ID'nin `sales@hetech-me.space` olduğunu kontrol edin.
+5. **Not:** Bu imzalı ve kalıcı sürümdür. Firefox'u her açtığınızda yeniden yüklemeniz gerekmez.
 
 #### 📄 Mozilla Add-ons (AMO) Gönderim Bilgileri
 AMO'ya gönderim yaparken aşağıdaki bilgileri kullanın:

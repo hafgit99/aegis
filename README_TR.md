@@ -274,11 +274,10 @@ Tarayıcınızda Otomatik Doldurma ve Passkey desteğini etkinleştirmek için:
 5. Eklenti kimliğinin `pjjmjgibliobepbjbghmipfpiljgogii` olduğunu doğrulayın
 
 #### 🦊 Mozilla Firefox
-1. **Firefox**'u açın ve `about:debugging` adresine gidin
-2. Sol menüden **"Bu Firefox"** (This Firefox) seçeneğine tıklayın
-3. **"Geçici Eklentiyi Yükle..."** (Load Temporary Add-on...) butonuna tıklayın
-4. `browser-extension-firefox` klasörü içindeki `manifest.json` dosyasını seçin
-5. **Not:** Geçici eklentiler Firefox kapatıldığında silinir.
+1. **İndir:** [Releases](https://github.com/hafgit99/aegis/releases) sayfasından `aegis-vault.xpi` dosyasını indirin.
+2. **Kur:** İndirilen `.xpi` dosyasını Firefox tarayıcı pencerenize sürükleyip bırakın.
+3. **Onayla:** Firefox tarafından sorulduğunda **"Ekle"** butonuna tıklayarak kurulumu tamamlayın.
+4. **İzinler:** Gerekirse eklentinin gizli pencerelerde çalışmasına izin verin.
 
 **İletişime izin vermek için Aegis Vault masaüstü uygulamasının açık ve kilidinin açık olduğundan emin olun.**
 
