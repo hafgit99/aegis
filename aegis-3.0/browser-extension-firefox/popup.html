@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <div class="header" role="banner">
+        <div class="brand">
+            <img src="icon.png" alt="Aegis Vault Logo">
+            Aegis Vault
+        </div>
+        <div class="actions">
+            <button id="qrScanBtn" title="Scan QR Code" aria-label="Scan QR Code">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <rect x="3" y="3" width="7" height="7" />
+                    <rect x="14" y="3" width="7" height="7" />
+                    <rect x="14" y="14" width="7" height="7" />
+                    <path d="M3 14h7v7H3z" />
+                </svg>
+            </button>
+            <button id="refreshBtn" title="Refresh" aria-label="Refresh Vault">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                        d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+                </svg>
+            </button>
+            <button id="openAppBtn" title="Open Desktop App" aria-label="Open Desktop App">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M19 4H5a2 2 0 00-2 2v12a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zm0 14H5V8h14v10z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="search-area" role="search">
+        <label for="searchInput" class="sr-only">Search logins</label>
+        <div class="search-input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="8" />
+                <path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input type="text" id="searchInput" placeholder="Search logins..." autocomplete="off"
+                aria-label="Search logins">
+        </div>
+        <div class="filter-bar" role="group" aria-label="Filter Options">
+            <button class="filter-btn active" data-filter="all" aria-pressed="true">All</button>
+            <button class="filter-btn" data-filter="login" aria-pressed="false">Logins</button>
+            <button class="filter-btn" data-filter="card" aria-pressed="false">Cards</button>
+            <button class="filter-btn icon-btn" data-filter="favorite" aria-pressed="false" title="Favorites"
+                aria-label="Favorites">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true">
+                    <path
+                        d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="list-container" id="listContainer" aria-live="polite" role="list">
+        <!-- Results will be injected here -->
+        <div class="empty-state">
+            <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+            </svg>
+            <div class="empty-text">Searching vault...</div>
+        </div>
+    </div>
+
+    <!-- Hidden file input for QR upload -->
+    <input type="file" id="qrFileInput" accept="image/*" class="hidden" aria-hidden="true" />
+
+    <!-- QR Scan Modal -->
+    <div id="qrModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">Scan QR Code</div>
+                <button class="modal-close" id="qrModalClose" aria-label="Close Modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <button class="qr-upload-area" id="qrUploadArea" aria-label="Upload QR Code Image">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="qr-icon"
+                        aria-hidden="true">
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
+                        <path d="M3 14h7v7H3z" />
+                    </svg>
+                    <div class="qr-text">Click to upload QR code image</div>
+                    <div class="qr-subtext">The QR code will be scanned and sent to the desktop app</div>
+                </button>
+                <div id="qrResult" class="qr-result hidden" aria-live="polite"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script src="jsQR.js"></script>
+    <script src="popup.js"></script>
+</body>
+
+</html>

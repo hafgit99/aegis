@@ -1,0 +1,120 @@
+name: Security Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '30 2 * * 1' # Weekly scan on Monday at 02:30
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # 1. SAST - Semgrep
+  semgrep-sast:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    if: (github.actor != 'dependabot[bot]')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Semgrep
+        run: python3 -m pip install semgrep
+      - name: Semgrep Scan
+        run: |
+          semgrep scan --sarif --output=semgrep.sarif --config p/security-audit --config p/secrets --config p/typescript --config p/rust --config .semgrep.yml || true
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep.sarif
+        if: always()
+
+  # 2. Dependency Audit & Vulnerability Scanning
+  dependency-scan:
+    name: Vulnerability Scan (NPM & Trivy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: NPM Audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Trivy FS Scan (Filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1' # Fail on high/critical vulnerabilities
+
+  # 3. Rust Security Audit
+  rust-audit:
+    name: Rust Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+      - name: Run Audit
+        run: |
+          cd native
+          cargo audit
+
+  # 4. Secret Scanning (Gitleaks)
+  gitleaks:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 5. DAST Baseline Scan (OWASP ZAP)
+  dast-scan:
+    name: OWASP ZAP DAST Scan
+    runs-on: ubuntu-latest
+    needs: [dependency-scan]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install & Build Renderer
+        run: |
+          npm ci
+          npm run build:renderer
+          # Start a local server to serve the built renderer for DAST
+          npx http-server dist/renderer -p 8080 &
+          sleep 10 # Wait for server to start
+          
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          docker_name: 'ghcr.io/zaproxy/zaproxy:stable'
+          target: 'http://localhost:8080'
+          fail_action: false

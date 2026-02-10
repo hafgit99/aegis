@@ -1,0 +1,53 @@
+{
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmufvQ2BI0P1MAN1xuE3TI3GwSHASh218dANYoPZqiff8b0+ihfE5La+yP/cFxizejgE//P9CQZMW4qpXxSdrPYU8QSqr4uz3z871aVpkLXbDpFGuhNPZtiV+DVUUqkkTbPvQM3gKCfCejkR6mX0D+kxbExBifEb8spZlVebarfeJSArWg63r99WZcw8bjuHVavrgWs5YsF/g9l9K+rCiIKr+9MwzDU9p5Ksq9Ts0rY4bSM0n5a5RrVEBSkwpkQmgOguzdwOzkJY1dnvwnJsSZDT3UBZPdDUrv+grhcHCLcrAWy2LRspQtokpTNMTiXktncqkEIhHXIW186eMcCzXtwIDAQAB",
+    "name": "Aegis Vault",
+    "version": "3.0.0",
+    "manifest_version": 3,
+    "description": "Secure bridge for Aegis Vault",
+    "permissions": [
+        "nativeMessaging",
+        "activeTab",
+        "scripting"
+    ],
+    "optional_host_permissions": [
+        "https://*/*"
+    ],
+    "content_security_policy": {
+        "extension_pages": "default-src 'self'; connect-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://secure.gravatar.com; object-src 'none'; base-uri 'self'; form-action 'self';"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "run_at": "document_idle"
+        }
+    ],
+    "host_permissions": [
+        "<all_urls>"
+    ],
+    "icons": {
+        "16": "icon.png",
+        "48": "icon.png",
+        "128": "icon.png"
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "icon.png"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ]
+}

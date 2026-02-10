@@ -1,0 +1,28 @@
+rules:
+  - id: electron-node-integration
+    pattern-either:
+      - pattern: |
+          new BrowserWindow({
+            webPreferences: {
+              nodeIntegration: true
+            }
+          })
+      - pattern: |
+          new BrowserWindow({
+            webPreferences: {
+              contextIsolation: false
+            }
+          })
+    message: "Security Risk: Node Integration should be disabled and Context Isolation enabled."
+    languages: [typescript, javascript]
+    severity: ERROR
+
+  - id: insecure-pqc-usage
+    patterns:
+      - pattern: pqc_decrypt(...);
+      - pattern-not: let $VAR = pqc_decrypt(...);
+      - pattern-not-inside: match pqc_decrypt(...) { ... }
+      - pattern-not-inside: if let ... = pqc_decrypt(...) { ... }
+    message: "Ensure PQC decryption result is handled. Ignoring the Result can lead to security vulnerabilities or unhandled errors."
+    languages: [rust]
+    severity: WARNING

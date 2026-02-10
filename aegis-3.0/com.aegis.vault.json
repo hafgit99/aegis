@@ -1,0 +1,9 @@
+{
+    "name":  "com.aegis.vault",
+    "description":  "Aegis Vault Native Host",
+    "path":  "C:\\Users\\hrn21\\OneDrive\\Desktop\\aegis-son-2\\aegis-vault\\aegis-3.0\\host.bat",
+    "type":  "stdio",
+    "allowed_origins":  [
+                            "chrome-extension://knldjmfmopnpolahpmmgbagdohdnhkik/"
+                        ]
+}

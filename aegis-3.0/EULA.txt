@@ -1,0 +1,76 @@
+﻿
+================================================================================
+ENGLISH / İNGİLİZCE
+================================================================================
+
+END USER LICENSE AGREEMENT (EULA) for AEGIS VAULT
+
+IMPORTANT: PLEASE READ THIS AGREEMENT CAREFULLY BEFORE INSTALLING OR USING THIS SOFTWARE.
+
+This End User License Agreement ("Agreement") is a legal agreement between You (either an individual or a single entity) and Aegis Vault ("Licensor") for the Aegis Vault software product, which includes computer software and may include associated media, printed materials, and "online" or electronic documentation ("Software").
+
+BY INSTALLING, COPYING, OR OTHERWISE USING THE SOFTWARE, YOU AGREE TO BE BOUND BY THE TERMS OF THIS AGREEMENT. IF YOU DO NOT AGREE TO THE TERMS OF THIS AGREEMENT, DO NOT INSTALL OR USE THE SOFTWARE.
+
+1. GRANT OF LICENSE
+Licensor grants you the following rights provided that you comply with all terms and conditions of this Agreement:
+a. Installation and Use: You may install and use an unlimited number of copies of the Software on your devices.
+b. Backup Copies: You may make copies of the Software for backup and archival purposes.
+
+2. DESCRIPTION OF OTHER RIGHTS and LIMITATIONS
+a. Maintenance of Copyright Notices: You must not remove or alter any copyright notices on any and all copies of the Software.
+b. Distribution: You may not distribute registered copies of the Software to third parties.
+c. Prohibition on Reverse Engineering, Decompilation, and Disassembly: You may not reverse engineer, decompile, or disassemble the Software, except and only to the extent that such activity is expressly permitted by applicable law notwithstanding this limitation.
+d. Rental: You may not rent, lease, or lend the Software.
+e. Support Services: Licensor may provide you with support services related to the Software ("Support Services"). Any supplemental software code provided to you as part of the Support Services shall be considered part of the Software and subject to the terms and conditions of this Agreement.
+f. Compliance with Applicable Laws: You must comply with all applicable laws regarding use of the Software.
+
+3. TERMINATION
+Without prejudice to any other rights, Licensor may terminate this Agreement if you fail to comply with the terms and conditions of this Agreement. In such event, you must destroy all copies of the Software and all of its component parts.
+
+4. COPYRIGHT
+All title, including but not limited to copyrights, in and to the Software and any copies thereof are owned by Licensor or its suppliers. All title and intellectual property rights in and to the content which may be accessed through use of the Software is the property of the respective content owner and may be protected by applicable copyright or other intellectual property laws and treaties. This Agreement grants you no rights to use such content. All rights not expressly granted are reserved by Licensor.
+
+5. NO WARRANTIES
+Licensor expressly disclaims any warranty for the Software. The Software is provided 'As Is' without any express or implied warranty of any kind, including but not limited to any warranties of merchantability, noninfringement, or fitness of a particular purpose. Licensor does not warrant or assume responsibility for the accuracy or completeness of any information, text, graphics, links or other items contained within the Software. Licensor makes no warranties respecting any harm that may be caused by the transmission of a computer virus, worm, time bomb, logic bomb, or other such computer program. Licensor further expressly disclaims any warranty or representation to Authorized Users or to any third party.
+
+6. LIMITATION OF LIABILITY
+In no event shall Licensor be liable for any damages (including, without limitation, lost profits, business interruption, or lost information) rising out of 'Authorized Users' use of or inability to use the Software, even if Licensor has been advised of the possibility of such damages. In no event will Licensor be liable for loss of data or for indirect, special, incidental, consequential (including lost profit), or other damages based in contract, tort or otherwise. Licensor shall have no liability with respect to the content of the Software or any part thereof, including but not limited to errors or omissions contained therein, libel, infringements of rights of publicity, privacy, trademark rights, business interruption, personal injury, loss of privacy, moral rights or the disclosure of confidential information.
+
+================================================================================
+TÜRKÇE / TURKISH
+================================================================================
+
+AEGIS VAULT İÇİN SON KULLANICI LİSANS SÖZLEŞMESİ (EULA)
+
+ÖNEMLİ: BU YAZILIMI KURMADAN VEYA KULLANMADAN ÖNCE LÜTFEN BU SÖZLEŞMEYİ DİKKATLE OKUYUNUZ.
+
+Bu Son Kullanıcı Lisans Sözleşmesi ("Sözleşme"), Siz (bireysel veya tek bir tüzel kişilik) ile Aegis Vault ("Lisans Veren") arasında, bilgisayar yazılımı ve ilişkili medya, basılı materyaller ve "çevrimiçi" veya elektronik belgeleri ("Yazılım") içeren Aegis Vault yazılım ürünü için yapılan yasal bir anlaşmadır.
+
+YAZILIMI KURMAKLA, KOPYALAMAKLA VEYA BAŞKA BİR ŞEKİLDE KULLANMAKLA, BU SÖZLEŞMENİN ŞARTLARINI KABUL ETMİŞ SAYILIRSINIZ. BU SÖZLEŞMENİN ŞARTLARINI KABUL ETMİYORSANIZ, YAZILIMI KURMAYINIZ VEYA KULLANMAYINIZ.
+
+1. LİSANS VERİLMESİ
+Lisans Veren, bu Sözleşmenin tüm şart ve koşullarına uymanız kaydıyla size aşağıdaki hakları verir:
+a. Kurulum ve Kullanım: Yazılımın sınırsız sayıda kopyasını cihazlarınıza kurabilir ve kullanabilirsiniz.
+b. Yedek Kopyalar: Yedekleme ve arşivleme amacıyla Yazılımın kopyalarını alabilirsiniz.
+
+2. DİĞER HAKLAR VE SINIRLAMALARIN TANIMI
+a. Telif Hakkı Bildirimlerinin Korunması: Yazılımın tüm kopyalarındaki telif hakkı bildirimlerini kaldıramaz veya değiştiremezsiniz.
+b. Dağıtım: Yazılımın kayıtlı kopyalarını üçüncü şahıslara dağıtamazsınız.
+c. Tersine Mühendislik, Derlemeyi Çözme ve Parçalara Ayırma Yasağı: Yürürlükteki yasaların bu sınırlamaya rağmen açıkça izin verdiği durumlar haricinde, Yazılımı tersine mühendislik işlemine tabi tutamaz, derlemesini çözemez veya parçalarına ayıramazsınız.
+d. Kiralama: Yazılımı kiralayamaz, finansal kiralama yoluyla veremez veya ödünç veremezsiniz.
+e. Destek Hizmetleri: Lisans Veren size Yazılımla ilgili destek hizmetleri ("Destek Hizmetleri") sağlayabilir. Destek Hizmetlerinin bir parçası olarak size sağlanan herhangi bir ek yazılım kodu, Yazılımın bir parçası olarak kabul edilecek ve bu Sözleşmenin şart ve koşullarına tabi olacaktır.
+f. Yürürlükteki Yasalara Uygunluk: Yazılımın kullanımıyla ilgili tüm yürürlükteki yasalara uymalısınız.
+
+3. FESİH
+Diğer haklara halel getirmeksizin, bu Sözleşmenin şart ve koşullarına uymamanız durumunda Lisans Veren bu Sözleşmeyi feshedebilir. Böyle bir durumda, Yazılımın tüm kopyalarını ve tüm bileşenlerini imha etmelisiniz.
+
+4. TELİF HAKKI
+Yazılımın ve kopyalarının tüm mülkiyeti ve telif hakları Lisans Veren veya tedarikçilerine aittir. Yazılımın kullanımıyla erişilebilen içerikteki tüm mülkiyet ve fikri mülkiyet hakları ilgili içerik sahibine aittir ve yürürlükteki telif hakkı veya diğer fikri mülkiyet yasaları ve anlaşmalarıyla korunabilir. Bu Sözleşme size bu tür içerikleri kullanma hakkı vermez. Açıkça verilmeyen tüm haklar Lisans Veren tarafından saklı tutulur.
+
+5. GARANTİ YOKTUR
+Lisans Veren, Yazılım için açıkça herhangi bir garanti vermeyi reddeder. Yazılım, ticarete elverişlilik, ihlal etmeme veya belirli bir amaca uygunluk garantileri dahil ancak bunlarla sınırlı olmamak üzere, açık veya zımni herhangi bir garanti olmaksızın 'Olduğu Gibi' sağlanmaktadır. Lisans Veren, Yazılımda bulunan herhangi bir bilgi, metin, grafik, bağlantı veya diğer öğelerin doğruluğu veya tamlığı konusunda garanti vermez veya sorumluluk kabul etmez. Lisans Veren, bir bilgisayar virüsü, solucan, zaman bombası, mantık bombası veya benzeri diğer bilgisayar programlarının bulaşmasıyla oluşabilecek herhangi bir zarar konusunda garanti vermez.
+
+6. SORUMLULUĞUN SINIRLANDIRILMASI
+Lisans Veren, hiçbir durumda, 'Yetkili Kullanıcıların' Yazılımı kullanmasından veya kullanamamasından kaynaklanan herhangi bir zarardan (kar kaybı, iş kesintisi veya bilgi kaybı dahil ancak bunlarla sınırlı olmamak üzere) sorumlu tutulamaz; Lisans Veren bu tür zararların olasılığı konusunda bilgilendirilmiş olsa bile. Lisans Veren, veri kaybından veya dolaylı, özel, arızi, sonuçsal (kar kaybı dahil) veya sözleşme, haksız fiil veya başka bir şeye dayalı diğer zararlardan sorumlu olmayacaktır.
+
+================================================================================

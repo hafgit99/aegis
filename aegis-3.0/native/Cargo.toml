@@ -1,0 +1,62 @@
+[package]
+name = "aegis-native"
+version = "3.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# Neon for Node.js bindings
+neon = "1.0"
+
+# Cryptography
+aes-gcm = "0.10"
+argon2 = "0.5"
+rand = "0.8"
+pqcrypto-mlkem = "0.1"
+pqcrypto-traits = "0.3"
+zeroize = { version = "1.7", features = ["derive"] }
+bip39 = { version = "2.0", features = ["rand"] }
+sha2 = "0.10"
+subtle = "2.6"
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled-sqlcipher-vendored-openssl"] }
+
+# Memory security
+memsec = "0.6"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+once_cell = "1.19"
+thiserror = "2.0"
+hex = "0.4"
+
+# P2P Networking
+libp2p = { version = "0.56", features = ["tcp", "dns", "noise", "yamux", "gossipsub", "mdns", "tokio", "macros"] }
+tokio = { version = "1.36", features = ["full"] }
+futures = "0.3"
+
+# Platform-specific dependencies
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.52", features = ["Win32_System_SystemInformation", "Win32_Foundation"] }
+
+
+
+
+[dev-dependencies]
+tempfile = "3.10"
+
+[build-dependencies]
+neon-build = "0.1"
+
+[profile.release]
+strip = true       # Symbols are stripped
+opt-level = "z"    # Optimize for size
+lto = true         # Link Time Optimization
+codegen-units = 1  # Maximum optimization
+panic = "abort"    # Remove panic unwinding strings

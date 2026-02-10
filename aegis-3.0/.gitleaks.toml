@@ -1,0 +1,20 @@
+# Gitleaks configuration file
+# This file defines what to ignore during secret scanning
+
+[allowlist]
+description = "Ignore false positives in Aegis Vault"
+paths = [
+    '''src/main/resources/breach_db.json''', # Common passwords list for breach check
+    '''tests/security/.*''',                  # Security tests with dummy data
+    '''native/target/.*''',                   # Compiled Rust artifacts
+    '''dist/.*''',                            # Compiled JS artifacts
+    '''node_modules/.*''',                    # External dependencies
+    '''browser-extension/dist/.*''',          # Extension builds
+    '''browser-extension-firefox/dist/.*'''   # Extension builds (Firefox)
+]
+
+# You can also ignore specific strings if they are caught frequently
+# stopwords = [
+#     "AEGIS_E2EE_V1",
+#     "aegis-sync-e2ee-v1"
+# ]

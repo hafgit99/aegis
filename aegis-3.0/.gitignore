@@ -1,0 +1,57 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+release/
+*.node
+
+# Native build
+native/target/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test coverage
+coverage/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Electron cache
+.electron/
+
+# Private licensing tools
+/tools/
+
+# Debug and sensitive files
+*_debug.txt
+*_debug.log
+/aegis_main_debug.txt
+/aegis_bridge_debug.log
+
+# Vault safety (in case they end up in root during dev)
+*.db
+*.hash
+*.recovery
+*.lockout
+*.attempts

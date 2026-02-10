@@ -1,0 +1,10 @@
+{
+    "name": "com.aegis.vault",
+    "description": "Aegis Vault Native Messaging Host",
+    "path": "host-chrome.bat",
+    "type": "stdio",
+    "allowed_origins": [
+        "chrome-extension://knldjmfmopnpolahpmmgbagdohdnhkik/",
+        "chrome-extension://pjjmjgibliobepbjbghmipfpiljgogii/"
+    ]
+}

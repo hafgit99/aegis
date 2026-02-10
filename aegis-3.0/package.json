@@ -1,0 +1,168 @@
+{
+    "name": "aegis-vault-3.0",
+    "version": "3.0.0",
+    "description": "Next-generation offline password manager with Post-Quantum Cryptography and P2P sync",
+    "main": "dist/main/index.js",
+    "author": {
+        "name": "hafgit99",
+        "email": "vlkaan0@gmail.com"
+    },
+    "license": "MIT",
+    "private": true,
+    "scripts": {
+        "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
+        "dev:renderer": "vite",
+        "dev:main": "tsc -p tsconfig.main.json && electron .",
+        "build": "npm run build:renderer && npm run build:main && npm run build:native",
+        "build:renderer": "vite build",
+        "build:main": "tsc -p tsconfig.main.json",
+        "cli": "npm run build:main && electron . --cli",
+        "build:native": "node scripts/build-native.js",
+        "package": "npm run build && electron-builder",
+        "package:win": "npm run build && electron-builder --win",
+        "package:mac": "npm run build && electron-builder --mac",
+        "package:linux": "npm run build && electron-builder --linux",
+        "package:all": "npm run build && electron-builder -wml",
+        "release": "node build-release.js",
+        "test": "vitest",
+        "test:e2e": "playwright test",
+        "lint": "eslint src --ext .ts,.tsx",
+        "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+        "gen-license": "node tools/license-gen.js"
+    },
+    "dependencies": {
+        "@radix-ui/react-dialog": "^1.0.5",
+        "@radix-ui/react-dropdown-menu": "^2.0.6",
+        "@radix-ui/react-slot": "^1.0.2",
+        "@radix-ui/react-toast": "^1.1.5",
+        "axios": "^1.13.5",
+        "class-variance-authority": "^0.7.0",
+        "clsx": "^2.1.0",
+        "electron-log": "^5.4.3",
+        "electron-updater": "^6.7.3",
+        "framer-motion": "^11.0.3",
+        "html5-qrcode": "^2.3.8",
+        "lucide-react": "^0.344.0",
+        "qrcode.react": "^4.2.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "recharts": "^2.12.0",
+        "tailwind-merge": "^2.2.1",
+        "zustand": "^4.5.0"
+    },
+    "devDependencies": {
+        "@axe-core/playwright": "^4.11.1",
+        "@neon-rs/cli": "^0.1.0",
+        "@playwright/test": "^1.58.1",
+        "@types/node": "^20.11.17",
+        "@types/react": "^18.2.55",
+        "@types/react-dom": "^18.2.19",
+        "@typescript-eslint/eslint-plugin": "^6.21.0",
+        "@typescript-eslint/parser": "^6.21.0",
+        "@vitejs/plugin-react": "^4.2.1",
+        "autoprefixer": "^10.4.17",
+        "cargo-cp-artifact": "^0.1.8",
+        "concurrently": "^8.2.2",
+        "electron": "^28.2.0",
+        "electron-builder": "^24.9.1",
+        "eslint": "^8.56.0",
+        "javascript-obfuscator": "^5.3.0",
+        "playwright-core": "^1.58.1",
+        "postcss": "^8.4.35",
+        "prettier": "^3.2.5",
+        "rollup-plugin-javascript-obfuscator": "^1.0.4",
+        "tailwindcss": "^3.4.1",
+        "typescript": "^5.3.3",
+        "vite": "^5.1.0",
+        "vite-plugin-electron": "^0.28.2",
+        "vitest": "^1.2.2"
+    },
+    "build": {
+        "appId": "com.aegis.vault",
+        "productName": "Aegis Vault",
+        "asar": false,
+        "directories": {
+            "output": "release"
+        },
+        "files": [
+            "dist/**/*",
+            "index.node",
+            "package.json"
+        ],
+        "extraResources": [
+            {
+                "from": "index.node",
+                "to": "index.node"
+            }
+        ],
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
+                },
+                {
+                    "target": "portable",
+                    "arch": [
+                        "x64"
+                    ]
+                },
+                {
+                    "target": "zip",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "icon": "src/renderer/assets/ic.png",
+            "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+            "signingHashAlgorithms": [
+                "sha256"
+            ],
+            "rfc3161TimeStampServer": "http://timestamp.digicert.com"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "Aegis Vault",
+            "runAfterFinish": true,
+            "license": "EULA.txt"
+        },
+        "portable": {
+            "artifactName": "${productName}-${version}-Portable.${ext}"
+        },
+        "mac": {
+            "target": [
+                "dmg",
+                "zip"
+            ],
+            "icon": "src/renderer/assets/ic.png",
+            "hardenedRuntime": true,
+            "gatekeeperAssess": true,
+            "entitlements": "build/entitlements.mac.plist",
+            "entitlementsInherit": "build/entitlements.mac.plist",
+            "category": "public.app-category.utilities"
+        },
+        "linux": {
+            "target": [
+                "AppImage",
+                "deb"
+            ],
+            "icon": "src/renderer/assets/ic.png",
+            "category": "Utility"
+        },
+        "publish": {
+            "provider": "github",
+            "owner": "hafgit99",
+            "repo": "aegis"
+        }
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/hafgit99/aegis.git"
+    }
+}
