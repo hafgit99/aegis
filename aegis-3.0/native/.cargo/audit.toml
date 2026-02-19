@@ -1,0 +1,17 @@
+# Audit configuration for Aegis Vault Native
+# This file tells cargo-audit which advisories to ignore.
+
+[advisories]
+ignore = [
+    # RUSTSEC-2023-0071: RSA Marvin Attack
+    # Potential key recovery through timing sidechannels in RSA decryption.
+    # We only use RSA for key generation (4096-bit) and OpenSSH export, 
+    # not for decryption in the bridge process.
+    # Solution: No fixed upgrade is available for the 0.9.x series.
+    "RUSTSEC-2023-0071",
+
+    # RUSTSEC-2024-0436: paste crate is unmaintained
+    # Used by sub-dependencies of libp2p (netlink-packet-utils).
+    # This is a development/utility crate warning, not a direct security flaw in our app.
+    "RUSTSEC-2024-0436",
+]
