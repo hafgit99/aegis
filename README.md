@@ -7,7 +7,7 @@
 <p align="center">
   <img src="screenshot/aegis.png" alt="Aegis Vault Banner" width="600">
 </p>
-
+⚠️ **Superseded** — This is an archived earlier version. Active development continues at [Aegis Vault 7](https://github.com/hafgit99/aegis-vault-v7)
 ![Aegis Vault Banner](https://img.shields.io/badge/Security-AES--256--GCM-blue?style=for-the-badge&logo=shield)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-green?style=for-the-badge&logo=linux)
 ![License](https://img.shields.io/badge/License-Commercial-red?style=for-the-badge)
